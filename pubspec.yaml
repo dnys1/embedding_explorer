@@ -1,0 +1,30 @@
+name: embeddings_explorer
+description: A new Jaspr project
+version: 0.0.1
+
+environment:
+  sdk: ^3.10.0-0
+
+dependencies:
+  jaspr: ^0.21.0-dev.1
+  jaspr_router: ^0.7.1
+  csv: ^6.0.0
+  web: ^1.1.1
+  sqlite3: ^2.9.0
+  logging: ^1.3.0
+  meta: ^1.17.0
+  stream_transform: ^2.1.1
+  stack_trace: ^1.12.1
+
+dev_dependencies:
+  _embeddings_explorer_tool:
+    path: ./tool
+  build_runner: ^2.6.0
+  jaspr_web_compilers: ^4.2.3+1
+  jaspr_builder: ^0.21.0-dev.1
+  jaspr_lints: ^0.4.0
+  lints: ^5.0.0
+
+jaspr:
+  mode: client
+

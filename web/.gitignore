@@ -1,0 +1,3 @@
+# Generated artifacts (pnpm run build)
+js/
+node_modules/

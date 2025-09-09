@@ -1,0 +1,9 @@
+name: Monaco Editor Interop
+preamble: |
+  // GENERATED FILE: DO NOT EDIT
+input: '/Users/dillonnys/tsa/apps/embeddings_explorer/web/node_modules/monaco-editor/monaco.d.ts'
+output: '/Users/dillonnys/tsa/apps/embeddings_explorer/lib/interop/monaco.dart'
+ts_config_file: '/Users/dillonnys/tsa/apps/embeddings_explorer/web/tsconfig.json'
+generate_all: false
+functions:
+  varargs: 8
