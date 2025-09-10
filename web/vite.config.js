@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => ({
     sourcemap: true,
     rollupOptions: {
       input: {
-        monaco: './src/monaco-bundle.js',
-        libsql: './src/libsql-bundle.js',
+        monaco: './src/monaco.js',
+        libsql: './src/libsql.js',
         // Monaco Editor workers
         'editor.worker': 'monaco-editor/esm/vs/editor/editor.worker.js',
         'json.worker': 'monaco-editor/esm/vs/language/json/json.worker.js',

@@ -44,13 +44,13 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
   }
 
   Component _buildHeader() {
-    return div(classes: 'bg-white border-b border-gray-200 px-4 py-3', [
+    return div(classes: 'bg-white border-b border-neutral-200 px-4 py-3', [
       div(classes: 'flex items-center justify-between', [
         div([
-          h3(classes: 'text-lg font-medium text-gray-900', [
+          h3(classes: 'text-lg font-medium text-neutral-900', [
             text('Data Transformation Template'),
           ]),
-          p(classes: 'text-sm text-gray-500 mt-1', [
+          p(classes: 'text-sm text-neutral-500 mt-1', [
             text(
               'Define how to combine your data fields into text for embedding',
             ),
@@ -75,8 +75,8 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
       ]);
     }
 
-    return div(classes: 'bg-gray-50 border-b border-gray-200 px-4 py-3', [
-      h4(classes: 'text-sm font-medium text-gray-700 mb-2', [
+    return div(classes: 'bg-neutral-50 border-b border-neutral-200 px-4 py-3', [
+      h4(classes: 'text-sm font-medium text-neutral-700 mb-2', [
         text('Available Fields'),
       ]),
       div(classes: 'flex flex-wrap gap-2', [
@@ -89,13 +89,13 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
     return button(
       classes: [
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs',
-        'font-medium bg-blue-100 text-blue-800 hover:bg-blue-200',
+        'font-medium bg-primary-100 text-primary-800 hover:bg-primary-200',
         'cursor-pointer transition-colors duration-200',
       ].join(' '),
       events: {'click': (_) => model.insertField(field)},
       [
         text(field),
-        span(classes: 'ml-1 text-blue-600', [text('{{$field}}')]),
+        span(classes: 'ml-1 text-primary-600', [text('{{$field}}')]),
       ],
     );
   }
@@ -116,10 +116,10 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
   Component _buildResizeHandle() {
     return div(
       classes: [
-        'h-3 bg-gray-50 border-t border-gray-200 cursor-row-resize',
-        'hover:bg-gray-100 transition-colors duration-200',
+        'h-3 bg-neutral-50 border-t border-neutral-200 cursor-row-resize',
+        'hover:bg-neutral-100 transition-colors duration-200',
         'flex items-center justify-center group relative',
-        if (_isResizing) 'bg-blue-50 border-blue-200',
+        if (_isResizing) 'bg-primary-50 border-primary-200',
       ].join(' '),
       [
         // Resize indicator lines
@@ -130,8 +130,8 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
             if (_isResizing) 'opacity-100',
           ].join(' '),
           [
-            div(classes: 'w-6 h-px bg-gray-400 rounded-full', []),
-            div(classes: 'w-6 h-px bg-gray-400 rounded-full', []),
+            div(classes: 'w-6 h-px bg-neutral-400 rounded-full', []),
+            div(classes: 'w-6 h-px bg-neutral-400 rounded-full', []),
           ],
         ),
         // Tooltip on hover
@@ -139,7 +139,7 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
           div(
             classes: [
               'absolute -top-8 left-1/2 transform -translate-x-1/2',
-              'bg-gray-900 text-white text-xs px-2 py-1 rounded',
+              'bg-neutral-900 text-white text-xs px-2 py-1 rounded',
               'pointer-events-none',
             ].join(' '),
             [text('${_editorHeight}px')],
@@ -152,14 +152,15 @@ class _TransformationEditorViewState extends State<TransformationEditorView> {
     return ValueListenableBuilder(
       listenable: model.template,
       builder: (context, _) {
-        return div(classes: 'bg-gray-50 border-t border-gray-200 p-4', [
-          h4(classes: 'text-sm font-medium text-gray-700 mb-2', [
+        return div(classes: 'bg-neutral-50 border-t border-neutral-200 p-4', [
+          h4(classes: 'text-sm font-medium text-neutral-700 mb-2', [
             text('Template Preview'),
           ]),
           div(
-            classes: 'bg-white border border-gray-200 rounded-md p-3 text-sm',
+            classes:
+                'bg-white border border-neutral-200 rounded-md p-3 text-sm',
             [
-              pre(classes: 'whitespace-pre-wrap text-gray-800', [
+              pre(classes: 'whitespace-pre-wrap text-neutral-800', [
                 text(model.previewText),
               ]),
             ],

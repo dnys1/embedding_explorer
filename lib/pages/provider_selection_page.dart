@@ -17,102 +17,45 @@ class _ProviderSelectionPageState extends State<ProviderSelectionPage> {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: 'min-h-screen bg-gray-50 py-8', [
-      div(classes: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8', [
-        // Page header with breadcrumb
-        _buildHeader(),
-
-        // Error message if any
-        if (_errorMessage != null) _buildErrorMessage(),
-
-        // Success message if provider is selected
-        if (_selectedProvider != null) _buildSuccessMessage(),
-
-        // Provider selector component
-        ProviderSelector(
-          onProviderSelected: (provider, config) {
-            setState(() {
-              _selectedProvider = provider;
-              _providerConfig = config;
-              _errorMessage = null;
-            });
-          },
-          onError: (message) {
-            setState(() {
-              _errorMessage = message;
-            });
-          },
-        ),
-
-        // Next steps section (if provider is selected)
-        if (_selectedProvider != null) _buildNextSteps(),
+    return div(classes: 'h-full bg-neutral-50 flex flex-col', [
+      // Page header
+      div(classes: 'bg-white border-b border-neutral-200 px-6 py-4', [
+        h1(classes: 'text-2xl font-bold text-neutral-900', [
+          text('Model Providers'),
+        ]),
+        p(classes: 'mt-1 text-sm text-neutral-600', [
+          text('Configure embedding model providers for generating embeddings'),
+        ]),
       ]),
-    ]);
-  }
 
-  Component _buildHeader() {
-    return div(classes: 'mb-8', [
-      // Breadcrumb
-      nav(
-        classes: 'flex',
-        attributes: {'aria-label': 'Breadcrumb'},
-        [
-          ol(classes: 'flex items-center space-x-4', [
-            li([
-              a(
-                href: '/data-source',
-                classes: 'text-gray-400 hover:text-gray-500',
-                [text('Data Source')],
-              ),
-            ]),
-            li(classes: 'flex items-center', [
-              svg(
-                classes: 'flex-shrink-0 h-5 w-5 text-gray-300',
-                attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-                [
-                  path(
-                    attributes: {
-                      'd': 'M5.555 17.776l8-16 .894.448-8 16-.894-.448z',
-                    },
-                    [],
-                  ),
-                ],
-              ),
-              a(
-                href: '/transformation',
-                classes: 'ml-4 text-gray-400 hover:text-gray-500',
-                [text('Transformation')],
-              ),
-            ]),
-            li(classes: 'flex items-center', [
-              svg(
-                classes: 'flex-shrink-0 h-5 w-5 text-gray-300',
-                attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-                [
-                  path(
-                    attributes: {
-                      'd': 'M5.555 17.776l8-16 .894.448-8 16-.894-.448z',
-                    },
-                    [],
-                  ),
-                ],
-              ),
-              span(classes: 'ml-4 text-sm font-medium text-gray-500', [
-                text('Provider Selection'),
-              ]),
-            ]),
-          ]),
-        ],
-      ),
+      // Main content area
+      div(classes: 'flex-1 overflow-y-auto px-6 py-6', [
+        div(classes: 'max-w-5xl space-y-6', [
+          // Error message if any
+          if (_errorMessage != null) _buildErrorMessage(),
 
-      // Page title
-      h1(classes: 'text-3xl font-bold text-gray-900 mt-4', [
-        text('Embedding Provider Selection'),
-      ]),
-      p(classes: 'mt-2 text-gray-600', [
-        text(
-          'Choose and configure your embedding model provider to generate embeddings.',
-        ),
+          // Success message if provider is selected
+          if (_selectedProvider != null) _buildSuccessMessage(),
+
+          // Provider selector component
+          ProviderSelector(
+            onProviderSelected: (provider, config) {
+              setState(() {
+                _selectedProvider = provider;
+                _providerConfig = config;
+                _errorMessage = null;
+              });
+            },
+            onError: (message) {
+              setState(() {
+                _errorMessage = message;
+              });
+            },
+          ),
+
+          // Next steps section (if provider is selected)
+          if (_selectedProvider != null) _buildNextSteps(),
+        ]),
       ]),
     ]);
   }
@@ -194,127 +137,135 @@ class _ProviderSelectionPageState extends State<ProviderSelectionPage> {
   }
 
   Component _buildNextSteps() {
-    return div(classes: 'mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6', [
-      h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
-        text('Next Steps'),
-      ]),
-      div(classes: 'space-y-4', [
-        div(classes: 'flex items-start space-x-3', [
-          div(
-            classes:
-                'flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center',
-            [
-              span(classes: 'text-sm font-medium text-blue-600', [text('1')]),
-            ],
-          ),
-          div(classes: 'flex-1', [
-            h3(classes: 'text-sm font-medium text-gray-900', [
-              text('Generate Embeddings'),
+    return div(
+      classes:
+          'mt-8 bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
+      [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
+          text('Next Steps'),
+        ]),
+        div(classes: 'space-y-4', [
+          div(classes: 'flex items-start space-x-3', [
+            div(
+              classes:
+                  'flex-shrink-0 w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center',
+              [
+                span(classes: 'text-sm font-medium text-primary-600', [
+                  text('1'),
+                ]),
+              ],
+            ),
+            div(classes: 'flex-1', [
+              h3(classes: 'text-sm font-medium text-neutral-900', [
+                text('Generate Embeddings'),
+              ]),
+              p(classes: 'text-sm text-neutral-500 mt-1', [
+                text('Process your data through the selected embedding model.'),
+              ]),
             ]),
-            p(classes: 'text-sm text-gray-500 mt-1', [
-              text('Process your data through the selected embedding model.'),
+          ]),
+          div(classes: 'flex items-start space-x-3', [
+            div(
+              classes:
+                  'flex-shrink-0 w-6 h-6 bg-neutral-100 rounded-full flex items-center justify-center',
+              [
+                span(classes: 'text-sm font-medium text-neutral-400', [
+                  text('2'),
+                ]),
+              ],
+            ),
+            div(classes: 'flex-1', [
+              h3(classes: 'text-sm font-medium text-neutral-500', [
+                text('Similarity Search'),
+              ]),
+              p(classes: 'text-sm text-neutral-400 mt-1', [
+                text(
+                  'Query and compare embeddings with vector similarity search.',
+                ),
+              ]),
             ]),
           ]),
         ]),
-        div(classes: 'flex items-start space-x-3', [
-          div(
-            classes:
-                'flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center',
+        div(classes: 'mt-6 pt-4 border-t border-neutral-200 flex justify-between', [
+          // Back button
+          a(
+            href: '/transformation',
+            classes: [
+              'inline-flex items-center px-4 py-2 text-sm font-medium text-neutral-700',
+              'bg-white border border-neutral-300 rounded-md hover:bg-neutral-50',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            ].join(' '),
             [
-              span(classes: 'text-sm font-medium text-gray-400', [text('2')]),
-            ],
-          ),
-          div(classes: 'flex-1', [
-            h3(classes: 'text-sm font-medium text-gray-500', [
-              text('Similarity Search'),
-            ]),
-            p(classes: 'text-sm text-gray-400 mt-1', [
-              text(
-                'Query and compare embeddings with vector similarity search.',
+              svg(
+                classes: 'mr-2 h-4 w-4',
+                attributes: {
+                  'fill': 'none',
+                  'viewBox': '0 0 24 24',
+                  'stroke': 'currentColor',
+                },
+                [
+                  path(
+                    attributes: {
+                      'stroke-linecap': 'round',
+                      'stroke-linejoin': 'round',
+                      'stroke-width': '2',
+                      'd': 'M10 19l-7-7m0 0l7-7m-7 7h18',
+                    },
+                    [],
+                  ),
+                ],
               ),
+              text('Back to Transformation'),
+            ],
+          ),
+
+          // Continue button
+          button(
+            classes: [
+              'inline-flex items-center px-4 py-2 text-sm font-medium text-white',
+              'bg-primary-600 hover:bg-primary-700 rounded-md transition-colors duration-200',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            ].join(' '),
+            events: {'click': (_) => _startEmbeddingGeneration()},
+            [
+              text('Start Embedding Generation'),
+              svg(
+                classes: 'ml-2 h-4 w-4',
+                attributes: {
+                  'fill': 'none',
+                  'viewBox': '0 0 24 24',
+                  'stroke': 'currentColor',
+                },
+                [
+                  path(
+                    attributes: {
+                      'stroke-linecap': 'round',
+                      'stroke-linejoin': 'round',
+                      'stroke-width': '2',
+                      'd': 'M14 5l7 7m0 0l-7 7m7-7H3',
+                    },
+                    [],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ]),
+
+        // Progress indicator
+        div(classes: 'mt-6 pt-4 border-t border-neutral-200', [
+          div(classes: 'flex items-center justify-between text-sm', [
+            span(classes: 'text-neutral-500', [text('Step 3 of 4')]),
+            div(classes: 'flex space-x-2', [
+              div(classes: 'w-8 h-2 bg-primary-600 rounded-full', []),
+              div(classes: 'w-8 h-2 bg-primary-600 rounded-full', []),
+              div(classes: 'w-8 h-2 bg-primary-600 rounded-full', []),
+              div(classes: 'w-8 h-2 bg-neutral-200 rounded-full', []),
             ]),
           ]),
         ]),
-      ]),
-      div(classes: 'mt-6 pt-4 border-t border-gray-200 flex justify-between', [
-        // Back button
-        a(
-          href: '/transformation',
-          classes: [
-            'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700',
-            'bg-white border border-gray-300 rounded-md hover:bg-gray-50',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-          ].join(' '),
-          [
-            svg(
-              classes: 'mr-2 h-4 w-4',
-              attributes: {
-                'fill': 'none',
-                'viewBox': '0 0 24 24',
-                'stroke': 'currentColor',
-              },
-              [
-                path(
-                  attributes: {
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round',
-                    'stroke-width': '2',
-                    'd': 'M10 19l-7-7m0 0l7-7m-7 7h18',
-                  },
-                  [],
-                ),
-              ],
-            ),
-            text('Back to Transformation'),
-          ],
-        ),
-
-        // Continue button
-        button(
-          classes: [
-            'inline-flex items-center px-4 py-2 text-sm font-medium text-white',
-            'bg-blue-600 hover:bg-blue-700 rounded-md transition-colors duration-200',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
-          ].join(' '),
-          events: {'click': (_) => _startEmbeddingGeneration()},
-          [
-            text('Start Embedding Generation'),
-            svg(
-              classes: 'ml-2 h-4 w-4',
-              attributes: {
-                'fill': 'none',
-                'viewBox': '0 0 24 24',
-                'stroke': 'currentColor',
-              },
-              [
-                path(
-                  attributes: {
-                    'stroke-linecap': 'round',
-                    'stroke-linejoin': 'round',
-                    'stroke-width': '2',
-                    'd': 'M14 5l7 7m0 0l-7 7m7-7H3',
-                  },
-                  [],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ]),
-
-      // Progress indicator
-      div(classes: 'mt-6 pt-4 border-t border-gray-200', [
-        div(classes: 'flex items-center justify-between text-sm', [
-          span(classes: 'text-gray-500', [text('Step 3 of 4')]),
-          div(classes: 'flex space-x-2', [
-            div(classes: 'w-8 h-2 bg-blue-600 rounded-full', []),
-            div(classes: 'w-8 h-2 bg-blue-600 rounded-full', []),
-            div(classes: 'w-8 h-2 bg-blue-600 rounded-full', []),
-            div(classes: 'w-8 h-2 bg-gray-200 rounded-full', []),
-          ]),
-        ]),
-      ]),
-    ]);
+      ],
+    );
   }
 
   void _startEmbeddingGeneration() {

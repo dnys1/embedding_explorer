@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:build/build.dart';
 import 'package:build_modules/build_modules.dart';
 import 'package:glob/glob.dart';
-import 'package:path/path.dart' as p;
 
 Builder buildTailwind(BuilderOptions options) => TailwindBuilder(options);
 
@@ -19,10 +18,16 @@ class TailwindBuilder implements Builder {
     final nodeModules = await buildStep
         .findAssets(Glob('web/node_modules/**'))
         .toList();
+    final tailwindConfig = AssetId(
+      buildStep.inputId.package,
+      'web/tailwind.config.js',
+    );
+    await buildStep.canRead(tailwindConfig);
     await scratchSpace.ensureAssets({
       buildStep.inputId,
       ...nodeModules,
       AssetId(buildStep.inputId.package, 'web/package.json'),
+      tailwindConfig,
     }, buildStep);
 
     final outputId = buildStep.inputId
@@ -34,27 +39,15 @@ class TailwindBuilder implements Builder {
         .findAssets(Glob('{lib,web}/**.dart'))
         .toList();
     await Future.wait(assets.map((a) => buildStep.canRead(a)));
+    await scratchSpace.ensureAssets(assets.toSet(), buildStep);
 
-    final configFile = File('tailwind.config.js');
-    final hasCustomConfig = await configFile.exists();
-
-    final result = await Process.run('tailwindcss', [
+    final args = <String>[
       '--input',
       scratchSpace.fileFor(buildStep.inputId).path,
       '--output',
-      scratchSpace.fileFor(outputId).path.toPosix(),
-      if (options.config.containsKey('tailwindcss'))
-        options.config['tailwindcss'],
-      if (hasCustomConfig) ...[
-        '--config',
-        p.join(Directory.current.path, 'tailwind.config.js').toPosix(),
-      ] else ...[
-        '--content',
-        p
-            .join(Directory.current.path, '{lib,web}', '**', '*.dart')
-            .toPosix(true),
-      ],
-    ]);
+      scratchSpace.fileFor(outputId).path,
+    ];
+    final result = await Process.run('tailwindcss', args);
 
     if (result.exitCode != 0) {
       final errorOutput = StringBuffer();
@@ -77,14 +70,4 @@ class TailwindBuilder implements Builder {
   Map<String, List<String>> get buildExtensions => {
     'web/{{file}}.tw.css': ['web/{{file}}.css'],
   };
-}
-
-extension POSIXPath on String {
-  String toPosix([bool quoted = false]) {
-    if (Platform.isWindows) {
-      final result = replaceAll('\\', '/');
-      return quoted ? "'$result'" : result;
-    }
-    return this;
-  }
 }

@@ -89,8 +89,8 @@ class GeminiProvider implements EmbeddingProvider {
         texts: ['test connection'],
       );
 
-      return response['embeddings'] != null &&
-          response['embeddings'].isNotEmpty;
+      final embeddings = response['embeddings'] as List?;
+      return embeddings != null && embeddings.isNotEmpty;
     } catch (e) {
       return false;
     }

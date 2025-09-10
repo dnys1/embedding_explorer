@@ -2,20 +2,21 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
+import 'package:embeddings_explorer/models/data_sources/data_source_config.dart';
 import 'package:logging/logging.dart';
 
 import '../../interop/libsql.dart' as libsql show loadModule;
 import '../../interop/libsql.dart';
-import '../../models/data_source.dart';
+import 'data_source.dart';
 
 /// SQLite data source implementation using LibSQL WASM
 ///
 /// This class provides access to SQLite databases using LibSQL WASM,
 /// supporting both in-memory databases and file-based databases.
 class SqliteDataSource extends DataSource {
-  late final String _id;
-  late final String _name;
-  late final Map<String, dynamic> _config;
+  final String _id;
+  final String _name;
+  final Map<String, dynamic> _settings;
 
   Database? _database;
   final Map<String, DataSourceFieldType> _fieldTypes = {};
@@ -29,17 +30,23 @@ class SqliteDataSource extends DataSource {
   SqliteDataSource({
     required String id,
     required String name,
-    required Map<String, dynamic> config,
-  }) {
-    _id = id;
-    _name = name;
-    _config = Map.from(config);
+    required Map<String, dynamic> settings,
+  }) : _id = id,
+       _name = name,
+       _settings = Map.of(settings);
+
+  factory SqliteDataSource.fromConfig(DataSourceConfig config) {
+    return SqliteDataSource(
+      id: config.id,
+      name: config.name,
+      settings: config.settings,
+    );
   }
 
   /// Create an in-memory SQLite database with sample data for testing
   factory SqliteDataSource.withSampleData({required String name}) {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    return SqliteDataSource(id: id, name: name, config: {'type': 'sample'});
+    return SqliteDataSource(id: id, name: name, settings: {'type': 'sample'});
   }
 
   /// Create a SQLite data source from uploaded database file
@@ -53,7 +60,7 @@ class SqliteDataSource extends DataSource {
     return SqliteDataSource(
       id: id,
       name: name,
-      config: {
+      settings: {
         'type': 'upload',
         'data': databaseData,
         'persistent': persistent,
@@ -72,7 +79,7 @@ class SqliteDataSource extends DataSource {
     return SqliteDataSource(
       id: id,
       name: name,
-      config: {'type': 'persistent', 'filename': filename},
+      settings: {'type': 'persistent', 'filename': filename},
     );
   }
 
@@ -89,13 +96,13 @@ class SqliteDataSource extends DataSource {
   bool get isConnected => _isConnected;
 
   @override
-  Map<String, dynamic> get config => Map.from(_config);
+  Map<String, dynamic> get settings => Map.of(_settings);
 
   /// Get the selected table name
   String? get selectedTable => _selectedTable;
 
   /// Get list of available tables in the database
-  List<String> get tables => List.from(_tableNames);
+  List<String> get tables => List.of(_tableNames);
 
   /// Set the table to use for data operations
   void selectTable(String tableName) {
@@ -109,7 +116,7 @@ class SqliteDataSource extends DataSource {
 
     _logger.info('Selecting table: $tableName for data source: $_name');
     _selectedTable = tableName;
-    _config['tableName'] = tableName;
+    _settings['tableName'] = tableName;
 
     // Re-infer field types for the new table
     if (_isConnected) {
@@ -135,7 +142,7 @@ class SqliteDataSource extends DataSource {
       }
 
       // Create database based on configuration type
-      final dbType = _config['type'] as String? ?? 'sample';
+      final dbType = _settings['type'] as String? ?? 'sample';
       _logger.finest('Creating SQLite database with type: $dbType');
 
       switch (dbType) {
@@ -146,7 +153,7 @@ class SqliteDataSource extends DataSource {
           break;
 
         case 'upload':
-          final data = _config['data'] as Uint8List?;
+          final data = _settings['data'] as Uint8List?;
           if (data == null) {
             _logger.warning('Database data is required for upload type');
             throw DataSourceException(
@@ -155,10 +162,10 @@ class SqliteDataSource extends DataSource {
             );
           }
 
-          final persistent = _config['persistent'] as bool? ?? false;
+          final persistent = _settings['persistent'] as bool? ?? false;
           if (persistent) {
             final persistentName =
-                _config['persistentName'] as String? ??
+                _settings['persistentName'] as String? ??
                 'uploaded_db_${DateTime.now().millisecondsSinceEpoch}';
             _logger.finest('Importing database to OPFS: $persistentName');
 
@@ -176,7 +183,7 @@ class SqliteDataSource extends DataSource {
           break;
 
         case 'persistent':
-          final filename = _config['filename'] as String?;
+          final filename = _settings['filename'] as String?;
           if (filename == null) {
             _logger.warning('Filename is required for persistent type');
             throw DataSourceException(
@@ -214,7 +221,7 @@ class SqliteDataSource extends DataSource {
       await _discoverTables();
 
       // Select table if specified in config
-      final configTable = _config['tableName'] as String?;
+      final configTable = _settings['tableName'] as String?;
       if (configTable != null && _tableNames.contains(configTable)) {
         _selectedTable = configTable;
         _logger.finest('Selected configured table: $configTable');
@@ -370,27 +377,27 @@ class SqliteDataSource extends DataSource {
   List<String> validate() {
     final errors = <String>[];
 
-    final dbType = _config['type'] as String?;
+    final dbType = _settings['type'] as String?;
     if (dbType == null) {
       errors.add('Database type is required');
     } else {
       switch (dbType) {
         case 'upload':
-          if (_config['data'] == null) {
+          if (_settings['data'] == null) {
             errors.add('Database data is required for upload type');
           }
-          final persistent = _config['persistent'] as bool? ?? false;
+          final persistent = _settings['persistent'] as bool? ?? false;
           if (persistent &&
-              (_config['persistentName'] == null ||
-                  (_config['persistentName'] as String).isEmpty)) {
+              (_settings['persistentName'] == null ||
+                  (_settings['persistentName'] as String).isEmpty)) {
             errors.add(
               'Persistent name is required when persistence is enabled',
             );
           }
           break;
         case 'persistent':
-          if (_config['filename'] == null ||
-              (_config['filename'] as String).isEmpty) {
+          if (_settings['filename'] == null ||
+              (_settings['filename'] as String).isEmpty) {
             errors.add('Filename is required for persistent type');
           }
           break;
@@ -407,10 +414,10 @@ class SqliteDataSource extends DataSource {
 
   @override
   DataSource copyWith(Map<String, dynamic> newConfig) {
-    final updatedConfig = Map<String, dynamic>.from(_config);
+    final updatedConfig = Map<String, dynamic>.from(_settings);
     updatedConfig.addAll(newConfig);
 
-    return SqliteDataSource(id: _id, name: _name, config: updatedConfig);
+    return SqliteDataSource(id: _id, name: _name, settings: updatedConfig);
   }
 
   @override
@@ -419,7 +426,7 @@ class SqliteDataSource extends DataSource {
       'id': _id,
       'name': _name,
       'type': type,
-      'config': _config,
+      'config': _settings,
       'isConnected': _isConnected,
       'tables': _tableNames,
       'selectedTable': _selectedTable,

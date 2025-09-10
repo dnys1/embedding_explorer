@@ -5,9 +5,9 @@ import 'package:embeddings_explorer/interop/monaco.dart'
     as monaco
     show loadModule, editor, languages;
 import 'package:embeddings_explorer/interop/monaco.dart' hide Uri, RegExp;
-import 'package:embeddings_explorer/models/data_source.dart';
+import 'package:embeddings_explorer/models/data_sources/data_source.dart';
+import 'package:embeddings_explorer/models/data_sources/sqlite_data_source.dart';
 import 'package:embeddings_explorer/models/transformation_template.dart';
-import 'package:embeddings_explorer/services/data_sources/sqlite_service.dart';
 import 'package:embeddings_explorer/util/change_notifier.dart';
 import 'package:jaspr/browser.dart' show ValueListenable, ValueNotifier;
 import 'package:logging/logging.dart';

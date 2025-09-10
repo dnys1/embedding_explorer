@@ -35,3 +35,8 @@ migrate_working_dir/
 
 *.md
 !README.md
+.vscode/
+
+# Web
+web/js/
+node_modules/

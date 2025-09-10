@@ -51,10 +51,10 @@ class _ProviderSelectorState extends State<ProviderSelector> {
 
   Component _buildHeader() {
     return div(classes: 'text-center', [
-      h1(classes: 'text-3xl font-bold text-gray-900 mb-2', [
+      h1(classes: 'text-3xl font-bold text-neutral-900 mb-2', [
         text('Embedding Provider Configuration'),
       ]),
-      p(classes: 'text-lg text-gray-600', [
+      p(classes: 'text-lg text-neutral-600', [
         text('Select and configure your embedding model provider'),
       ]),
     ]);
@@ -62,9 +62,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
 
   Component _buildProviderSelection() {
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Choose Provider'),
         ]),
         div(classes: 'grid grid-cols-1 md:grid-cols-3 gap-4', [
@@ -82,9 +82,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
       classes: [
         'relative rounded-lg border-2 p-4 cursor-pointer transition-all duration-200',
         if (isSelected)
-          'border-blue-500 bg-blue-50'
+          'border-primary-500 bg-primary-50'
         else
-          'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+          'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
       ].join(' '),
       events: {'click': (_) => _selectProvider(provider)},
       [
@@ -92,14 +92,14 @@ class _ProviderSelectorState extends State<ProviderSelector> {
           h3(
             classes: [
               'text-lg font-medium mb-2',
-              if (isSelected) 'text-blue-900' else 'text-gray-900',
+              if (isSelected) 'text-primary-900' else 'text-neutral-900',
             ].join(' '),
             [text(provider.displayName)],
           ),
           p(
             classes: [
               'text-sm mb-3',
-              if (isSelected) 'text-blue-700' else 'text-gray-500',
+              if (isSelected) 'text-primary-700' else 'text-neutral-500',
             ].join(' '),
             [text(provider.description)],
           ),
@@ -122,7 +122,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
           div(classes: 'absolute top-2 right-2', [
             div(
               classes:
-                  'w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center',
+                  'w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center',
               [
                 svg(
                   classes: 'w-2 h-2 text-white',
@@ -148,9 +148,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
     if (_selectedProvider == null) return fragment([]);
 
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Select Model'),
         ]),
         div(classes: 'space-y-3', [
@@ -168,9 +168,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
       classes: [
         'border rounded-lg p-4 cursor-pointer transition-all duration-200',
         if (isSelected)
-          'border-blue-500 bg-blue-50'
+          'border-primary-500 bg-primary-50'
         else
-          'border-gray-200 hover:border-gray-300',
+          'border-neutral-200 hover:border-neutral-300',
       ].join(' '),
       events: {'click': (_) => _selectModel(model)},
       [
@@ -179,18 +179,18 @@ class _ProviderSelectorState extends State<ProviderSelector> {
             h3(
               classes: [
                 'font-medium',
-                if (isSelected) 'text-blue-900' else 'text-gray-900',
+                if (isSelected) 'text-primary-900' else 'text-neutral-900',
               ].join(' '),
               [text(model.name)],
             ),
             p(
               classes: [
                 'text-sm mt-1',
-                if (isSelected) 'text-blue-700' else 'text-gray-500',
+                if (isSelected) 'text-primary-700' else 'text-neutral-500',
               ].join(' '),
               [text(model.description)],
             ),
-            div(classes: 'flex gap-4 mt-2 text-xs text-gray-500', [
+            div(classes: 'flex gap-4 mt-2 text-xs text-neutral-500', [
               span([text('Dimensions: ${model.dimensions}')]),
               span([text('Max tokens: ${model.maxInputTokens}')]),
               if (model.costPer1kTokens > 0)
@@ -205,7 +205,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
             div(classes: 'ml-4', [
               div(
                 classes:
-                    'w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center',
+                    'w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center',
                 [
                   svg(
                     classes: 'w-2 h-2 text-white',
@@ -232,9 +232,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
     if (_selectedProvider == null) return fragment([]);
 
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Configuration'),
         ]),
         div(classes: 'space-y-4', [
@@ -248,7 +248,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
   Component _buildApiKeyInput() {
     return div(classes: 'space-y-2', [
       label(
-        classes: 'block text-sm font-medium text-gray-700',
+        classes: 'block text-sm font-medium text-neutral-700',
         attributes: {'for': 'api-key'},
         [text('API Key')],
       ),
@@ -256,7 +256,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
         id: 'api-key',
         type: InputType.password,
         classes:
-            'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+            'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
         attributes: {
           'placeholder': 'Enter your ${_selectedProvider!.displayName} API key',
           'value': _config['apiKey'] as String? ?? '',
@@ -268,7 +268,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
           },
         },
       ),
-      p(classes: 'text-xs text-gray-500', [
+      p(classes: 'text-xs text-neutral-500', [
         text('Your API key is stored locally and never sent to our servers.'),
       ]),
     ]);
@@ -281,7 +281,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
       // Endpoint URL
       div(classes: 'space-y-2', [
         label(
-          classes: 'block text-sm font-medium text-gray-700',
+          classes: 'block text-sm font-medium text-neutral-700',
           attributes: {'for': 'endpoint'},
           [text('Endpoint URL')],
         ),
@@ -289,7 +289,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
           id: 'endpoint',
           type: InputType.url,
           classes:
-              'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+              'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
           attributes: {
             'placeholder': 'https://api.example.com/embeddings',
             'value': _config['endpoint'] as String? ?? '',
@@ -305,12 +305,12 @@ class _ProviderSelectorState extends State<ProviderSelector> {
 
       // HTTP Method
       div(classes: 'space-y-2', [
-        label(classes: 'block text-sm font-medium text-gray-700', [
+        label(classes: 'block text-sm font-medium text-neutral-700', [
           text('HTTP Method'),
         ]),
         select(
           classes:
-              'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+              'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
           events: {
             'change': (event) {
               final target = event.target as web.HTMLElement;
@@ -340,10 +340,10 @@ class _ProviderSelectorState extends State<ProviderSelector> {
 
       // Request Template
       div(classes: 'space-y-2', [
-        label(classes: 'block text-sm font-medium text-gray-700', [
+        label(classes: 'block text-sm font-medium text-neutral-700', [
           text('Request Template'),
         ]),
-        p(classes: 'text-xs text-gray-500 mb-2', [
+        p(classes: 'text-xs text-neutral-500 mb-2', [
           text(
             'Use {{input}} as a placeholder for the text to embed. JSON format expected.',
           ),
@@ -351,7 +351,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
         // TODO: Replace with Monaco Editor when available
         textarea(
           classes:
-              'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+              'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
           attributes: {
             'rows': '8',
             'placeholder': _getDefaultRequestTemplate(),
@@ -377,7 +377,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
       // Response Path
       div(classes: 'space-y-2', [
         label(
-          classes: 'block text-sm font-medium text-gray-700',
+          classes: 'block text-sm font-medium text-neutral-700',
           attributes: {'for': 'response-path'},
           [text('Response Path')],
         ),
@@ -385,7 +385,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
           id: 'response-path',
           type: InputType.text,
           classes:
-              'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+              'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
           attributes: {
             'placeholder': 'data.embedding (JSONPath to the embedding array)',
             'value': _config['responsePath'] as String? ?? 'data.embedding',
@@ -400,7 +400,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
             },
           },
         ),
-        p(classes: 'text-xs text-gray-500', [
+        p(classes: 'text-xs text-neutral-500', [
           text('JSONPath to extract the embedding vector from the response.'),
         ]),
       ]),
@@ -410,74 +410,77 @@ class _ProviderSelectorState extends State<ProviderSelector> {
   Component _buildValidationResults() {
     final result = _validationResult!;
 
-    return div(classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6', [
-      h3(classes: 'text-lg font-semibold text-gray-900 mb-3', [
-        text('Configuration Validation'),
-      ]),
-      if (result.isValid)
-        div(classes: 'flex items-center space-x-2 text-green-600', [
-          svg(
-            classes: 'w-5 h-5',
-            attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-            [
-              path(
-                attributes: {
-                  'fill-rule': 'evenodd',
-                  'd':
-                      'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z',
-                  'clip-rule': 'evenodd',
-                },
-                [],
-              ),
-            ],
-          ),
-          span(classes: 'font-medium', [text('Configuration is valid')]),
-        ])
-      else
-        div(classes: 'space-y-2', [
-          for (final error in result.errors)
-            div(classes: 'flex items-start space-x-2 text-red-600', [
-              svg(
-                classes: 'w-5 h-5 mt-0.5 flex-shrink-0',
-                attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-                [
-                  path(
-                    attributes: {
-                      'fill-rule': 'evenodd',
-                      'd':
-                          'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z',
-                      'clip-rule': 'evenodd',
-                    },
-                    [],
-                  ),
-                ],
-              ),
-              span([text(error)]),
-            ]),
+    return div(
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
+      [
+        h3(classes: 'text-lg font-semibold text-neutral-900 mb-3', [
+          text('Configuration Validation'),
         ]),
-      if (result.warnings.isNotEmpty)
-        div(classes: 'mt-3 space-y-2', [
-          for (final warning in result.warnings)
-            div(classes: 'flex items-start space-x-2 text-yellow-600', [
-              svg(
-                classes: 'w-5 h-5 mt-0.5 flex-shrink-0',
-                attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-                [
-                  path(
-                    attributes: {
-                      'fill-rule': 'evenodd',
-                      'd':
-                          'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z',
-                      'clip-rule': 'evenodd',
-                    },
-                    [],
-                  ),
-                ],
-              ),
-              span([text(warning)]),
-            ]),
-        ]),
-    ]);
+        if (result.isValid)
+          div(classes: 'flex items-center space-x-2 text-green-600', [
+            svg(
+              classes: 'w-5 h-5',
+              attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
+              [
+                path(
+                  attributes: {
+                    'fill-rule': 'evenodd',
+                    'd':
+                        'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z',
+                    'clip-rule': 'evenodd',
+                  },
+                  [],
+                ),
+              ],
+            ),
+            span(classes: 'font-medium', [text('Configuration is valid')]),
+          ])
+        else
+          div(classes: 'space-y-2', [
+            for (final error in result.errors)
+              div(classes: 'flex items-start space-x-2 text-red-600', [
+                svg(
+                  classes: 'w-5 h-5 mt-0.5 flex-shrink-0',
+                  attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
+                  [
+                    path(
+                      attributes: {
+                        'fill-rule': 'evenodd',
+                        'd':
+                            'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z',
+                        'clip-rule': 'evenodd',
+                      },
+                      [],
+                    ),
+                  ],
+                ),
+                span([text(error)]),
+              ]),
+          ]),
+        if (result.warnings.isNotEmpty)
+          div(classes: 'mt-3 space-y-2', [
+            for (final warning in result.warnings)
+              div(classes: 'flex items-start space-x-2 text-yellow-600', [
+                svg(
+                  classes: 'w-5 h-5 mt-0.5 flex-shrink-0',
+                  attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
+                  [
+                    path(
+                      attributes: {
+                        'fill-rule': 'evenodd',
+                        'd':
+                            'M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z',
+                        'clip-rule': 'evenodd',
+                      },
+                      [],
+                    ),
+                  ],
+                ),
+                span([text(warning)]),
+              ]),
+          ]),
+      ],
+    );
   }
 
   Component _buildActionButtons() {
@@ -486,7 +489,7 @@ class _ProviderSelectorState extends State<ProviderSelector> {
     return div(classes: 'flex justify-between', [
       button(
         classes:
-            'px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
+            'px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500',
         events: {'click': (_) => _validateConfiguration()},
         [
           if (_isValidating)
@@ -527,9 +530,9 @@ class _ProviderSelectorState extends State<ProviderSelector> {
         classes: [
           'px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2',
           if (canProceed)
-            'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+            'text-white bg-primary-600 hover:bg-primary-700 focus:ring-primary-500'
           else
-            'text-gray-400 bg-gray-200 cursor-not-allowed',
+            'text-neutral-400 bg-neutral-200 cursor-not-allowed',
         ].join(' '),
         attributes: canProceed ? {} : {'disabled': 'true'},
         events: canProceed ? {'click': (_) => _proceedWithProvider()} : {},

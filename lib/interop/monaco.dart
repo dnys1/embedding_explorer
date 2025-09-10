@@ -28,6 +28,7 @@ Future<void> loadModule() async {
   }
   final monacoUri = core.Uri.base.resolve('./js/monaco.js').toString();
   await importModule(monacoUri.toJS).toDart;
+  assert(globalContext['monaco'].isDefinedAndNotNull);
 }
 
 /// Monaco Editor main API
@@ -7223,8 +7224,8 @@ extension type IColor._(JSObject _) implements JSObject {
   /// The green component in the range [0-1].
   external double get green;
 
-  /// The blue component in the range [0-1].
-  external double get blue;
+  /// The primary component in the range [0-1].
+  external double get primary;
 
   /// The alpha component in the range [0-1].
   external double get alpha;

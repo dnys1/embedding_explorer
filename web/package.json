@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "monaco-editor": "0.52.2",
-    "@libsql/libsql-wasm-experimental": "^0.0.3"
+    "@libsql/libsql-wasm-experimental": "^0.0.3",
+    "monaco-editor": "0.52.2"
   },
   "devDependencies": {
-    "vite": "^5.4.8",
-    "tailwindcss": "^4.1.13"
+    "tailwindcss": "^4.1.13",
+    "vite": "^5.4.8"
   }
 }

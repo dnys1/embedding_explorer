@@ -1,7 +1,7 @@
 import 'package:embeddings_explorer/components/transformation/transformation_model.dart';
 import 'package:jaspr/jaspr.dart';
 
-import '../../models/data_source.dart';
+import '../../models/data_sources/data_source.dart';
 import 'transformation_editor.dart';
 
 class TransformationPage extends StatefulComponent {
@@ -33,99 +33,61 @@ class _TransformationPageState extends State<TransformationPage> {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: 'min-h-screen bg-gray-50 py-8', [
-      div(classes: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8', [
-        // Page header with breadcrumb
-        _buildHeader(),
+    return div(classes: 'h-full bg-neutral-50 flex flex-col', [
+      // Page header
+      div(classes: 'bg-white border-b border-neutral-200 px-6 py-4', [
+        h1(classes: 'text-2xl font-bold text-neutral-900', [
+          text('Embedding Templates'),
+        ]),
+        p(classes: 'mt-1 text-sm text-neutral-600', [
+          text('Create templates to transform your data for embedding models'),
+        ]),
+      ]),
 
+      // Main content area
+      div(classes: 'flex-1 overflow-hidden', [
         // Main content
         _buildTransformationContent(),
       ]),
     ]);
   }
 
-  Component _buildHeader() {
-    return div(classes: 'mb-8', [
-      // Breadcrumb
-      nav(
-        classes: 'flex',
-        attributes: {'aria-label': 'Breadcrumb'},
-        [
-          ol(classes: 'flex items-center space-x-4', [
-            li([
-              a(
-                href: '/data-source',
-                classes: 'text-gray-400 hover:text-gray-500',
-                [text('Data Source')],
-              ),
-            ]),
-            li(classes: 'flex items-center', [
-              svg(
-                classes: 'flex-shrink-0 h-5 w-5 text-gray-300',
-                attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
-                [
-                  path(
-                    attributes: {
-                      'd': 'M5.555 17.776l8-16 .894.448-8 16-.894-.448z',
-                    },
-                    [],
-                  ),
-                ],
-              ),
-              span(classes: 'ml-4 text-sm font-medium text-gray-500', [
-                text('Data Transformation'),
-              ]),
-            ]),
-          ]),
-        ],
-      ),
-
-      // Page title
-      h1(classes: 'text-3xl font-bold text-gray-900 mt-4', [
-        text('Data Transformation'),
-      ]),
-      p(classes: 'mt-2 text-gray-600', [
-        text(
-          'Configure how your data will be transformed and prepared for embedding generation.',
-        ),
-      ]),
-    ]);
-  }
-
   Component _buildTransformationContent() {
-    return div(classes: 'space-y-6', [
-      // Data source info card
-      _buildDataSourceInfo(),
+    return div(classes: 'h-full overflow-y-auto px-6 py-6', [
+      div(classes: 'max-w-6xl space-y-6', [
+        // Data source info card
+        _buildDataSourceInfo(),
 
-      // Error message if any
-      ListenableBuilder(
-        listenable: model,
-        builder: (_) {
-          if (model.error case final error?) {
-            return _buildErrorMessage(error);
-          }
-          return div([]);
-        },
-      ),
+        // Error message if any
+        ListenableBuilder(
+          listenable: model,
+          builder: (_) {
+            if (model.error case final error?) {
+              return _buildErrorMessage(error);
+            }
+            return div([]);
+          },
+        ),
 
-      // Transformation editor
-      _buildTransformationEditor(),
+        // Transformation editor
+        _buildTransformationEditor(),
 
-      // Action buttons
-      _buildActionButtons(),
+        // Action buttons
+        _buildActionButtons(),
+      ]),
     ]);
   }
 
   Component _buildDataSourceInfo() {
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
         div(classes: 'flex items-center justify-between', [
           div([
-            h2(classes: 'text-lg font-semibold text-gray-900', [
+            h2(classes: 'text-lg font-semibold text-neutral-900', [
               text('Connected Data Source'),
             ]),
-            p(classes: 'text-sm text-gray-500 mt-1', [
+            p(classes: 'text-sm text-neutral-500 mt-1', [
               text(
                 '${model.dataSource.name} (${model.dataSource.type.toUpperCase()})',
               ),
@@ -183,35 +145,38 @@ class _TransformationPageState extends State<TransformationPage> {
   }
 
   Component _buildTransformationEditor() {
-    return div(classes: 'bg-white rounded-lg shadow-sm border border-gray-200', [
-      div(classes: 'px-6 py-4 border-b border-gray-200', [
-        h2(classes: 'text-lg font-semibold text-gray-900', [
-          text('Transformation Configuration'),
+    return div(
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200',
+      [
+        div(classes: 'px-6 py-4 border-b border-neutral-200', [
+          h2(classes: 'text-lg font-semibold text-neutral-900', [
+            text('Transformation Configuration'),
+          ]),
+          p(classes: 'text-sm text-neutral-500 mt-1', [
+            text(
+              'Define how your data should be transformed before embedding generation.',
+            ),
+          ]),
         ]),
-        p(classes: 'text-sm text-gray-500 mt-1', [
-          text(
-            'Define how your data should be transformed before embedding generation.',
-          ),
-        ]),
-      ]),
-      div(classes: 'p-6', [TransformationEditor(model: model)]),
-    ]);
+        div(classes: 'p-6', [TransformationEditor(model: model)]),
+      ],
+    );
   }
 
   Component _buildActionButtons() {
     return ValueListenableBuilder(
       listenable: model.template,
       builder: (context, template) {
-        final hasValidTemplate = template?.validate() ?? false;
-        return div(classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6', [
+        final hasValidTemplate = template.validate();
+        return div(classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6', [
           div(classes: 'flex items-center justify-between', [
             // Back button
             a(
               href: '/data-source',
               classes: [
-                'inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700',
-                'bg-white border border-gray-300 rounded-md hover:bg-gray-50',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'inline-flex items-center px-4 py-2 text-sm font-medium text-neutral-700',
+                'bg-white border border-neutral-300 rounded-md hover:bg-neutral-50',
+                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
               ].join(' '),
               [
                 svg(
@@ -242,11 +207,11 @@ class _TransformationPageState extends State<TransformationPage> {
               href: hasValidTemplate ? '/provider-selection' : '',
               classes: [
                 'inline-flex items-center px-4 py-2 text-sm font-medium rounded-md',
-                'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
                 if (hasValidTemplate)
-                  'text-white bg-blue-600 hover:bg-blue-700'
+                  'text-white bg-primary-600 hover:bg-primary-700'
                 else
-                  'text-gray-400 bg-gray-200 cursor-not-allowed pointer-events-none',
+                  'text-neutral-400 bg-neutral-200 cursor-not-allowed pointer-events-none',
               ].join(' '),
               [
                 text('Continue to Provider Selection'),
@@ -274,14 +239,14 @@ class _TransformationPageState extends State<TransformationPage> {
           ]),
 
           // Progress indicator
-          div(classes: 'mt-6 pt-4 border-t border-gray-200', [
+          div(classes: 'mt-6 pt-4 border-t border-neutral-200', [
             div(classes: 'flex items-center justify-between text-sm', [
-              span(classes: 'text-gray-500', [text('Step 2 of 4')]),
+              span(classes: 'text-neutral-500', [text('Step 2 of 4')]),
               div(classes: 'flex space-x-2', [
-                div(classes: 'w-8 h-2 bg-blue-600 rounded-full', []),
-                div(classes: 'w-8 h-2 bg-blue-600 rounded-full', []),
-                div(classes: 'w-8 h-2 bg-gray-200 rounded-full', []),
-                div(classes: 'w-8 h-2 bg-gray-200 rounded-full', []),
+                div(classes: 'w-8 h-2 bg-primary-600 rounded-full', []),
+                div(classes: 'w-8 h-2 bg-primary-600 rounded-full', []),
+                div(classes: 'w-8 h-2 bg-neutral-200 rounded-full', []),
+                div(classes: 'w-8 h-2 bg-neutral-200 rounded-full', []),
               ]),
             ]),
           ]),

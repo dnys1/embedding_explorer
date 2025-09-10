@@ -3,9 +3,9 @@ import 'dart:js_interop';
 import 'package:jaspr/jaspr.dart';
 import 'package:web/web.dart' as web;
 
-import '../models/data_source.dart';
-import '../services/data_sources/csv_service.dart';
-import '../services/data_sources/sqlite_service.dart';
+import '../models/data_sources/csv_data_source.dart';
+import '../models/data_sources/data_source.dart';
+import '../models/data_sources/sqlite_data_source.dart';
 import 'data_preview.dart';
 
 /// Data source type enumeration for the UI
@@ -44,6 +44,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   DataSource? _currentDataSource;
   bool _isLoading = false;
   String? _error;
+  String? _dataSourceName;
 
   // CSV configuration
   String _csvDelimiter = ',';
@@ -60,40 +61,41 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   @override
   void initState() {
     super.initState();
-    if (component.initialDataSource != null) {
-      _currentDataSource = component.initialDataSource;
-      _selectedType = component.initialDataSource!.type == 'csv'
-          ? DataSourceType.csv
-          : DataSourceType.sqlite;
+    _loadInitialDataSource();
+  }
+
+  Future<void> _loadInitialDataSource() async {
+    final initialDataSource = component.initialDataSource;
+    if (initialDataSource == null) {
+      return;
+    }
+    _isLoading = true;
+    try {
+      _currentDataSource = initialDataSource;
+      _selectedType = DataSourceType.values.byName(initialDataSource.type);
+      _dataSourceName = initialDataSource.name;
+      await initialDataSource.connect();
+    } catch (e) {
+      component.onError?.call('Failed to load initial data source: $e');
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Component build(BuildContext context) {
     return div(classes: 'max-w-4xl mx-auto p-6 space-y-6', [
-      _buildHeader(),
       _buildTypeSelector(),
       _buildConfigurationPanel(),
-      if (_currentDataSource != null) _buildPreviewSection(),
-    ]);
-  }
-
-  Component _buildHeader() {
-    return div(classes: 'text-center', [
-      h1(classes: 'text-3xl font-bold text-gray-900 mb-2', [
-        text('Data Source Configuration'),
-      ]),
-      p(classes: 'text-lg text-gray-600', [
-        text('Select and configure your data source to get started'),
-      ]),
+      if (!_isLoading && _currentDataSource != null) _buildPreviewSection(),
     ]);
   }
 
   Component _buildTypeSelector() {
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Choose Data Source Type'),
         ]),
         div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-4', [
@@ -110,9 +112,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       classes: [
         'relative rounded-lg border-2 p-4 cursor-pointer transition-all duration-200',
         if (isSelected)
-          'border-blue-500 bg-blue-50'
+          'border-primary-500 bg-primary-50'
         else
-          'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+          'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
       ].join(' '),
       events: {'click': (_) => _selectType(type)},
       [
@@ -122,9 +124,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               classes: [
                 'w-4 h-4 rounded-full border-2 transition-all duration-200',
                 if (isSelected)
-                  'border-blue-500 bg-blue-500'
+                  'border-primary-500 bg-primary-500'
                 else
-                  'border-gray-300',
+                  'border-neutral-300',
               ].join(' '),
               [
                 if (isSelected)
@@ -139,14 +141,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
             h3(
               classes: [
                 'text-lg font-medium transition-colors duration-200',
-                if (isSelected) 'text-blue-900' else 'text-gray-900',
+                if (isSelected) 'text-primary-900' else 'text-neutral-900',
               ].join(' '),
               [text(type.displayName)],
             ),
             p(
               classes: [
                 'text-sm mt-1 transition-colors duration-200',
-                if (isSelected) 'text-blue-700' else 'text-gray-500',
+                if (isSelected) 'text-primary-700' else 'text-neutral-500',
               ].join(' '),
               [text(type.description)],
             ),
@@ -158,10 +160,33 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   Component _buildConfigurationPanel() {
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Configuration'),
+        ]),
+        // Name input field (common for all data source types)
+        div(classes: 'mb-6 space-y-2', [
+          label(classes: 'block text-sm font-medium text-neutral-700', [
+            text('Data Source Name *'),
+          ]),
+          input(
+            type: InputType.text,
+            attributes: {
+              'placeholder': 'Enter a name for this data source',
+              'value': _dataSourceName ?? '',
+            },
+            classes:
+                'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
+            events: {
+              'input': (event) {
+                setState(() {
+                  _dataSourceName =
+                      (event.target as web.HTMLInputElement).value;
+                });
+              },
+            },
+          ),
         ]),
         if (_selectedType == DataSourceType.csv)
           _buildCsvConfiguration()
@@ -175,7 +200,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     return div(classes: 'space-y-6', [
       // File upload
       div(classes: 'space-y-2', [
-        label(classes: 'block text-sm font-medium text-gray-700', [
+        label(classes: 'block text-sm font-medium text-neutral-700', [
           text('CSV File'),
         ]),
         div(classes: 'relative', [
@@ -183,12 +208,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
             type: InputType.file,
             attributes: {'accept': '.csv,.txt'},
             classes:
-                'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
             id: 'csv-file-input',
             events: {'change': (event) => _handleCsvFileSelect(event)},
           ),
           if (_selectedFile != null)
-            div(classes: 'mt-2 text-sm text-gray-600', [
+            div(classes: 'mt-2 text-sm text-neutral-600', [
               text(
                 'Selected: ${_selectedFile!.name} (${_formatFileSize(_selectedFile!.size)})',
               ),
@@ -200,12 +225,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-6', [
         // Delimiter
         div(classes: 'space-y-2', [
-          label(classes: 'block text-sm font-medium text-gray-700', [
+          label(classes: 'block text-sm font-medium text-neutral-700', [
             text('Delimiter'),
           ]),
           select(
             classes:
-                'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
             events: {'change': (event) => _handleDelimiterChange(event)},
             [
               option(value: ',', selected: _csvDelimiter == ',', [
@@ -226,7 +251,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
         // Header option
         div(classes: 'space-y-2', [
-          label(classes: 'block text-sm font-medium text-gray-700', [
+          label(classes: 'block text-sm font-medium text-neutral-700', [
             text('File Format'),
           ]),
           div(classes: 'flex items-center space-x-3', [
@@ -234,10 +259,10 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               type: InputType.checkbox,
               attributes: {'checked': _csvHasHeader ? 'true' : 'false'},
               classes:
-                  'h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500',
+                  'h-4 w-4 text-primary-600 border-neutral-300 rounded focus:ring-primary-500',
               events: {'change': (event) => _handleHeaderChange(event)},
             ),
-            span(classes: 'text-sm text-gray-700', [
+            span(classes: 'text-sm text-neutral-700', [
               text('First row contains column headers'),
             ]),
           ]),
@@ -249,12 +274,18 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         button(
           classes: [
             'w-full px-4 py-2 text-sm font-medium text-white rounded-md transition-colors duration-200',
-            if (_selectedFile != null && !_isLoading)
-              'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            if (_selectedFile != null &&
+                (_dataSourceName != null && _dataSourceName!.isNotEmpty) &&
+                !_isLoading)
+              'bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2'
             else
-              'bg-gray-400 cursor-not-allowed',
+              'bg-neutral-400 cursor-not-allowed',
           ].join(' '),
-          disabled: _selectedFile == null || _isLoading,
+          disabled:
+              _selectedFile == null ||
+              _dataSourceName == null ||
+              _dataSourceName!.isEmpty ||
+              _isLoading,
           events: {'click': (_) => _loadCsvDataSource()},
           [
             if (_isLoading)
@@ -278,7 +309,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     return div(classes: 'space-y-6', [
       // Database type
       div(classes: 'space-y-2', [
-        label(classes: 'block text-sm font-medium text-gray-700', [
+        label(classes: 'block text-sm font-medium text-neutral-700', [
           text('Database Type'),
         ]),
         div(classes: 'space-y-3', [
@@ -317,7 +348,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
                 'id': 'sqlite-persistent',
               },
               classes:
-                  'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded',
+                  'h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded',
               events: {
                 'change': (e) => setState(() {
                   _sqlitePersistent =
@@ -326,14 +357,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               },
             ),
             label(
-              classes: 'ml-2 block text-sm text-gray-700',
+              classes: 'ml-2 block text-sm text-neutral-700',
               attributes: {'for': 'sqlite-persistent'},
               [text('Save to persistent storage')],
             ),
           ]),
           if (_sqlitePersistent)
             div(classes: 'ml-6 space-y-2', [
-              label(classes: 'block text-sm font-medium text-gray-700', [
+              label(classes: 'block text-sm font-medium text-neutral-700', [
                 text('Persistent Database Name'),
               ]),
               input(
@@ -343,7 +374,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
                   'value': _sqlitePersistentName,
                 },
                 classes:
-                    'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm',
+                    'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm',
                 events: {
                   'input': (e) => setState(() {
                     _sqlitePersistentName =
@@ -351,7 +382,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
                   }),
                 },
               ),
-              p(classes: 'text-xs text-gray-500', [
+              p(classes: 'text-xs text-neutral-500', [
                 text(
                   'The database will be saved in browser storage and can be accessed later',
                 ),
@@ -368,12 +399,15 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         button(
           classes: [
             'w-full px-4 py-2 text-sm font-medium text-white rounded-md transition-colors duration-200',
-            if (!_isLoading)
-              'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+            if (_dataSourceName != null &&
+                _dataSourceName!.isNotEmpty &&
+                !_isLoading)
+              'bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2'
             else
-              'bg-gray-400 cursor-not-allowed',
+              'bg-neutral-400 cursor-not-allowed',
           ].join(' '),
-          disabled: _isLoading,
+          disabled:
+              _dataSourceName == null || _dataSourceName!.isEmpty || _isLoading,
           events: {'click': (_) => _loadSqliteDataSource()},
           [
             if (_isLoading)
@@ -408,9 +442,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       classes: [
         'relative rounded-lg border p-4 cursor-pointer transition-all duration-200',
         if (isSelected)
-          'border-blue-500 bg-blue-50'
+          'border-primary-500 bg-primary-50'
         else
-          'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+          'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
       ].join(' '),
       events: {'click': (_) => onChanged(value)},
       [
@@ -420,9 +454,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               classes: [
                 'w-4 h-4 rounded-full border-2 transition-all duration-200',
                 if (isSelected)
-                  'border-blue-500 bg-blue-500'
+                  'border-primary-500 bg-primary-500'
                 else
-                  'border-gray-300',
+                  'border-neutral-300',
               ].join(' '),
               [
                 if (isSelected)
@@ -437,14 +471,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
             h4(
               classes: [
                 'text-sm font-medium transition-colors duration-200',
-                if (isSelected) 'text-blue-900' else 'text-gray-900',
+                if (isSelected) 'text-primary-900' else 'text-neutral-900',
               ].join(' '),
               [text(title)],
             ),
             p(
               classes: [
                 'text-xs mt-1 transition-colors duration-200',
-                if (isSelected) 'text-blue-700' else 'text-gray-500',
+                if (isSelected) 'text-primary-700' else 'text-neutral-500',
               ].join(' '),
               [text(description)],
             ),
@@ -456,14 +490,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   Component _buildSqliteFileUpload() {
     return div(classes: 'space-y-2', [
-      label(classes: 'block text-sm font-medium text-gray-700', [
+      label(classes: 'block text-sm font-medium text-neutral-700', [
         text('SQLite Database File'),
       ]),
       input(
         type: InputType.file,
         attributes: {'accept': '.db,.sqlite,.sqlite3'},
         classes:
-            'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+            'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
         events: {'change': (event) => _handleSqliteFileSelect(event)},
       ),
     ]);
@@ -471,12 +505,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   Component _buildTableSelector() {
     return div(classes: 'space-y-2', [
-      label(classes: 'block text-sm font-medium text-gray-700', [
+      label(classes: 'block text-sm font-medium text-neutral-700', [
         text('Select Table'),
       ]),
       select(
         classes:
-            'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+            'block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500',
         events: {'change': (event) => _handleTableChange(event)},
         [
           option(value: '', [text('Choose a table...')]),
@@ -491,9 +525,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   Component _buildPreviewSection() {
     return div(
-      classes: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6',
+      classes: 'bg-white rounded-lg shadow-sm border border-neutral-200 p-6',
       [
-        h2(classes: 'text-xl font-semibold text-gray-900 mb-4', [
+        h2(classes: 'text-xl font-semibold text-neutral-900 mb-4', [
           text('Data Preview'),
         ]),
         if (_error != null)
@@ -577,6 +611,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
     try {
       final dataSource = await CsvDataSource.fromFile(
+        name: _dataSourceName,
         file: _selectedFile!,
         delimiter: _csvDelimiter,
         hasHeader: _csvHasHeader,
@@ -589,6 +624,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
       setState(() {
         _currentDataSource = dataSource;
+        _dataSourceName = dataSource.name;
         _isLoading = false;
       });
 
@@ -631,14 +667,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
           if (_sqlitePersistent && _sqlitePersistentName.isNotEmpty) {
             dataSource = SqliteDataSource.fromUpload(
-              name: _selectedFile!.name,
+              name: _dataSourceName ?? _selectedFile!.name,
               databaseData: bytes,
               persistent: true,
               persistentName: _sqlitePersistentName,
             );
           } else {
             dataSource = SqliteDataSource.fromUpload(
-              name: _selectedFile!.name,
+              name: _dataSourceName ?? _selectedFile!.name,
               databaseData: bytes,
             );
           }
@@ -656,6 +692,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         _currentDataSource = dataSource;
         _availableTables = dataSource.tables;
         _selectedTable = dataSource.selectedTable;
+        _dataSourceName = dataSource.name;
         _isLoading = false;
       });
 

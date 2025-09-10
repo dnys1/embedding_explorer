@@ -1,9 +1,24 @@
+import 'package:embeddings_explorer/models/data_sources/csv_data_source.dart';
+import 'package:embeddings_explorer/models/data_sources/data_source_config.dart';
+import 'package:embeddings_explorer/models/data_sources/sqlite_data_source.dart';
+
 /// Abstract base class for all data sources in the embedding explorer.
 ///
 /// This defines the common interface that all data source implementations
 /// (CSV, SQLite, etc.) must implement to provide consistent data access
 /// patterns throughout the application.
 abstract class DataSource {
+  DataSource();
+
+  factory DataSource.fromConfig(DataSourceConfig config) {
+    switch (config.type) {
+      case DataSourceType.csv:
+        return CsvDataSource.fromConfig(config);
+      case DataSourceType.sqlite:
+        return SqliteDataSource.fromConfig(config);
+    }
+  }
+
   /// Unique identifier for this data source
   String get id;
 
@@ -17,7 +32,7 @@ abstract class DataSource {
   bool get isConnected;
 
   /// Configuration parameters specific to this data source type
-  Map<String, dynamic> get config;
+  Map<String, dynamic> get settings;
 
   /// Initialize and connect to the data source
   ///

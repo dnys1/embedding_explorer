@@ -1,5 +1,5 @@
 builders:
-  compiler:
+  tailwind_builder:
     import: "package:_embeddings_explorer_tool/tailwind_builder.dart"
     builder_factories: [ "buildTailwind" ]
     build_extensions:
@@ -10,3 +10,37 @@ builders:
     defaults:
       release_options:
         tailwindcss: --minify
+  worker_bee_builder:
+    import: package:_embeddings_explorer_tool/worker_bee_builder.dart
+    builder_factories:
+      - workerBeeBuilder
+    build_extensions:
+      .dart:
+        - .worker_bee.g.part
+    auto_apply: dependents
+    build_to: cache
+    applies_builders:
+      - source_gen:combining_builder
+  worker_hive_builder:
+    import: package:_embeddings_explorer_tool/worker_bee_builder.dart
+    builder_factories: 
+      - workerHiveBuilder
+    build_extensions:
+      .hive.dart:
+        - .debug.dart
+        - .release.dart
+    auto_apply: none
+    build_to: source
+  worker_copy_builder:
+    import: package:_embeddings_explorer_tool/worker_bee_builder.dart
+    builder_factories:
+      - workerCopyBuilder
+    build_extensions:
+      .dart.js:
+        - .js
+      .dart.js.map:
+        - .js.map
+    auto_apply: none
+    build_to: source
+    required_inputs:
+      - .dart.js

@@ -1,7 +1,7 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:logging/logging.dart';
 
-import '../models/data_source.dart';
+import '../models/data_sources/data_source.dart';
 
 /// A component that displays a preview of data from a data source
 ///
@@ -107,44 +107,45 @@ class _DataPreviewState extends State<DataPreview> {
   Component build(BuildContext context) {
     return div(
       classes:
-          'data-preview bg-white rounded-lg shadow-sm border border-gray-200',
+          'data-preview bg-white rounded-lg shadow-sm border border-neutral-200',
       [_buildHeader(), _buildContent()],
     );
   }
 
   Component _buildHeader() {
     return div(
-      classes: 'px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg',
+      classes:
+          'px-4 py-3 border-b border-neutral-200 bg-neutral-50 rounded-t-lg',
       [
         div(classes: 'flex items-center justify-between', [
           div(classes: 'flex items-center space-x-3', [
-            h3(classes: 'text-lg font-medium text-gray-900', [
+            h3(classes: 'text-lg font-medium text-neutral-900', [
               text('Data Preview'),
             ]),
             if (_isLoading)
               div(
-                classes: 'flex items-center space-x-2 text-sm text-gray-500',
+                classes: 'flex items-center space-x-2 text-sm text-neutral-500',
                 [
                   div(
                     classes:
-                        'animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500',
+                        'animate-spin rounded-full h-4 w-4 border-b-2 border-primary-500',
                     [],
                   ),
                   span([text('Loading...')]),
                 ],
               )
             else if (_sampleData.isNotEmpty)
-              span(classes: 'text-sm text-gray-500', [
+              span(classes: 'text-sm text-neutral-500', [
                 text('Showing ${_sampleData.length} of $_totalRows rows'),
               ]),
           ]),
           div(classes: 'flex items-center space-x-2', [
             span(
               classes:
-                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800',
+                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800',
               [text(component.dataSource.type.toUpperCase())],
             ),
-            span(classes: 'text-sm text-gray-500', [
+            span(classes: 'text-sm text-neutral-500', [
               text(component.dataSource.name),
             ]),
           ]),
@@ -158,10 +159,10 @@ class _DataPreviewState extends State<DataPreview> {
       return div(classes: 'p-8 text-center', [
         div(
           classes:
-              'animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4',
+              'animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4',
           [],
         ),
-        p(classes: 'text-gray-500', [text('Loading preview data...')]),
+        p(classes: 'text-neutral-500', [text('Loading preview data...')]),
       ]);
     }
 
@@ -209,7 +210,7 @@ class _DataPreviewState extends State<DataPreview> {
 
     if (_sampleData.isEmpty) {
       return div(classes: 'p-8 text-center', [
-        div(classes: 'text-gray-400 mb-4', [
+        div(classes: 'text-neutral-400 mb-4', [
           svg(
             classes: 'mx-auto h-12 w-12',
             attributes: {
@@ -231,10 +232,10 @@ class _DataPreviewState extends State<DataPreview> {
             ],
           ),
         ]),
-        h3(classes: 'text-sm font-medium text-gray-900 mb-2', [
+        h3(classes: 'text-sm font-medium text-neutral-900 mb-2', [
           text('No data available'),
         ]),
-        p(classes: 'text-sm text-gray-500', [
+        p(classes: 'text-sm text-neutral-500', [
           text(
             'This data source appears to be empty or contains no accessible data.',
           ),
@@ -243,7 +244,7 @@ class _DataPreviewState extends State<DataPreview> {
     }
 
     return div(classes: 'overflow-x-auto', [
-      table(classes: 'min-w-full divide-y divide-gray-200', [
+      table(classes: 'min-w-full divide-y divide-neutral-200', [
         _buildTableHeader(),
         _buildTableBody(),
       ]),
@@ -255,24 +256,24 @@ class _DataPreviewState extends State<DataPreview> {
         ? _sampleData.first.keys.toList()
         : <String>[];
 
-    return thead(classes: 'bg-gray-50', [
+    return thead(classes: 'bg-neutral-50', [
       tr([
         if (component.showRowNumbers)
           th(
             classes:
-                'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-100',
+                'px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider bg-neutral-100',
             [text('#')],
           ),
         for (final column in columns)
           th(
             classes:
-                'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
+                'px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider',
             [
               div(classes: 'flex flex-col space-y-1', [
-                span(classes: 'font-medium text-gray-900', [text(column)]),
+                span(classes: 'font-medium text-neutral-900', [text(column)]),
                 if (component.showDataTypes && _schema.containsKey(column))
                   span(
-                    classes: 'text-xs text-gray-500 font-normal capitalize',
+                    classes: 'text-xs text-neutral-500 font-normal capitalize',
                     [text(_getDisplayType(_schema[column]!))],
                   ),
               ]),
@@ -283,22 +284,22 @@ class _DataPreviewState extends State<DataPreview> {
   }
 
   Component _buildTableBody() {
-    return tbody(classes: 'bg-white divide-y divide-gray-200', [
+    return tbody(classes: 'bg-white divide-y divide-neutral-200', [
       for (int index = 0; index < _sampleData.length; index++)
         _buildTableRow(_sampleData[index], index),
     ]);
   }
 
   Component _buildTableRow(Map<String, dynamic> row, int index) {
-    return tr(classes: index % 2 == 0 ? 'bg-white' : 'bg-gray-50', [
+    return tr(classes: index % 2 == 0 ? 'bg-white' : 'bg-neutral-50', [
       if (component.showRowNumbers)
         td(
           classes:
-              'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500 bg-gray-100',
+              'px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-500 bg-neutral-100',
           [text('${index + 1}')],
         ),
       for (final entry in row.entries)
-        td(classes: 'px-6 py-4 whitespace-nowrap text-sm text-gray-900', [
+        td(classes: 'px-6 py-4 whitespace-nowrap text-sm text-neutral-900', [
           _buildCellContent(entry.value, entry.key),
         ]),
     ]);
@@ -306,7 +307,7 @@ class _DataPreviewState extends State<DataPreview> {
 
   Component _buildCellContent(dynamic value, String columnName) {
     if (value == null) {
-      return span(classes: 'text-gray-400 italic', [text('null')]);
+      return span(classes: 'text-neutral-400 italic', [text('null')]);
     }
 
     final stringValue = value.toString();
@@ -322,7 +323,7 @@ class _DataPreviewState extends State<DataPreview> {
 
     switch (fieldType) {
       case 'integer':
-        cellClasses += ' text-blue-600';
+        cellClasses += ' text-primary-600';
         break;
       case 'real':
         cellClasses += ' text-green-600';
@@ -335,7 +336,7 @@ class _DataPreviewState extends State<DataPreview> {
         cellClasses += ' text-indigo-600';
         break;
       default:
-        cellClasses += ' text-gray-900';
+        cellClasses += ' text-neutral-900';
     }
 
     return span(

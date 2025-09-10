@@ -100,7 +100,8 @@ class OpenAIProvider implements EmbeddingProvider {
         },
       );
 
-      return response['data'] != null && response['data'].isNotEmpty;
+      final data = response['data'] as List?;
+      return data != null && data.isNotEmpty;
     } catch (e) {
       return false;
     }

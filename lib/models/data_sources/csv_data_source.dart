@@ -2,17 +2,18 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:csv/csv.dart';
+import 'package:embeddings_explorer/models/data_sources/data_source_config.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
-import '../../models/data_source.dart';
+import 'data_source.dart';
 
 /// CSV data source implementation that can load and parse CSV files
 /// from file uploads or URLs.
 class CsvDataSource extends DataSource {
-  late final String _id;
-  late final String _name;
-  late final Map<String, dynamic> _config;
+  final String _id;
+  final String _name;
+  final Map<String, dynamic> _settings;
 
   List<List<dynamic>> _rawData = [];
   List<String> _headers = [];
@@ -25,11 +26,17 @@ class CsvDataSource extends DataSource {
   CsvDataSource({
     required String id,
     required String name,
-    required Map<String, dynamic> config,
-  }) {
-    _id = id;
-    _name = name;
-    _config = Map.from(config);
+    required Map<String, dynamic> settings,
+  }) : _id = id,
+       _name = name,
+       _settings = Map.of(settings);
+
+  factory CsvDataSource.fromConfig(DataSourceConfig config) {
+    return CsvDataSource(
+      id: config.id,
+      name: config.name,
+      settings: config.settings,
+    );
   }
 
   /// Create a CSV data source from file content
@@ -44,7 +51,7 @@ class CsvDataSource extends DataSource {
     return CsvDataSource(
       id: id,
       name: name,
-      config: {
+      settings: {
         'content': csvContent,
         'delimiter': delimiter,
         'hasHeader': hasHeader,
@@ -57,6 +64,7 @@ class CsvDataSource extends DataSource {
   /// Create a CSV data source from a File object (browser file upload)
   static Future<CsvDataSource> fromFile({
     required web.File file,
+    String? name,
     String delimiter = ',',
     bool hasHeader = true,
   }) async {
@@ -98,7 +106,7 @@ class CsvDataSource extends DataSource {
 
     final content = await completer.future;
     return CsvDataSource.fromFileContent(
-      name: file.name,
+      name: name ?? file.name,
       csvContent: content,
       delimiter: delimiter,
       hasHeader: hasHeader,
@@ -118,7 +126,7 @@ class CsvDataSource extends DataSource {
   bool get isConnected => _isConnected;
 
   @override
-  Map<String, dynamic> get config => Map.from(_config);
+  Map<String, dynamic> get settings => Map.of(_settings);
 
   @override
   Future<bool> connect() async {
@@ -130,14 +138,14 @@ class CsvDataSource extends DataSource {
 
       _logger.info('Connecting to CSV data source: $_name');
 
-      final content = _config['content'] as String?;
+      final content = _settings['content'] as String?;
       if (content == null || content.isEmpty) {
         _logger.warning('No CSV content provided for data source: $_name');
         throw DataSourceException('No CSV content provided', sourceType: type);
       }
 
-      final delimiter = _config['delimiter'] as String? ?? ',';
-      final hasHeader = _config['hasHeader'] as bool? ?? true;
+      final delimiter = _settings['delimiter'] as String? ?? ',';
+      final hasHeader = _settings['hasHeader'] as bool? ?? true;
 
       _logger.finest(
         'Parsing CSV with delimiter: "$delimiter", hasHeader: $hasHeader',
@@ -279,11 +287,12 @@ class CsvDataSource extends DataSource {
   List<String> validate() {
     final errors = <String>[];
 
-    if (_config['content'] == null || (_config['content'] as String).isEmpty) {
+    if (_settings['content'] == null ||
+        (_settings['content'] as String).isEmpty) {
       errors.add('CSV content is required');
     }
 
-    final delimiter = _config['delimiter'] as String?;
+    final delimiter = _settings['delimiter'] as String?;
     if (delimiter == null || delimiter.isEmpty) {
       errors.add('Delimiter is required');
     }
@@ -293,10 +302,10 @@ class CsvDataSource extends DataSource {
 
   @override
   DataSource copyWith(Map<String, dynamic> newConfig) {
-    final updatedConfig = Map<String, dynamic>.from(_config);
+    final updatedConfig = Map<String, dynamic>.from(_settings);
     updatedConfig.addAll(newConfig);
 
-    return CsvDataSource(id: _id, name: _name, config: updatedConfig);
+    return CsvDataSource(id: _id, name: _name, settings: updatedConfig);
   }
 
   @override
@@ -305,7 +314,7 @@ class CsvDataSource extends DataSource {
       'id': _id,
       'name': _name,
       'type': type,
-      'config': _config,
+      'config': _settings,
       'isConnected': _isConnected,
       if (_isConnected)
         'schema': _fieldTypes.map((k, v) => MapEntry(k, v.name)),
