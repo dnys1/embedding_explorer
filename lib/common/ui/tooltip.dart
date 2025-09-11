@@ -1,5 +1,6 @@
-import '../../util/clsx.dart';
 import 'package:jaspr/jaspr.dart';
+
+import '../../util/clsx.dart';
 
 enum TooltipSide {
   top,
@@ -8,10 +9,10 @@ enum TooltipSide {
   left;
 
   String get classes => switch (this) {
-    top => 'bottom-full left-1/2 transform -translate-x-1/2 mb-2',
-    right => 'left-full top-1/2 transform -translate-y-1/2 ml-2',
-    bottom => 'top-full left-1/2 transform -translate-x-1/2 mt-2',
-    left => 'right-full top-1/2 transform -translate-y-1/2 mr-2',
+    top => 'bottom-full left-1/4 transform -translate-x-1/4 mb-2',
+    right => 'left-full top-1/4 transform -translate-y-1/4 ml-2',
+    bottom => 'top-full left-1/4 transform -translate-x-1/4 mt-2',
+    left => 'right-full top-1/4 transform -translate-y-1/4 mr-2',
   };
 }
 
@@ -53,7 +54,9 @@ class _TooltipState extends State<Tooltip> {
       if (_isVisible)
         div(
           classes: [
-            'absolute z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+            'absolute z-[100] overflow-visible rounded-md border bg-popover px-3',
+            'py-1.5 text-sm text-popover-foreground shadow-md animate-in',
+            'fade-in-0 zoom-in-95 max-w-md break-words whitespace-normal',
             component.side.classes,
             component.contentClassName,
           ].clsx,

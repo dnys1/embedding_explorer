@@ -9,4 +9,5 @@ analyzer:
 linter:
   rules:
     - prefer_relative_imports
+    - unawaited_futures
     - unnecessary_breaks

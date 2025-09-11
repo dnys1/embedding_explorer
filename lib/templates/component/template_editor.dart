@@ -1,12 +1,13 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:web/web.dart';
 
+import '../../common/monaco/monaco_editor.dart';
 import 'template_editor_model.dart';
 
 /// A component that provides a Monaco-based editor for embedding templates
 /// with intellisense support for available data fields.
 class TemplateEditor extends StatelessComponent {
-  const TemplateEditor({super.key, required this.model});
+  TemplateEditor({required this.model}) : super(key: ValueKey(model));
 
   final TemplateEditorModel model;
 
@@ -30,16 +31,6 @@ class TemplateEditorView extends StatefulComponent {
 
 class _TemplateEditorViewState extends State<TemplateEditorView> {
   TemplateEditorModel get model => component.model;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Allow time for the DOM to render so that we can find the Editor container.
-    context.binding.addPostFrameCallback(() {
-      model.init();
-    });
-  }
 
   @override
   Component build(BuildContext context) {
@@ -190,25 +181,25 @@ class _TemplateEditorViewState extends State<TemplateEditorView> {
           'Use {{field}} syntax to reference fields. The editor provides auto-completion and syntax highlighting.',
         ),
       ]),
-      const Component.element(
-        key: Key('template-editor-container'),
-        tag: 'div',
-        id: 'template-editor-container',
-        classes: 'border border-input rounded-md overflow-hidden h-[300px]',
-      ),
+      MonacoEditor(model: model.editor),
     ]);
   }
 
   Component _buildPreview() {
-    return div([
-      h3(classes: 'text-lg font-medium text-foreground mb-2', [
-        text('Preview'),
-      ]),
-      div(classes: 'bg-muted p-4 rounded-md border min-h-[120px]', [
-        pre(classes: 'text-sm whitespace-pre-wrap font-mono', [
-          text(model.previewText),
-        ]),
-      ]),
-    ]);
+    return ValueListenableBuilder(
+      listenable: model.editor.value,
+      builder: (context, _) {
+        return div([
+          h3(classes: 'text-lg font-medium text-foreground mb-2', [
+            text('Preview'),
+          ]),
+          div(classes: 'bg-muted p-4 rounded-md border min-h-[120px]', [
+            pre(classes: 'text-sm whitespace-pre-wrap font-mono', [
+              text(model.previewText),
+            ]),
+          ]),
+        ]);
+      },
+    );
   }
 }

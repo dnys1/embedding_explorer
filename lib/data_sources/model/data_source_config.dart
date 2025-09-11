@@ -1,8 +1,11 @@
+import 'package:logging/logging.dart';
+
 import '../../configurations/model/configuration_collection.dart';
 import 'data_source_settings.dart';
 
 /// Configuration for a data source with metadata
 class DataSourceConfig<T extends DataSourceSettings> {
+  static final Logger _logger = Logger('DataSourceConfig');
   final String id;
   final String name;
   final String description;
@@ -75,7 +78,7 @@ class DataSourceConfig<T extends DataSourceSettings> {
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
     } catch (e) {
-      print('Error parsing DataSourceConfig from JSON: $e');
+      _logger.severe('Error parsing DataSourceConfig from JSON', e);
       return null;
     }
   }
@@ -97,6 +100,11 @@ class DataSourceConfig<T extends DataSourceSettings> {
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  @override
+  String toString() {
+    return 'DataSourceConfig(id: $id, name: $name, type: ${type.name})';
   }
 }
 

@@ -1,15 +1,16 @@
-import 'editor_test_page.dart';
-import 'providers/page/model_providers_page.dart';
-import 'templates/page/embedding_templates_page.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
+import 'package:logging/logging.dart';
 
 import 'common/sidebar.dart';
 import 'configurations/model/configuration_manager.dart';
 import 'configurations/page/configuration_dashboard_page.dart';
 import 'data_sources/page/data_sources_page.dart';
+import 'editor_test_page.dart';
 import 'home_page.dart';
 import 'jobs/page/jobs_page.dart';
+import 'providers/page/model_providers_page.dart';
+import 'templates/page/embedding_templates_page.dart';
 
 class App extends StatefulComponent {
   const App({super.key});
@@ -19,6 +20,7 @@ class App extends StatefulComponent {
 }
 
 class _AppState extends State<App> {
+  static final Logger _logger = Logger('App');
   bool _isSidebarOpen = false;
   bool _isLoading = true;
   final ConfigurationManager _configManager = ConfigurationManager();
@@ -33,7 +35,7 @@ class _AppState extends State<App> {
     try {
       await _configManager.initialize();
     } catch (e) {
-      print('Error initializing configuration manager: $e');
+      _logger.severe('Error initializing configuration manager', e);
     } finally {
       setState(() {
         _isLoading = false;

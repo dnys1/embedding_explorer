@@ -165,7 +165,7 @@ class _DataPreviewState extends State<DataPreview> {
       );
     }
 
-    if (_error != null) {
+    if (_error case final error?) {
       return CardContent(
         children: [
           Alert(
@@ -194,7 +194,7 @@ class _DataPreviewState extends State<DataPreview> {
                 ]),
                 div(classes: 'ml-3 flex-1', [
                   AlertTitle(children: [text('Error loading preview')]),
-                  AlertDescription(children: [text(_error!)]),
+                  AlertDescription(children: [text(error)]),
                   div(classes: 'mt-4', [
                     Button(
                       variant: ButtonVariant.outline,

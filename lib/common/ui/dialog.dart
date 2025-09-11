@@ -1,32 +1,91 @@
-import '../../util/clsx.dart';
-import 'package:jaspr/jaspr.dart';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
-class Dialog extends StatelessComponent {
+import 'package:jaspr/jaspr.dart';
+import 'package:web/web.dart' as web;
+
+import '../../util/clsx.dart';
+
+class Dialog extends StatefulComponent {
   const Dialog({
     super.key,
-    required this.child,
+    required this.builder,
     this.isOpen = true,
     this.onClose,
     this.className,
+    this.maxWidth = 'max-w-lg',
   });
 
-  final Component child;
+  final ComponentBuilder builder;
   final bool isOpen;
   final void Function()? onClose;
   final String? className;
+  final String maxWidth;
+
+  @override
+  State<Dialog> createState() => _DialogState();
+}
+
+class _DialogState extends State<Dialog> {
+  web.EventListener? _keyDownHandler;
+
+  @override
+  void initState() {
+    super.initState();
+    if (component.isOpen) {
+      _addKeyboardListener();
+    }
+  }
+
+  @override
+  void didUpdateComponent(Dialog oldWidget) {
+    super.didUpdateComponent(oldWidget);
+
+    // Add/remove keyboard listener based on dialog open state
+    if (component.isOpen && !oldWidget.isOpen) {
+      _addKeyboardListener();
+    } else if (!component.isOpen && oldWidget.isOpen) {
+      _removeKeyboardListener();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeKeyboardListener();
+    super.dispose();
+  }
+
+  void _addKeyboardListener() {
+    _keyDownHandler ??= (web.KeyboardEvent event) {
+      // Sometimes this is null like when autofilling (?)
+      final key = event.getProperty('key'.toJS) as JSString?;
+      if (key?.toDart == 'Escape') {
+        event.preventDefault();
+        component.onClose?.call();
+      }
+    }.toJS;
+    web.document.addEventListener('keydown', _keyDownHandler!);
+  }
+
+  void _removeKeyboardListener() {
+    if (_keyDownHandler != null) {
+      web.document.removeEventListener('keydown', _keyDownHandler!);
+      _keyDownHandler = null;
+    }
+  }
 
   @override
   Component build(BuildContext context) {
-    if (!isOpen) return div([]);
+    if (!component.isOpen) return div([]);
 
     return div(
       classes: [
         // Overlay backdrop
-        'fixed inset-0 z-50 bg-background/80 backdrop-blur-sm',
-        className,
+        'fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center',
+        component.className,
       ].clsx,
       events: {
-        if (onClose case final onClose?)
+        if (component.onClose case final onClose?)
           'click': (event) {
             // Close if clicking the backdrop (not the content)
             if (event.target == event.currentTarget) {
@@ -36,11 +95,11 @@ class Dialog extends StatelessComponent {
       },
       [
         div(
-          classes:
-              'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg '
-              'translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background '
-              'p-6 shadow-lg duration-200 sm:rounded-lg',
-          [child],
+          classes: [
+            'grid w-full gap-4 border bg-background p-6 shadow-lg duration-200 rounded-lg mx-4 max-h-[90vh] overflow-y-auto overflow-x-hidden',
+            component.maxWidth,
+          ].clsx,
+          [component.builder(context)],
         ),
       ],
     );
@@ -55,7 +114,7 @@ class DialogContent extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: ['grid gap-4', className].clsx, children);
+    return div(classes: ['grid gap-4 min-w-0', className].clsx, children);
   }
 }
 

@@ -173,13 +173,13 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
   Component build(BuildContext context) {
     return div(classes: 'flex flex-col h-full', [
       // Page header
-      div(classes: 'bg-white border-b px-6 py-4', [
+      div(classes: 'bg-white border-b px-4 py-3', [
         div(classes: 'flex justify-between items-center', [
           div([
-            h1(classes: 'text-2xl font-bold text-foreground', [
+            h1(classes: 'text-xl font-bold text-foreground', [
               text('Model Providers'),
             ]),
-            p(classes: 'mt-1 text-sm text-muted-foreground', [
+            p(classes: 'text-xs text-muted-foreground', [
               text(
                 'Configure embedding model providers and manage their available models',
               ),
@@ -190,7 +190,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
 
       // Main content - Provider rows
       div(classes: 'flex-1 p-6 overflow-y-auto', [
-        div(classes: 'space-y-8', [
+        div(classes: 'space-y-6', [
           // Built-in providers section
           div([
             h2(classes: 'text-xl font-semibold text-foreground mb-4', [
@@ -233,9 +233,9 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     return Card(
       className: 'border border-gray-200',
       children: [
-        div(classes: 'p-6', [
+        div(classes: 'p-5', [
           // Provider header with name and gear switch
-          div(classes: 'flex items-center justify-between mb-6', [
+          div(classes: 'flex items-center justify-between mb-4', [
             div(classes: 'flex items-center space-x-4', [
               div(classes: 'text-3xl', [text(provider.icon)]),
               div([
@@ -258,8 +258,8 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
               else if (isPartiallyConfigured)
                 span(
                   classes:
-                      'text-xs text-center px-2 py-1 bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1',
-                  [text('⚠️'), text(' Needs Credentials')],
+                      'text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full',
+                  [text('⚠️ Needs Credentials')],
                 )
               else
                 span(
@@ -290,13 +290,13 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
           if (isPartiallyConfigured)
             div(
               classes:
-                  'mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg',
+                  'mb-3 p-2 bg-amber-50 border border-amber-200 rounded-md',
               [
                 div(classes: 'flex items-center space-x-2', [
-                  div(classes: 'text-amber-600', [text('⚠️')]),
-                  p(classes: 'text-sm text-amber-800', [
+                  div(classes: 'text-amber-600 text-sm', [text('⚠️')]),
+                  p(classes: 'text-xs text-amber-800', [
                     text(
-                      'This provider is configured but missing credentials. Click the gear button to add your API key or credentials.',
+                      'Missing credentials. Click the gear button to configure.',
                     ),
                   ]),
                 ]),
@@ -386,6 +386,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
             else
               div(classes: 'text-gray-300', [text('○')]),
           ]),
+
           p(classes: 'text-xs text-muted-foreground mb-2', [
             text(model.description),
           ]),
@@ -431,12 +432,13 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     final customTemplates = configManager.customProviderTemplates.all;
 
     return section(id: 'custom', [
-      div(classes: 'flex justify-between items-center mb-4', [
-        h2(classes: 'text-xl font-semibold text-foreground', [
+      div(classes: 'flex justify-between items-center mb-3', [
+        h2(classes: 'text-lg font-semibold text-foreground', [
           text('Custom Providers'),
         ]),
         Button(
           variant: ButtonVariant.primary,
+          size: ButtonSize.sm,
           onPressed: () => _showCreateCustomProvider(),
           children: [text('+ Add Custom Provider')],
         ),
@@ -446,26 +448,29 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
         Card(
           className: 'border border-gray-200',
           children: [
-            div(classes: 'p-8 text-center', [
-              div(classes: 'text-4xl mb-4', [text('🔧')]),
-              h3(classes: 'text-lg font-medium text-foreground mb-2', [
+            div(classes: 'p-6 text-center', [
+              div(classes: 'text-3xl mb-2', [text('🔧')]),
+              h3(classes: 'text-base font-medium text-foreground mb-2', [
                 text('No Custom Providers'),
               ]),
-              p(classes: 'text-sm text-muted-foreground mb-4', [
-                text(
-                  'Create custom provider templates to connect to your own embedding endpoints.',
-                ),
-              ]),
+              Tooltip(
+                content:
+                    'Create custom provider templates to connect to your own embedding endpoints.',
+                child: p(classes: 'text-xs text-muted-foreground mb-3', [
+                  text('Create templates for your own embedding endpoints.'),
+                ]),
+              ),
               Button(
                 variant: ButtonVariant.primary,
+                size: ButtonSize.sm,
                 onPressed: () => _showCreateCustomProvider(),
-                children: [text('Create Your First Custom Provider')],
+                children: [text('Create First Custom Provider')],
               ),
             ]),
           ],
         )
       else
-        div(classes: 'space-y-4', [
+        div(classes: 'space-y-3', [
           for (final template in customTemplates)
             _buildCustomProviderTemplateRow(template),
         ]),
@@ -482,19 +487,23 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     return Card(
       className: 'border border-gray-200',
       children: [
-        div(classes: 'p-6', [
-          div(classes: 'flex items-center justify-between mb-4', [
-            div(classes: 'flex items-center space-x-4', [
-              div(classes: 'text-3xl', [text('🔧')]),
-              div([
-                h3(classes: 'text-lg font-semibold text-foreground', [
+        div(classes: 'p-4', [
+          div(classes: 'flex items-center justify-between mb-3', [
+            div(classes: 'flex items-center space-x-3 min-w-0 flex-1', [
+              div(classes: 'text-2xl', [text('🔧')]),
+              div(classes: 'min-w-0 flex-1', [
+                h3(classes: 'text-base font-semibold text-foreground', [
                   text(template.name),
                 ]),
-                p(classes: 'text-sm text-muted-foreground', [
-                  text(
-                    '${template.baseUri} • ${template.availableModels.length} models',
-                  ),
-                ]),
+                Tooltip(
+                  content:
+                      '${template.baseUri} • ${template.availableModels.length} models available',
+                  child: p(classes: 'text-xs text-muted-foreground truncate', [
+                    text(
+                      '${template.baseUri} • ${template.availableModels.length} models',
+                    ),
+                  ]),
+                ),
               ]),
             ]),
             div(classes: 'flex items-center space-x-3', [
@@ -535,53 +544,57 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
 
           // Show available models
           if (template.availableModels.isNotEmpty)
-            div(classes: 'mt-4', [
-              p(classes: 'text-sm font-medium text-foreground mb-2', [
-                text('Available Models:'),
+            div(classes: 'mt-3', [
+              p(classes: 'text-xs font-medium text-foreground mb-1', [
+                text('Models:'),
               ]),
-              div(classes: 'flex flex-wrap gap-2', [
-                for (final model in template.availableModels)
+              div(classes: 'flex flex-wrap gap-1', [
+                for (final model in template.availableModels.take(3))
                   span(
                     classes:
-                        'text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full',
+                        'text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded',
                     [text(model)],
+                  ),
+                if (template.availableModels.length > 3)
+                  Tooltip(
+                    content: template.availableModels.skip(3).join(', '),
+                    child: span(
+                      classes:
+                          'text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded',
+                      [text('+${template.availableModels.length - 3} more')],
+                    ),
                   ),
               ]),
             ]),
 
           // Show configured instances
           if (config != null)
-            div(classes: 'mt-4', [
-              p(classes: 'text-sm font-medium text-foreground mb-2', [
-                text('Configurations:'),
-              ]),
-              div(classes: 'space-y-2', [
-                div(
-                  classes:
-                      'flex items-center justify-between p-2 bg-gray-50 rounded',
-                  [
-                    span(classes: 'text-sm text-foreground', [
-                      text(config.name),
-                    ]),
-                    div(classes: 'flex space-x-2', [
-                      button(
-                        classes:
-                            'text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700',
-                        events: {'click': (_) => _showEditConfigDialog(config)},
-                        [text('Edit')],
-                      ),
-                      button(
-                        classes:
-                            'text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700',
-                        events: {
-                          'click': (_) => _showDeleteProviderConfig(config),
-                        },
-                        [text('Delete')],
-                      ),
-                    ]),
-                  ],
-                ),
-              ]),
+            div(classes: 'mt-3', [
+              div(
+                classes:
+                    'flex items-center justify-between p-2 bg-gray-50 rounded text-xs',
+                [
+                  span(classes: 'font-medium text-foreground', [
+                    text('Config: ${config.name}'),
+                  ]),
+                  div(classes: 'flex space-x-1', [
+                    button(
+                      classes:
+                          'text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700',
+                      events: {'click': (_) => _showEditConfigDialog(config)},
+                      [text('Edit')],
+                    ),
+                    button(
+                      classes:
+                          'text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700',
+                      events: {
+                        'click': (_) => _showDeleteProviderConfig(config),
+                      },
+                      [text('Delete')],
+                    ),
+                  ]),
+                ],
+              ),
             ]),
         ]),
       ],

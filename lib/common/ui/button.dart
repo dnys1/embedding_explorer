@@ -1,5 +1,6 @@
-import '../../util/clsx.dart';
 import 'package:jaspr/jaspr.dart';
+
+import '../../util/clsx.dart';
 
 enum ButtonVariant {
   primary,
@@ -47,6 +48,7 @@ class Button extends StatelessComponent {
     this.className,
     this.disabled = false,
     this.type = 'button',
+    this.events,
   });
 
   final List<Component> children;
@@ -54,6 +56,7 @@ class Button extends StatelessComponent {
   final ButtonVariant variant;
   final ButtonSize size;
   final String? className;
+  final Map<String, EventCallback>? events;
   final bool disabled;
   final String type;
 
@@ -68,8 +71,12 @@ class Button extends StatelessComponent {
         className,
       ].clsx,
       events: {
-        if (onPressed case final onPressed? when !disabled)
-          'click': (_) => onPressed(),
+        ...?events,
+        if (!disabled)
+          'click': (e) {
+            onPressed?.call();
+            events?['click']?.call(e);
+          },
       },
       attributes: {'type': type, if (disabled) 'disabled': 'true'},
       children,

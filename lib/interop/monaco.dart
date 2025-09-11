@@ -6,6 +6,7 @@
 @JS('monaco')
 library;
 
+import 'dart:async';
 import 'dart:core' as core show Uri;
 import 'dart:core';
 import 'dart:js_interop';
@@ -170,6 +171,17 @@ extension type IEvent<T extends JSAny?>._(JSObject _) implements JSObject {
   external IDisposable _call(JSAny? thisArg, JSFunction listener);
 
   IDisposable call(void Function(T) listener) => _call(null, listener.toJS);
+
+  Stream<T> get stream {
+    final controller = StreamController<T>(sync: true);
+    final disposable = call((event) {
+      controller.add(event);
+    });
+    controller.onCancel = () {
+      disposable.dispose();
+    };
+    return controller.stream;
+  }
 }
 extension type CancellationToken._(JSObject _) implements JSObject {
   /// A flag signalling is cancellation has been requested.
@@ -3433,7 +3445,7 @@ extension type IEditorDecorationsCollection._(JSObject _) implements JSObject {
 /// An editor.
 extension type IEditor._(JSObject _) implements JSObject {
   /// An event emitted when the editor has been disposed.
-  external IDisposable onDidDispose(_AnonymousFunction_9788823 listener);
+  external IEvent<JSAny?> get onDidDispose;
 
   /// Dispose the editor.
   external JSAny? dispose();
@@ -7115,66 +7127,6 @@ extension type CompletionList._(JSObject _) implements JSObject {
   external JSFunction? get dispose;
 }
 
-@JSExport()
-class DartCompletionItemProvider {
-  DartCompletionItemProvider({
-    required List<String> triggerCharacters,
-    required CompletionList Function(
-      ITextModel model,
-      Position position,
-      CompletionContext context,
-      CancellationToken token,
-    )
-    provideCompletionItems,
-  }) : triggerCharacters = triggerCharacters.map((e) => e.toJS).toList().toJS,
-       _provideCompletionItems = provideCompletionItems;
-
-  final JSArray<JSString> triggerCharacters;
-  final CompletionList Function(
-    ITextModel model,
-    Position position,
-    CompletionContext context,
-    CancellationToken token,
-  )
-  _provideCompletionItems;
-
-  CompletionList provideCompletionItems(
-    ITextModel model,
-    Position position,
-    CompletionContext context,
-    CancellationToken token,
-  ) {
-    return _provideCompletionItems(model, position, context, token);
-  }
-}
-
-@JSExport()
-class DartHoverProvider {
-  DartHoverProvider({
-    required Hover? Function(
-      ITextModel model,
-      Position position,
-      CancellationToken token,
-    )
-    provideHover,
-  }) : _provideHover = provideHover;
-
-  final Hover? Function(
-    ITextModel model,
-    Position position,
-    CancellationToken token,
-  )
-  _provideHover;
-
-  Hover? provideHover(
-    ITextModel model,
-    Position position,
-    CancellationToken token,
-  ) {
-    return _provideHover(model, position, token);
-  }
-}
-
 /// The completion item provider interface defines the contract between
 /// extensions and
 /// the
@@ -8759,10 +8711,6 @@ extension type AnonymousUnion_5377231._(JSObject _) implements JSObject {
 
   IDiffEditorViewModel get asIDiffEditorViewModel =>
       (_ as IDiffEditorViewModel);
-}
-extension type _AnonymousFunction_9788823._(JSFunction _)
-    implements JSFunction {
-  external JSAny? call();
 }
 extension type const AnonymousUnion_9797102._(String _) {
   static const AnonymousUnion_9797102 above = AnonymousUnion_9797102._('above');

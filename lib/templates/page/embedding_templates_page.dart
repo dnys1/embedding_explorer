@@ -1,7 +1,7 @@
-import '../../common/ui/ui.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../component/template_editor.dart';
 import '../component/template_editor_model.dart';
@@ -23,10 +23,8 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
   EmbeddingTemplateConfig? _editingTemplate;
   EmbeddingTemplateConfig? _deletingTemplate;
   EmbeddingTemplateConfig? _previewingTemplate;
-  TemplateEditorModel? _editorModel;
 
   void _showCreate() {
-    _editorModel = TemplateEditorModel(configManager: configManager);
     setState(() {
       _editingTemplate = null;
       _showCreateDialog = true;
@@ -34,10 +32,6 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
   }
 
   void _showEdit(EmbeddingTemplateConfig template) {
-    _editorModel = TemplateEditorModel(
-      configManager: configManager,
-      initialTemplate: template,
-    );
     setState(() {
       _editingTemplate = template;
       _showEditDialog = true;
@@ -68,25 +62,6 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
       _deletingTemplate = null;
       _previewingTemplate = null;
     });
-    _editorModel = null;
-  }
-
-  void _saveTemplate() {
-    if (_editorModel == null || !_editorModel!.validate()) return;
-
-    final template = _editorModel!.createConfig(
-      _editingTemplate?.id ?? configManager.embeddingTemplates.generateId(),
-    );
-
-    configManager.embeddingTemplates.set(template.id, template);
-    _hideDialogs();
-  }
-
-  void _deleteTemplate() {
-    if (_deletingTemplate != null) {
-      configManager.embeddingTemplates.remove(_deletingTemplate!.id);
-      _hideDialogs();
-    }
   }
 
   @override
@@ -124,9 +99,12 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
       ]),
 
       // Dialogs
-      if (_showCreateDialog || _showEditDialog) _buildCreateEditDialog(),
-      if (_showDeleteDialog) _buildDeleteDialog(),
-      if (_showPreviewDialog) _buildPreviewDialog(),
+      if (_showCreateDialog || _showEditDialog)
+        _CreateEditDialog(template: _editingTemplate, onClose: _hideDialogs),
+      if (_showDeleteDialog)
+        _DeleteDialog(template: _deletingTemplate, onClose: _hideDialogs),
+      if (_showPreviewDialog)
+        _PreviewDialog(template: _previewingTemplate, onClose: _hideDialogs),
     ]);
   }
 
@@ -268,321 +246,241 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
     );
   }
 
-  Component _buildCreateEditDialog() {
-    final isEditing = _editingTemplate != null;
-    if (_editorModel == null) return div([]);
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
 
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto',
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+final class _CreateEditDialog extends StatefulComponent {
+  _CreateEditDialog({required this.template, required this.onClose});
+
+  final EmbeddingTemplateConfig? template;
+  final VoidCallback onClose;
+
+  bool get isEditing => template != null;
+
+  @override
+  State<StatefulComponent> createState() => _CreateEditDialogState();
+}
+
+final class _CreateEditDialogState extends State<_CreateEditDialog>
+    with ConfigurationManagerListener {
+  late final TemplateEditorModel model = TemplateEditorModel(
+    configManager: configManager,
+    initialTemplate: component.template,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Allow time for the DOM to render so that we can find the Editor container.
+    context.binding.addPostFrameCallback(() {
+      model.init();
+    });
+  }
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  void _saveTemplate() {
+    final templateId =
+        component.template?.id ?? configManager.embeddingTemplates.generateId();
+    final template = model.createConfig(templateId);
+
+    configManager.embeddingTemplates.set(template.id, template);
+    component.onClose();
+  }
+
+  @override
+  Component build(BuildContext context) {
+    return Dialog(
+      onClose: component.onClose,
+      maxWidth: 'max-w-4xl',
+      builder: (_) =>
+          ListenableBuilder(listenable: model, builder: _buildContent),
+    );
+  }
+
+  Component _buildContent(BuildContext context) {
+    return DialogContent(
+      children: [
+        DialogHeader(
           children: [
-            CardHeader(
+            div(classes: 'flex justify-between items-center', [
+              DialogTitle(
+                children: [
+                  text(
+                    component.isEditing ? 'Edit Template' : 'Create Template',
+                  ),
+                ],
+              ),
+              button(
+                classes:
+                    'text-muted-foreground hover:text-foreground transition-colors text-2xl',
+                events: {'click': (event) => component.onClose()},
+                [text('×')],
+              ),
+            ]),
+            DialogDescription(
               children: [
-                div(classes: 'flex justify-between items-center', [
-                  CardTitle(
-                    children: [
-                      text(isEditing ? 'Edit Template' : 'Create Template'),
-                    ],
-                  ),
-                  button(
-                    classes:
-                        'text-muted-foreground hover:text-foreground transition-colors text-2xl',
-                    events: {'click': (event) => _hideDialogs()},
-                    [text('×')],
-                  ),
-                ]),
-                CardDescription(
-                  children: [
-                    text(
-                      isEditing
-                          ? 'Update your embedding template with Monaco editor'
-                          : 'Create a new embedding template with Monaco editor',
+                text(
+                  component.isEditing
+                      ? 'Update your embedding template with Monaco editor'
+                      : 'Create a new embedding template with Monaco editor',
+                ),
+              ],
+            ),
+          ],
+        ),
+
+        // Error message if any
+        if (model.error.value case final error?)
+          div(classes: 'mb-6 bg-red-50 border border-red-200 rounded-md p-4', [
+            div(classes: 'flex', [
+              div(classes: 'flex-shrink-0', [
+                svg(
+                  classes: 'h-5 w-5 text-red-400',
+                  attributes: {'fill': 'currentColor', 'viewBox': '0 0 20 20'},
+                  [
+                    path(
+                      attributes: {
+                        'fill-rule': 'evenodd',
+                        'd':
+                            'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z',
+                        'clip-rule': 'evenodd',
+                      },
+                      [],
                     ),
                   ],
                 ),
-              ],
-            ),
-
-            CardContent(
-              children: [
-                // Error message if any
-                ListenableBuilder(
-                  listenable: _editorModel!,
-                  builder: (context) {
-                    if (_editorModel!.error case final error?) {
-                      return div(
-                        classes:
-                            'mb-6 bg-red-50 border border-red-200 rounded-md p-4',
-                        [
-                          div(classes: 'flex', [
-                            div(classes: 'flex-shrink-0', [
-                              svg(
-                                classes: 'h-5 w-5 text-red-400',
-                                attributes: {
-                                  'fill': 'currentColor',
-                                  'viewBox': '0 0 20 20',
-                                },
-                                [
-                                  path(
-                                    attributes: {
-                                      'fill-rule': 'evenodd',
-                                      'd':
-                                          'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z',
-                                      'clip-rule': 'evenodd',
-                                    },
-                                    [],
-                                  ),
-                                ],
-                              ),
-                            ]),
-                            div(classes: 'ml-3', [
-                              h3(classes: 'text-sm font-medium text-red-800', [
-                                text('Template Error'),
-                              ]),
-                              div(classes: 'mt-2 text-sm text-red-700', [
-                                p([text(error)]),
-                              ]),
-                              div(classes: 'mt-4', [
-                                button(
-                                  classes:
-                                      'bg-red-100 px-2 py-1 text-sm font-medium text-red-800 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
-                                  events: {
-                                    'click': (_) =>
-                                        _editorModel!.dismissError(),
-                                  },
-                                  [text('Dismiss')],
-                                ),
-                              ]),
-                            ]),
-                          ]),
-                        ],
-                      );
-                    }
-                    return div([]);
-                  },
-                ),
-
-                // Template Editor
-                TemplateEditor(model: _editorModel!),
-              ],
-            ),
-
-            CardFooter(
-              children: [
-                div(classes: 'flex justify-end space-x-3 w-full', [
-                  Button(
-                    variant: ButtonVariant.outline,
-                    onPressed: _hideDialogs,
-                    children: [text('Cancel')],
-                  ),
-                  ListenableBuilder(
-                    listenable: _editorModel!,
-                    builder: (context) {
-                      return Button(
-                        onPressed: _editorModel!.validate()
-                            ? _saveTemplate
-                            : null,
-                        children: [text(isEditing ? 'Update' : 'Create')],
-                      );
-                    },
-                  ),
+              ]),
+              div(classes: 'ml-3', [
+                h3(classes: 'text-sm font-medium text-red-800', [
+                  text('Template Error'),
                 ]),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Component _buildDeleteDialog() {
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-md w-full mx-4',
-          children: [
-            CardHeader(
-              children: [
-                CardTitle(children: [text('Delete Template')]),
-                CardDescription(
-                  children: [
-                    text(
-                      'Are you sure you want to delete "${_deletingTemplate?.name}"? This action cannot be undone.',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            CardFooter(
-              children: [
-                div(classes: 'flex justify-end space-x-3 w-full', [
-                  Button(
-                    variant: ButtonVariant.outline,
-                    onPressed: _hideDialogs,
-                    children: [text('Cancel')],
-                  ),
-                  Button(
-                    variant: ButtonVariant.destructive,
-                    onPressed: _deleteTemplate,
-                    children: [text('Delete')],
-                  ),
+                div(classes: 'mt-2 text-sm text-red-700', [
+                  p([text(error)]),
                 ]),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Component _buildPreviewDialog() {
-    if (_previewingTemplate == null) return div([]);
-
-    final template = _previewingTemplate!;
-    final dataSource = configManager.dataSources.getById(template.dataSourceId);
-
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto',
-          children: [
-            CardHeader(
-              children: [
-                div(classes: 'flex justify-between items-center', [
-                  CardTitle(children: [text('Template Preview')]),
+                div(classes: 'mt-4', [
                   button(
                     classes:
-                        'text-muted-foreground hover:text-foreground transition-colors',
-                    events: {'click': (event) => _hideDialogs()},
-                    [text('×')],
+                        'bg-red-100 px-2 py-1 text-sm font-medium text-red-800 rounded-md hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2',
+                    events: {'click': (_) => model.dismissError()},
+                    [text('Dismiss')],
                   ),
                 ]),
-                CardDescription(
-                  children: [text('Preview of "${template.name}" template')],
-                ),
-              ],
-            ),
+              ]),
+            ]),
+          ]),
 
-            CardContent(
-              children: [
-                div(classes: 'space-y-4', [
-                  // Template info
-                  div([
-                    h4(classes: 'font-medium text-foreground mb-2', [
-                      text('Template Details'),
-                    ]),
-                    div(classes: 'text-sm space-y-1', [
-                      div([
-                        span(classes: 'font-medium', [text('Name: ')]),
-                        span([text(template.name)]),
-                      ]),
-                      if (template.description.isNotEmpty)
-                        div([
-                          span(classes: 'font-medium', [text('Description: ')]),
-                          span([text(template.description)]),
-                        ]),
-                      div([
-                        span(classes: 'font-medium', [text('Data Source: ')]),
-                        dataSource != null
-                            ? Badge(
-                                variant: BadgeVariant.outline,
-                                children: [
-                                  text(
-                                    '${dataSource.name} (${dataSource.type.name.toUpperCase()})',
-                                  ),
-                                ],
-                              )
-                            : Badge(
-                                variant: BadgeVariant.destructive,
-                                children: [
-                                  text('Missing: ${template.dataSourceId}'),
-                                ],
-                              ),
-                      ]),
-                      div([
-                        span(classes: 'font-medium', [text('Status: ')]),
-                        Badge(
-                          variant: template.isValid
-                              ? BadgeVariant.secondary
-                              : BadgeVariant.destructive,
-                          children: [
-                            text(template.isValid ? 'Valid' : 'Invalid'),
-                          ],
-                        ),
-                      ]),
-                    ]),
-                  ]),
+        // Template Editor
+        TemplateEditor(model: model),
 
-                  // Available fields from data source
-                  if (template.availableFields.isNotEmpty)
-                    div([
-                      h4(classes: 'font-medium text-foreground mb-2', [
-                        text('Available Fields from Data Source'),
-                      ]),
-                      p(classes: 'text-xs text-muted-foreground mb-2', [
-                        text('Fields that can be used in this template:'),
-                      ]),
-                      div(classes: 'flex flex-wrap gap-1', [
-                        for (final field in template.availableFields)
-                          Badge(
-                            variant: BadgeVariant.secondary,
-                            children: [text('{{$field}}')],
-                          ),
-                      ]),
-                    ]),
-
-                  // Raw template
-                  div([
-                    h4(classes: 'font-medium text-foreground mb-2', [
-                      text('Template'),
-                    ]),
-                    div(classes: 'bg-muted p-4 rounded-md', [
-                      pre(classes: 'text-sm font-mono whitespace-pre-wrap', [
-                        text(template.template),
-                      ]),
-                    ]),
-                  ]),
-
-                  // Sample output
-                  if (template.availableFields.isNotEmpty)
-                    div([
-                      h4(classes: 'font-medium text-foreground mb-2', [
-                        text('Sample Output'),
-                      ]),
-                      p(classes: 'text-xs text-muted-foreground mb-2', [
-                        text('Example with placeholder data:'),
-                      ]),
-                      div(classes: 'bg-muted p-4 rounded-md', [
-                        pre(classes: 'text-sm whitespace-pre-wrap', [
-                          text(_generateSampleOutput(template)),
-                        ]),
-                      ]),
-                    ]),
-                ]),
-              ],
-            ),
-
-            CardFooter(
-              children: [
-                div(classes: 'flex justify-end w-full', [
-                  Button(onPressed: _hideDialogs, children: [text('Close')]),
-                ]),
-              ],
-            ),
+        DialogFooter(
+          children: [
+            div(classes: 'flex justify-end space-x-3 w-full', [
+              Button(
+                variant: ButtonVariant.outline,
+                onPressed: component.onClose,
+                children: [text('Cancel')],
+              ),
+              Button(
+                onPressed: model.validate() ? _saveTemplate : null,
+                children: [text(component.isEditing ? 'Update' : 'Create')],
+              ),
+            ]),
           ],
         ),
       ],
     );
   }
+}
 
+final class _DeleteDialog extends StatefulComponent {
+  _DeleteDialog({required this.template, required this.onClose});
+
+  final EmbeddingTemplateConfig? template;
+  final VoidCallback onClose;
+
+  @override
+  State<StatefulComponent> createState() => _DeleteDialogState();
+}
+
+final class _DeleteDialogState extends State<_DeleteDialog>
+    with ConfigurationManagerListener {
+  void _deleteTemplate() {
+    if (component.template != null) {
+      configManager.embeddingTemplates.remove(component.template!.id);
+      component.onClose();
+    }
+  }
+
+  @override
+  Component build(BuildContext context) {
+    return Dialog(
+      onClose: component.onClose,
+      maxWidth: 'max-w-md',
+      builder: (_) => DialogContent(
+        children: [
+          DialogHeader(
+            children: [
+              DialogTitle(children: [text('Delete Template')]),
+              DialogDescription(
+                children: [
+                  text(
+                    'Are you sure you want to delete "${component.template?.name}"? This action cannot be undone.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          DialogFooter(
+            children: [
+              div(classes: 'flex justify-end space-x-3 w-full', [
+                Button(
+                  variant: ButtonVariant.outline,
+                  onPressed: component.onClose,
+                  children: [text('Cancel')],
+                ),
+                Button(
+                  variant: ButtonVariant.destructive,
+                  onPressed: _deleteTemplate,
+                  children: [text('Delete')],
+                ),
+              ]),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+final class _PreviewDialog extends StatefulComponent {
+  _PreviewDialog({required this.template, required this.onClose});
+
+  final EmbeddingTemplateConfig? template;
+  final VoidCallback onClose;
+
+  @override
+  State<StatefulComponent> createState() => _PreviewDialogState();
+}
+
+final class _PreviewDialogState extends State<_PreviewDialog>
+    with ConfigurationManagerListener {
   String _generateSampleOutput(EmbeddingTemplateConfig template) {
     final sampleData = <String, String>{};
     for (final field in template.availableFields) {
@@ -609,15 +507,135 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
     return output;
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+  @override
+  Component build(BuildContext context) {
+    if (component.template == null) return div([]);
 
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    final template = component.template!;
+    final dataSource = configManager.dataSources.getById(template.dataSourceId);
 
-    return '${date.day}/${date.month}/${date.year}';
+    return Dialog(
+      onClose: component.onClose,
+      maxWidth: 'max-w-2xl',
+      builder: (_) => DialogContent(
+        children: [
+          DialogHeader(
+            children: [
+              div(classes: 'flex justify-between items-center', [
+                CardTitle(children: [text('Template Preview')]),
+                button(
+                  classes:
+                      'text-muted-foreground hover:text-foreground transition-colors',
+                  events: {'click': (event) => component.onClose()},
+                  [text('×')],
+                ),
+              ]),
+              CardDescription(
+                children: [text('Preview of "${template.name}" template')],
+              ),
+            ],
+          ),
+
+          div(classes: 'space-y-4', [
+            // Template info
+            div([
+              h4(classes: 'font-medium text-foreground mb-2', [
+                text('Template Details'),
+              ]),
+              div(classes: 'text-sm space-y-1', [
+                div([
+                  span(classes: 'font-medium', [text('Name: ')]),
+                  span([text(template.name)]),
+                ]),
+                if (template.description.isNotEmpty)
+                  div([
+                    span(classes: 'font-medium', [text('Description: ')]),
+                    span([text(template.description)]),
+                  ]),
+                div([
+                  span(classes: 'font-medium', [text('Data Source: ')]),
+                  dataSource != null
+                      ? Badge(
+                          variant: BadgeVariant.outline,
+                          children: [
+                            text(
+                              '${dataSource.name} (${dataSource.type.name.toUpperCase()})',
+                            ),
+                          ],
+                        )
+                      : Badge(
+                          variant: BadgeVariant.destructive,
+                          children: [text('Missing: ${template.dataSourceId}')],
+                        ),
+                ]),
+                div([
+                  span(classes: 'font-medium', [text('Status: ')]),
+                  Badge(
+                    variant: template.isValid
+                        ? BadgeVariant.secondary
+                        : BadgeVariant.destructive,
+                    children: [text(template.isValid ? 'Valid' : 'Invalid')],
+                  ),
+                ]),
+              ]),
+            ]),
+
+            // Available fields from data source
+            if (template.availableFields.isNotEmpty)
+              div([
+                h4(classes: 'font-medium text-foreground mb-2', [
+                  text('Available Fields from Data Source'),
+                ]),
+                p(classes: 'text-xs text-muted-foreground mb-2', [
+                  text('Fields that can be used in this template:'),
+                ]),
+                div(classes: 'flex flex-wrap gap-1', [
+                  for (final field in template.availableFields)
+                    Badge(
+                      variant: BadgeVariant.secondary,
+                      children: [text('{{$field}}')],
+                    ),
+                ]),
+              ]),
+
+            // Raw template
+            div([
+              h4(classes: 'font-medium text-foreground mb-2', [
+                text('Template'),
+              ]),
+              div(classes: 'bg-muted p-4 rounded-md', [
+                pre(classes: 'text-sm font-mono whitespace-pre-wrap', [
+                  text(template.template),
+                ]),
+              ]),
+            ]),
+
+            // Sample output
+            if (template.availableFields.isNotEmpty)
+              div([
+                h4(classes: 'font-medium text-foreground mb-2', [
+                  text('Sample Output'),
+                ]),
+                p(classes: 'text-xs text-muted-foreground mb-2', [
+                  text('Example with placeholder data:'),
+                ]),
+                div(classes: 'bg-muted p-4 rounded-md', [
+                  pre(classes: 'text-sm whitespace-pre-wrap', [
+                    text(_generateSampleOutput(template)),
+                  ]),
+                ]),
+              ]),
+          ]),
+
+          DialogFooter(
+            children: [
+              div(classes: 'flex justify-end w-full', [
+                Button(onPressed: component.onClose, children: [text('Close')]),
+              ]),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

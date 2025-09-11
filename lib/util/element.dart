@@ -10,17 +10,17 @@ import 'package:web/web.dart' as web;
 ///
 /// Uses [MutationObserver] for efficient DOM watching when available,
 /// falls back to polling every 100ms otherwise.
-Future<web.Element> waitForElement(
+Future<T> waitForElement<T extends web.Element>(
   String id, {
-  Duration timeout = const Duration(seconds: 10),
+  Duration timeout = const Duration(seconds: 1),
 }) async {
   // Check if element already exists
   final existing = web.document.getElementById(id);
   if (existing != null) {
-    return existing;
+    return existing as T;
   }
 
-  final completer = Completer<web.Element>();
+  final completer = Completer<T>();
 
   // Set up timeout
   Timer? timeoutTimer;
@@ -53,7 +53,7 @@ Future<web.Element> waitForElement(
         final element = web.document.getElementById(id);
         if (element != null && !completer.isCompleted) {
           cleanup();
-          completer.complete(element);
+          completer.complete(element as T);
         }
       }.toJS,
     );
@@ -68,7 +68,7 @@ Future<web.Element> waitForElement(
       final element = web.document.getElementById(id);
       if (element != null && !completer.isCompleted) {
         cleanup();
-        completer.complete(element);
+        completer.complete(element as T);
       }
     });
   }

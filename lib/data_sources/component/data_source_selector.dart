@@ -1,11 +1,15 @@
+import 'dart:js_interop';
+
 import 'package:aws_common/aws_common.dart';
-import '../model/data_source_config.dart';
-import '../../util/file.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
+import '../../util/element.dart';
+import '../../util/file.dart';
 import '../model/data_source.dart';
+import '../model/data_source_config.dart';
+import '../model/data_source_settings.dart';
 import '../service/csv_data_source.dart';
 import '../service/sqlite_data_source.dart';
 import 'data_preview.dart';
@@ -37,10 +41,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   // CSV configuration
   String _csvDelimiter = ',';
   bool _csvHasHeader = true;
+  bool _csvPersistent = false;
+  String? _csvPersistentName;
   web.File? _selectedFile;
 
   // SQLite configuration
-  String _sqliteType = 'sample'; // 'sample', 'upload'
+  SqliteDataSourceType _sqliteType = SqliteDataSourceType.sample;
   bool _sqlitePersistent = false;
   String? _sqlitePersistentName;
   String _sqlQuery = '';
@@ -89,9 +95,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         ),
         CardContent(
           children: [
-            div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-4', [
-              for (final type in DataSourceType.values) _buildTypeCard(type),
-            ]),
+            RadioGroup(
+              className: 'grid grid-cols-1 md:grid-cols-2 gap-4',
+              children: [
+                for (final type in DataSourceType.values) _buildTypeCard(type),
+              ],
+            ),
           ],
         ),
       ],
@@ -131,9 +140,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
             ),
           ]),
           div(classes: 'flex-1', [
-            h3(
+            h4(
               classes: [
-                'text-lg font-medium transition-colors duration-200',
+                'font-medium transition-colors duration-200',
                 if (isSelected) 'text-primary-900' else 'text-neutral-900',
               ].join(' '),
               [text(type.displayName)],
@@ -197,30 +206,56 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   Component _buildCsvConfiguration() {
     return div(classes: 'space-y-6', [
-      // File upload
-      div(classes: 'space-y-2', [
-        Label(children: [text('CSV File')]),
-        div(classes: 'relative', [
-          input(
-            id: 'csv-file-input',
-            type: InputType.file,
-            classes:
-                'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            attributes: {'accept': '.csv,.txt'},
-            events: {'change': (event) => _handleCsvFileSelect(event)},
+      FileUpload(
+        label: 'CSV File',
+        accept: '.csv,.txt',
+        inputId: 'csv-file-input',
+        dropText: 'Drop your CSV file here',
+        supportedFormats: 'Supports .csv, .txt files',
+        selectedFile: _selectedFile,
+        onFileChanged: (file) => setState(() => _selectedFile = file),
+      ),
+
+      // Persistence options
+      div(classes: 'space-y-3', [
+        div(classes: 'flex items-center space-x-2', [
+          Checkbox(
+            id: 'csv-persistent',
+            checked: _csvPersistent,
+            onChanged: (checked) => setState(() {
+              _csvPersistent = checked;
+              _csvPersistentName ??= _dataSourceName
+                  ?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
+                  .toLowerCase();
+            }),
           ),
-          if (_selectedFile != null)
-            div(classes: 'mt-2', [
-              Badge(
-                variant: BadgeVariant.secondary,
-                children: [
-                  text(
-                    'Selected: ${_selectedFile!.name} (${_formatFileSize(_selectedFile!.size)})',
-                  ),
-                ],
+          Label(
+            htmlFor: 'csv-persistent',
+            children: [text('Save to persistent storage')],
+          ),
+        ]),
+        if (_csvPersistent)
+          div(classes: 'ml-6 space-y-2', [
+            Label(children: [text('Persistent Dataset Name')]),
+            input(
+              classes:
+                  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              attributes: {
+                'placeholder': 'my_csv_dataset',
+                'value': ?_csvPersistentName,
+              },
+              events: {
+                'input': (e) => setState(() {
+                  _csvPersistentName = (e.target as web.HTMLInputElement).value;
+                }),
+              },
+            ),
+            p(classes: 'text-xs text-muted-foreground', [
+              text(
+                'The CSV data will be saved in browser storage and can be accessed later',
               ),
             ]),
-        ]),
+          ]),
       ]),
 
       // CSV options
@@ -305,31 +340,29 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       div(classes: 'space-y-2', [
         Label(children: [text('Database Type')]),
         div(classes: 'space-y-3', [
-          for (final option in [
-            (
-              'sample',
-              'Sample Data',
-              'Use pre-loaded sample movie data for testing and exploration',
-            ),
-            (
-              'upload',
-              'Upload Database File',
-              'Upload an existing SQLite database file with optional persistence',
-            ),
-          ])
+          for (final option in SqliteDataSourceType.values)
             _buildRadioOption(
-              option.$1,
-              option.$2,
-              option.$3,
-              _sqliteType == option.$1,
-              (value) => setState(() => _sqliteType = value),
+              value: option,
+              title: option.displayName,
+              description: option.description,
+              isSelected: _sqliteType == option,
+              onChanged: (value) => setState(() => _sqliteType = value),
             ),
         ]),
       ]),
 
       // Configuration based on type
-      if (_sqliteType == 'upload') ...[
-        _buildSqliteFileUpload(),
+      if (_sqliteType == SqliteDataSourceType.upload) ...[
+        FileUpload(
+          label: 'Database File',
+          accept: '.db,.sqlite,.sqlite3',
+          inputId: 'sqlite-file-input',
+          dropText: 'Drop your SQLite file here',
+          supportedFormats: 'Supports .db, .sqlite, .sqlite3 files',
+          selectedFile: _selectedFile,
+          onFileChanged: (file) => setState(() => _selectedFile = file),
+        ),
+
         // Persistence options for upload
         div(classes: 'space-y-3', [
           div(classes: 'flex items-center space-x-2', [
@@ -399,7 +432,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               text('Loading...'),
             ] else
               text(
-                _sqliteType == 'sample'
+                _sqliteType == SqliteDataSourceType.sample
                     ? 'Load Sample Data'
                     : 'Connect to Database',
               ),
@@ -409,47 +442,54 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     ]);
   }
 
-  Component _buildRadioOption(
-    String value,
-    String title,
-    String description,
-    bool isSelected,
-    void Function(String) onChanged,
-  ) {
+  Component _buildRadioOption({
+    required SqliteDataSourceType value,
+    required String title,
+    required String description,
+    required bool isSelected,
+    required void Function(SqliteDataSourceType) onChanged,
+  }) {
     return div(
       classes: [
-        'relative rounded-lg border p-4 cursor-pointer transition-all duration-200',
+        'relative rounded-lg border-2 p-4 cursor-pointer transition-all duration-200',
         if (isSelected)
-          'border-primary bg-accent/50 ring-2 ring-primary ring-offset-2'
+          'border-primary-500 bg-primary-50'
         else
-          'border-border hover:border-accent-foreground hover:bg-accent/25',
+          'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
       ].join(' '),
       events: {'click': (_) => onChanged(value)},
       [
         div(classes: 'flex items-start space-x-3', [
           div(classes: 'flex-shrink-0 mt-1', [
-            Radio(
-              value: value,
-              groupValue: isSelected ? value : null,
-              onChanged: onChanged,
-              name: 'sqlite-type',
+            div(
+              classes: [
+                'w-4 h-4 rounded-full border-2 transition-all duration-200',
+                if (isSelected)
+                  'border-primary-500 bg-primary-500'
+                else
+                  'border-neutral-300',
+              ].join(' '),
+              [
+                if (isSelected)
+                  div(
+                    classes: 'w-2 h-2 bg-white rounded-full m-auto mt-0.5',
+                    [],
+                  ),
+              ],
             ),
           ]),
           div(classes: 'flex-1', [
             h4(
               classes: [
-                'text-sm font-medium transition-colors duration-200',
-                if (isSelected) 'text-foreground' else 'text-foreground',
+                'font-medium transition-colors duration-200',
+                if (isSelected) 'text-primary-900' else 'text-neutral-900',
               ].join(' '),
               [text(title)],
             ),
             p(
               classes: [
-                'text-xs mt-1 transition-colors duration-200',
-                if (isSelected)
-                  'text-muted-foreground'
-                else
-                  'text-muted-foreground',
+                'text-sm mt-1 transition-colors duration-200',
+                if (isSelected) 'text-primary-700' else 'text-neutral-500',
               ].join(' '),
               [text(description)],
             ),
@@ -457,99 +497,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         ]),
       ],
     );
-  }
-
-  Component _buildSqliteFileUpload() {
-    return div(classes: 'space-y-4', [
-      Label(children: [text('Database File')]),
-      div(
-        classes: [
-          'relative cursor-pointer group border-2 border-dashed rounded-lg p-6 text-center transition-colors',
-          if (_selectedFile != null)
-            'border-border bg-accent/50'
-          else
-            'border-border hover:border-accent-foreground hover:bg-accent/50',
-        ].join(' '),
-        events: {
-          'click': (_) {
-            final fileInput =
-                web.document.querySelector('#sqlite-file-input')
-                    as web.HTMLInputElement?;
-            fileInput?.click();
-          },
-          'drop': (e) {
-            e.preventDefault();
-            final files = (e as web.DragEvent).dataTransfer?.files;
-            if (files != null && files.length > 0) {
-              final file = files.item(0);
-              if (file != null) {
-                setState(() => _selectedFile = file);
-              }
-            }
-          },
-          'dragover': (e) => e.preventDefault(),
-          'dragenter': (e) => e.preventDefault(),
-        },
-        [
-          if (_selectedFile != null) ...[
-            div(classes: 'space-y-2', [
-              Badge(
-                variant: BadgeVariant.secondary,
-                children: [text(_selectedFile!.name)],
-              ),
-              p(classes: 'text-sm text-muted-foreground', [
-                text('${(_selectedFile!.size / 1024).toStringAsFixed(1)} KB'),
-              ]),
-              Button(
-                variant: ButtonVariant.outline,
-                size: ButtonSize.sm,
-                onPressed: () => setState(() => _selectedFile = null),
-                children: [text('Remove file')],
-              ),
-            ]),
-          ] else ...[
-            div(classes: 'space-y-2', [
-              div(classes: 'mx-auto w-12 h-12 text-muted-foreground', [
-                // Upload icon placeholder
-                div(
-                  classes: 'w-full h-full bg-muted-foreground/20 rounded-full',
-                  [],
-                ),
-              ]),
-              div(classes: 'space-y-1', [
-                p(classes: 'text-sm text-foreground', [
-                  text('Drop your SQLite file here, or '),
-                  span(classes: 'text-primary font-medium', [text('browse')]),
-                ]),
-                p(classes: 'text-xs text-muted-foreground', [
-                  text('Supports .db, .sqlite, .sqlite3 files'),
-                ]),
-              ]),
-            ]),
-          ],
-        ],
-      ),
-      // Hidden file input
-      input(
-        classes: 'hidden',
-        attributes: {
-          'type': 'file',
-          'accept': '.db,.sqlite,.sqlite3',
-          'id': 'sqlite-file-input',
-        },
-        events: {
-          'change': (e) {
-            final files = (e.target as web.HTMLInputElement).files;
-            if (files != null && files.length > 0) {
-              final file = files.item(0);
-              if (file != null) {
-                setState(() => _selectedFile = file);
-              }
-            }
-          },
-        },
-      ),
-    ]);
   }
 
   Component _buildSqlQueryEditor() {
@@ -580,17 +527,15 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
   }
 
   Component _buildPreviewSection() {
-    if (_error != null) {
-      return Alert(
-        variant: AlertVariant.destructive,
-        children: [text(_error!)],
-      );
-    } else {
-      return DataPreview(
-        dataSource: _currentDataSource!,
-        onError: (message) => setState(() => _error = message),
-      );
-    }
+    return div(id: 'data-preview', [
+      if (_error != null)
+        Alert(variant: AlertVariant.destructive, children: [text(_error!)])
+      else
+        DataPreview(
+          dataSource: _currentDataSource!,
+          onError: (message) => setState(() => _error = message),
+        ),
+    ]);
   }
 
   void _selectType(DataSourceType type) {
@@ -602,16 +547,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       _showQueryEditor = false;
       _sqlQuery = '';
     });
-  }
-
-  void _handleCsvFileSelect(web.Event event) {
-    final input = event.target as web.HTMLInputElement;
-    final files = input.files;
-    if (files != null && files.length > 0) {
-      setState(() {
-        _selectedFile = files.item(0);
-      });
-    }
   }
 
   void _handleDelimiterChange(web.Event event) {
@@ -639,6 +574,11 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     }
   }
 
+  Future<void> _scrollToPreview() async {
+    final preview = await waitForElement<web.HTMLElement>('data-preview');
+    preview.scrollIntoView({'behavior': 'smooth'}.jsify()!);
+  }
+
   Future<void> _loadCsvDataSource() async {
     if (_selectedFile == null) return;
 
@@ -653,6 +593,8 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         file: _selectedFile!,
         delimiter: _csvDelimiter,
         hasHeader: _csvHasHeader,
+        persistent: _csvPersistent,
+        persistentName: _csvPersistentName,
       );
 
       final connected = await dataSource.connect();
@@ -667,6 +609,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       });
 
       component.onDataSourceSelected?.call(dataSource);
+
+      // Scroll to preview section after successful load
+      _scrollToPreview().ignore();
     } catch (e) {
       final errorMessage = 'Failed to load CSV file: ${e.toString()}';
       setState(() {
@@ -687,11 +632,11 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       late SqliteDataSource dataSource;
 
       switch (_sqliteType) {
-        case 'sample':
+        case SqliteDataSourceType.sample:
           dataSource = SqliteDataSource.withSampleData(
             name: 'Sample Movie Database',
           );
-        case 'upload':
+        case SqliteDataSourceType.upload:
           if (_selectedFile == null) {
             throw Exception('Please select a database file');
           }
@@ -710,8 +655,10 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
               databaseData: bytes,
             );
           }
-        default:
-          throw Exception('Unknown SQLite type: $_sqliteType');
+        case SqliteDataSourceType.persistent:
+          throw UnsupportedError(
+            'Persistent SQLite data source not implemented yet',
+          );
       }
 
       final connected = await dataSource.connect();
@@ -728,6 +675,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       });
 
       component.onDataSourceSelected?.call(dataSource);
+
+      // Scroll to preview section after successful load
+      _scrollToPreview().ignore();
     } catch (e) {
       final errorMessage = 'Failed to load SQLite database: ${e.toString()}';
       setState(() {
@@ -736,11 +686,5 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       });
       component.onError?.call(errorMessage);
     }
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

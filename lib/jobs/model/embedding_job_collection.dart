@@ -1,8 +1,12 @@
+import 'package:logging/logging.dart';
+
 import '../../configurations/model/configuration_collection.dart';
 import 'embedding_job.dart';
 
 /// Collection for managing embedding jobs
 class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
+  static final Logger _logger = Logger('EmbeddingJobCollection');
+
   @override
   String get prefix => 'job';
 
@@ -17,7 +21,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
     try {
       return EmbeddingJob.fromJson(json);
     } catch (e) {
-      print('Error parsing embedding job from JSON: $e');
+      _logger.severe('Error parsing embedding job from JSON: $e');
       return null;
     }
   }

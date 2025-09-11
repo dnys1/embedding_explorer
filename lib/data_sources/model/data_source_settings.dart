@@ -53,6 +53,12 @@ class CsvDataSourceSettings extends DataSourceSettings {
   /// Source type ('file', 'url', 'text')
   final String source;
 
+  /// Whether to use persistent storage
+  final bool persistent;
+
+  /// Name for persistent storage (if persistent is true)
+  final String? persistentName;
+
   const CsvDataSourceSettings({
     this.delimiter = ',',
     this.hasHeader = true,
@@ -64,6 +70,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
     this.maxRows,
     this.content,
     this.source = 'file',
+    this.persistent = false,
+    this.persistentName,
   });
 
   @override
@@ -79,6 +87,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
       if (maxRows != null) 'maxRows': maxRows,
       if (content != null) 'content': content,
       'source': source,
+      'persistent': persistent,
+      if (persistentName != null) 'persistentName': persistentName,
     };
   }
 
@@ -94,6 +104,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
       maxRows: json['maxRows'] as int?,
       content: json['content'] as String?,
       source: json['source'] as String? ?? 'file',
+      persistent: json['persistent'] as bool? ?? false,
+      persistentName: json['persistentName'] as String?,
     );
   }
 
@@ -108,6 +120,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
     int? maxRows,
     String? content,
     String? source,
+    bool? persistent,
+    String? persistentName,
   }) {
     return CsvDataSourceSettings(
       delimiter: delimiter ?? this.delimiter,
@@ -120,6 +134,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
       maxRows: maxRows ?? this.maxRows,
       content: content ?? this.content,
       source: source ?? this.source,
+      persistent: persistent ?? this.persistent,
+      persistentName: persistentName ?? this.persistentName,
     );
   }
 
@@ -141,7 +157,9 @@ class CsvDataSourceSettings extends DataSourceSettings {
           skipRows == other.skipRows &&
           maxRows == other.maxRows &&
           content == other.content &&
-          source == other.source;
+          source == other.source &&
+          persistent == other.persistent &&
+          persistentName == other.persistentName;
 
   @override
   int get hashCode => Object.hash(
@@ -155,10 +173,34 @@ class CsvDataSourceSettings extends DataSourceSettings {
     maxRows,
     content,
     source,
+    persistent,
+    persistentName,
   );
 }
 
-enum SqliteDataSourceType { sample, upload, persistent }
+enum SqliteDataSourceType {
+  sample(
+    displayName: 'Sample Data',
+    description: 'Use pre-loaded sample movie data for testing and exploration',
+  ),
+  upload(
+    displayName: 'Upload Database File',
+    description:
+        'Upload an existing SQLite database file with optional persistence',
+  ),
+  persistent(
+    displayName: 'Persistent Storage',
+    description: 'Load a previously persisted SQLite database',
+  );
+
+  const SqliteDataSourceType({
+    required this.displayName,
+    required this.description,
+  });
+
+  final String displayName;
+  final String description;
+}
 
 /// Settings for SQLite data sources
 class SqliteDataSourceSettings extends DataSourceSettings {

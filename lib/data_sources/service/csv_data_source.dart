@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:csv/csv.dart';
-import '../model/data_source_config.dart';
-import '../model/data_source_settings.dart';
-import '../../util/file.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../util/file.dart';
 import '../model/data_source.dart';
+import '../model/data_source_config.dart';
+import '../model/data_source_settings.dart';
 
 /// CSV data source implementation that can load and parse CSV files
 /// from file uploads or URLs.
@@ -36,6 +36,8 @@ class CsvDataSource extends DataSource {
     String delimiter = ',',
     bool hasHeader = true,
     String? encoding,
+    bool persistent = false,
+    String? persistentName,
   }) {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final config = DataSourceConfig(
@@ -49,6 +51,8 @@ class CsvDataSource extends DataSource {
         encoding: encoding ?? 'utf-8',
         content: csvContent,
         source: 'file',
+        persistent: persistent,
+        persistentName: persistentName,
       ),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -62,6 +66,8 @@ class CsvDataSource extends DataSource {
     String? name,
     String delimiter = ',',
     bool hasHeader = true,
+    bool persistent = false,
+    String? persistentName,
   }) async {
     final content = await file.readAsString();
     return CsvDataSource.fromFileContent(
@@ -69,6 +75,8 @@ class CsvDataSource extends DataSource {
       csvContent: content,
       delimiter: delimiter,
       hasHeader: hasHeader,
+      persistent: persistent,
+      persistentName: persistentName,
     );
   }
 

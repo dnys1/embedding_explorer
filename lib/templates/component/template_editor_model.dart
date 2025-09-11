@@ -1,53 +1,68 @@
 import 'dart:async';
 
+import 'package:jaspr/browser.dart' show ValueListenable, ValueNotifier;
+import 'package:logging/logging.dart';
+
+import '../../common/monaco/custom_language.dart';
+import '../../common/monaco/monaco_editor_model.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../../data_sources/model/data_source.dart';
 import '../../interop/monaco.dart'
-    as monaco
-    show loadModule, editor, languages;
-import '../../interop/monaco.dart' hide Uri, RegExp;
-import '../model/embedding_template_config.dart';
+    show
+        IMonarchLanguage,
+        IExpandedMonarchLanguageRule,
+        CompletionList,
+        ITextModel,
+        Position,
+        CompletionContext,
+        CancellationToken,
+        CompletionItemKind,
+        CompletionItem,
+        IMarkdownString,
+        Hover;
 import '../../util/change_notifier.dart';
-import 'package:jaspr/browser.dart' show ValueListenable, ValueNotifier;
-import 'package:logging/logging.dart';
-import 'package:web/web.dart' as web;
+import '../model/embedding_template_config.dart';
 
-final class TemplateEditorModel extends ChangeNotifierX {
-  factory TemplateEditorModel({
-    required ConfigurationManager configManager,
-    EmbeddingTemplateConfig? initialTemplate,
-  }) {
-    return TemplateEditorModel._(
-      configManager: configManager,
-      initialTemplate: initialTemplate,
-    );
-  }
-
-  TemplateEditorModel._({
+final class TemplateEditorModel extends ChangeNotifierX
+    implements
+        MonacoCustomLanguage,
+        MonacoCompletionItemProvider,
+        MonacoHoverProvider {
+  TemplateEditorModel({
     required ConfigurationManager configManager,
     EmbeddingTemplateConfig? initialTemplate,
   }) : _configManager = configManager,
-       _initialTemplate = initialTemplate;
+       _initialTemplate = initialTemplate,
+       _name = ValueNotifier(initialTemplate?.name ?? ''),
+       _description = ValueNotifier(initialTemplate?.description ?? ''),
+       _selectedDataSourceId = ValueNotifier(
+         initialTemplate?.dataSourceId ?? '',
+       );
 
-  static final Logger _logger = Logger('TemplateEditorModel');
+  static final Logger _logger = Logger('TemplateEditor');
 
   final ConfigurationManager _configManager;
   final EmbeddingTemplateConfig? _initialTemplate;
 
   ConfigurationManager get configManager => _configManager;
 
-  final ValueNotifier<String> _template = ValueNotifier('');
-  final ValueNotifier<String> _name = ValueNotifier('');
-  final ValueNotifier<String> _description = ValueNotifier('');
-  final ValueNotifier<String> _selectedDataSourceId = ValueNotifier('');
+  final ValueNotifier<String> _name;
+  final ValueNotifier<String> _description;
+  final ValueNotifier<String> _selectedDataSourceId;
+  final ValueNotifier<String?> _error = ValueNotifier(null);
+
+  late final MonacoEditorModel editor = MonacoEditorModel(
+    containerId: 'template-editor',
+    language: languageId,
+    customLanguage: this,
+    height: 400,
+    initialValue: _initialTemplate?.template ?? _defaultTemplate,
+  );
 
   DataSource? _currentDataSource;
   List<String> _schemaFields = [];
   Map<String, dynamic>? _sampleRow;
   bool _isLoading = false;
-
-  IStandaloneCodeEditor? _editor;
-  IStandaloneCodeEditor get editor => _editor!;
 
   static const String _defaultTemplate = '''// Create your embedding template
 // Use {{field}} syntax to reference data fields
@@ -55,27 +70,70 @@ final class TemplateEditorModel extends ChangeNotifierX {
 
 {{title}} - {{description}}''';
 
-  bool _isEditorInitialized = false;
-
-  ValueListenable<String> get template => _template;
   ValueListenable<String> get name => _name;
   ValueListenable<String> get description => _description;
   ValueListenable<String> get selectedDataSourceId => _selectedDataSourceId;
+  ValueListenable<String?> get error => _error;
   List<String> get schemaFields => _schemaFields;
   Map<String, dynamic>? get sampleRow => _sampleRow;
   bool get isLoading => _isLoading;
   DataSource? get currentDataSource => _currentDataSource;
 
-  String? _error;
-  String? get error => _error;
   void dismissError() {
-    if (_error != null) {
-      setState(() => _error = null);
+    if (_error.value != null) {
+      _error.value = null;
+    }
+  }
+
+  Future<void> init() async {
+    assert(!_isLoading);
+    setState(() => _isLoading = true);
+    try {
+      _logger.fine(
+        'Initializing template editor with template: $_initialTemplate',
+      );
+      await Future.wait([
+        if (_initialTemplate != null)
+          _loadDataSourceById(_initialTemplate.dataSourceId),
+        editor.init(),
+      ]);
+    } catch (e) {
+      _error.value = 'Initialization failed: $e';
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadDataSourceById(String dataSourceId) async {
+    try {
+      final dataSourceConfig = _configManager.dataSources.getById(dataSourceId);
+      if (dataSourceConfig == null) {
+        _error.value = 'Data source not found: $dataSourceId';
+        return;
+      }
+
+      _currentDataSource = DataSource.fromConfig(dataSourceConfig);
+      if (!_currentDataSource!.isConnected) {
+        await _currentDataSource!.connect();
+      }
+
+      final (schema, sampleData) = await (
+        _currentDataSource!.getSchema(),
+        _currentDataSource!.getSampleData(limit: 1),
+      ).wait;
+
+      _schemaFields = (schema as Map<String, dynamic>).keys.toList();
+      _sampleRow = sampleData.isNotEmpty ? sampleData.first : null;
+
+      setState(() {});
+    } catch (e) {
+      _logger.warning('Failed to load data source fields: $e');
+      _error.value = 'Failed to load data source: $e';
     }
   }
 
   String get previewText {
-    final templateText = _template.value;
+    final templateText = editor.value.value;
     if (templateText.isEmpty) {
       return 'Preview will appear here once you define a template...';
     }
@@ -122,14 +180,13 @@ final class TemplateEditorModel extends ChangeNotifierX {
         await _loadDataSourceById(dataSourceId);
       }
 
-      _updateEditorLanguageConfiguration();
       notifyListeners();
     }
   }
 
   bool validate() {
     return _name.value.isNotEmpty &&
-        _template.value.isNotEmpty &&
+        editor.value.value.isNotEmpty &&
         _selectedDataSourceId.value.isNotEmpty;
   }
 
@@ -138,7 +195,7 @@ final class TemplateEditorModel extends ChangeNotifierX {
       id: id,
       name: _name.value,
       description: _description.value,
-      template: _template.value,
+      template: editor.value.value,
       dataSourceId: _selectedDataSourceId.value,
       availableFields: List.of(_schemaFields),
       metadata: {},
@@ -147,254 +204,134 @@ final class TemplateEditorModel extends ChangeNotifierX {
     );
   }
 
-  Future<void> init() async {
-    assert(!_isLoading);
-    setState(() => _isLoading = true);
-    try {
-      if (_initialTemplate != null) {
-        _name.value = _initialTemplate.name;
-        _description.value = _initialTemplate.description;
-        _template.value = _initialTemplate.template;
-        _selectedDataSourceId.value = _initialTemplate.dataSourceId;
-
-        // Load the data source for the initial template
-        if (_initialTemplate.dataSourceId.isNotEmpty) {
-          await _loadDataSourceById(_initialTemplate.dataSourceId);
-        }
-      } else {
-        _template.value = _defaultTemplate;
-      }
-
-      await _initializeEditor();
-    } catch (e) {
-      _error = 'Initialization failed: $e';
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _loadDataSourceById(String dataSourceId) async {
-    try {
-      final dataSourceConfig = _configManager.dataSources.getById(dataSourceId);
-      if (dataSourceConfig == null) {
-        _error = 'Data source not found: $dataSourceId';
-        return;
-      }
-
-      _currentDataSource = DataSource.fromConfig(dataSourceConfig);
-      if (!_currentDataSource!.isConnected) {
-        await _currentDataSource!.connect();
-      }
-
-      final (schema, sampleData) = await (
-        _currentDataSource!.getSchema(),
-        _currentDataSource!.getSampleData(limit: 1),
-      ).wait;
-
-      _schemaFields = (schema as Map<String, dynamic>).keys.toList();
-      _sampleRow = sampleData.isNotEmpty ? sampleData.first : null;
-
-      setState(() {});
-    } catch (e) {
-      _logger.warning('Failed to load data source fields: $e');
-      _error = 'Failed to load data source: $e';
-    }
-  }
-
-  Future<void> _initializeEditor() async {
-    if (_isEditorInitialized) {
-      return;
-    }
-    _logger.finest('Loading Monaco editor module.');
-    await monaco.loadModule();
-
-    // Wait for the container to be available
-    final container = web.document.getElementById('template-editor-container');
-    if (container == null) {
-      _logger.severe('Editor container not found (#template-editor-container)');
-      _error = 'Editor container not found';
-      return;
-    }
-
-    _logger.finest('Initializing Monaco editor in container.');
-
-    final editor = _editor = monaco.editor.create(
-      container,
-      IStandaloneEditorConstructionOptions(
-        value: _template.value,
-        language: 'template',
-        theme: 'vs',
-        automaticLayout: false,
-        fontSize: 14,
-        minimap: IEditorMinimapOptions(enabled: false),
-        scrollbar: IEditorScrollbarOptions(
-          vertical: AnonymousUnion_1753152.hidden,
-          horizontal: AnonymousUnion_1753152.hidden,
-          handleMouseWheel: false,
-        ),
-        scrollBeyondLastLine: false,
-        wordWrap: AnonymousUnion_2810996.on$,
-        contextmenu: false,
-        acceptSuggestionOnEnter: true,
-        acceptSuggestionOnCommitCharacter: true,
-        tabCompletion: 'on',
-        tabFocusMode: true,
-        suggest: ISuggestOptions(
-          insertMode: AnonymousUnion_1259071.replace,
-          filterGraceful: true,
-        ),
-      ),
-    );
-
-    _configureTemplateLanguage();
-    _updateEditorLanguageConfiguration();
-
-    // Listen for content changes
-    editor.onDidChangeModelContent((IModelContentChangedEvent e) {
-      final newValue = editor.getValue();
-      if (_template.value != newValue) {
-        _template.value = newValue;
-        notifyListeners();
-      }
-    });
-
-    _isEditorInitialized = true;
-  }
-
-  /// Configures Monaco with a custom language for template syntax
-  void _configureTemplateLanguage() {
-    _logger.finest('Configuring template language.');
-
-    // Register the template language
-    monaco.languages.register(ILanguageExtensionPoint(id: 'template'));
-
-    _updateEditorLanguageConfiguration();
-  }
-
-  void _updateEditorLanguageConfiguration() {
-    final allFields = _schemaFields;
-
-    // Set syntax highlighting
-    monaco.languages.setMonarchTokensProvider(
-      'template',
-      IMonarchLanguage(
-        tokenizer: {
-          'root': [
-            IExpandedMonarchLanguageRule(
-              regex: r'\{\{[^}]*\}\}',
-              action: 'variable',
-            ),
-            IExpandedMonarchLanguageRule(regex: r'//.*$', action: 'comment'),
-          ],
-        },
-      ),
-    );
-
-    // Set up completion provider
-    monaco.languages.registerCompletionItemProvider(
-      'template',
-      triggerCharacters: ['{'],
-      provideCompletionItems:
-          (
-            ITextModel model,
-            Position position,
-            CompletionContext context,
-            CancellationToken token,
-          ) {
-            final line = model.getLineContent(position.lineNumber);
-
-            // Find the word being typed
-            var i = 0;
-            var nb = line.indexOf('{', i);
-            String? word;
-            while (nb >= 0) {
-              final end = line.indexOf('}', nb + 1);
-              if (end < 0) {
-                word = line.substring(nb);
-                break;
-              }
-              if (position.column >= nb && position.column <= end + 1) {
-                word = line.substring(nb, end + 1);
-                break;
-              }
-              i = end + 1;
-              nb = line.indexOf('{', i);
-            }
-
-            // Word does not start with '{', so no suggestions
-            if (word == null) {
-              return null;
-            }
-
-            final suggestions = allFields
-                .where((field) => '{{$field}}'.startsWith(word!))
-                .toSet()
-                .map(
-                  (field) => CompletionItem(
-                    label: '{{$field}}',
-                    kind: CompletionItemKind.Field,
-                    detail: 'Data field: $field',
-                    documentation: 'Insert field value for $field',
-                    insertText: '{{$field}}'.replaceFirst(word!, ''),
-                  ),
-                )
-                .toList();
-            return CompletionList(suggestions: suggestions);
-          },
-    );
-
-    // Set up hover provider
-    monaco.languages.registerHoverProvider(
-      'template',
-      provideHover: (ITextModel model, Position position, CancellationToken token) {
-        var word = model.getLineContent(position.lineNumber);
-        // There may be multiple fields in the line, so we need to find the one under the cursor
-        var i = 0;
-        var nb = word.indexOf('{{', i);
-        while (nb >= 0) {
-          final end = word.indexOf('}}', nb + 2);
-          if (end < 0) break; // No closing braces
-          if (position.column >= nb && position.column <= end + 2) {
-            // Cursor is within this field
-            word = word.substring(nb, end + 2);
-            break;
-          }
-          i = end + 2;
-          nb = word.indexOf('{{', i);
-        }
-
-        // Find the field under the cursor
-        final fieldMatch = RegExp(r'\{\{(\w+)\}\}').matchAsPrefix(word);
-
-        if (fieldMatch != null) {
-          final fieldName = fieldMatch.group(1)!;
-          if (allFields.contains(fieldName)) {
-            return Hover(
-              contents: [
-                IMarkdownString(value: 'Field: **$fieldName**'),
-                IMarkdownString(
-                  value:
-                      'This will be replaced with the value from your data source.',
-                ),
-              ],
-            );
-          }
-        }
-
-        return null;
-      },
-    );
-  }
-
   @override
   void dispose() {
-    print('Disposing TemplateEditorModel');
-    print(StackTrace.current);
-    _editor?.dispose();
-    _template.dispose();
+    if (disposed) {
+      return;
+    }
+    _logger.fine('Disposing TemplateEditorModel');
     _name.dispose();
     _description.dispose();
     _selectedDataSourceId.dispose();
+    editor.dispose();
     super.dispose();
+  }
+
+  // Monaco
+
+  @override
+  String get languageId => 'template';
+
+  @override
+  IMonarchLanguage get definition => IMonarchLanguage(
+    tokenizer: {
+      'root': [
+        IExpandedMonarchLanguageRule(
+          regex: r'\{\{[^}]*\}\}',
+          action: 'variable',
+        ),
+        IExpandedMonarchLanguageRule(regex: r'//.*$', action: 'comment'),
+      ],
+    },
+  );
+
+  @override
+  MonacoCompletionItemProvider? get completionItemProvider => this;
+
+  @override
+  MonacoHoverProvider? get hoverProvider => this;
+
+  @override
+  List<String> get triggerCharacters => const ['{'];
+
+  @override
+  CompletionList? provideCompletionItems(
+    ITextModel model,
+    Position position,
+    CompletionContext context,
+    CancellationToken token,
+  ) {
+    final line = model.getLineContent(position.lineNumber);
+
+    // Find the word being typed
+    var i = 0;
+    var nb = line.indexOf('{', i);
+    String? word;
+    while (nb >= 0) {
+      final end = line.indexOf('}', nb + 1);
+      if (end < 0) {
+        word = line.substring(nb);
+        break;
+      }
+      if (position.column >= nb && position.column <= end + 1) {
+        word = line.substring(nb, end + 1);
+        break;
+      }
+      i = end + 1;
+      nb = line.indexOf('{', i);
+    }
+
+    // Word does not start with '{', so no suggestions
+    if (word == null) {
+      return null;
+    }
+
+    final suggestions = _schemaFields
+        .where((field) => '{{$field}}'.startsWith(word!))
+        .toSet()
+        .map(
+          (field) => CompletionItem(
+            label: '{{$field}}',
+            kind: CompletionItemKind.Field,
+            detail: 'Data field: $field',
+            documentation: 'Insert field value for $field',
+            insertText: '{{$field}}'.replaceFirst(word!, ''),
+          ),
+        )
+        .toList();
+    return CompletionList(suggestions: suggestions);
+  }
+
+  @override
+  Hover? provideHover(
+    ITextModel model,
+    Position position,
+    CancellationToken token,
+  ) {
+    var word = model.getLineContent(position.lineNumber);
+    // There may be multiple fields in the line, so we need to find the one under the cursor
+    var i = 0;
+    var nb = word.indexOf('{{', i);
+    while (nb >= 0) {
+      final end = word.indexOf('}}', nb + 2);
+      if (end < 0) break; // No closing braces
+      if (position.column >= nb && position.column <= end + 2) {
+        // Cursor is within this field
+        word = word.substring(nb, end + 2);
+        break;
+      }
+      i = end + 2;
+      nb = word.indexOf('{{', i);
+    }
+
+    // Find the field under the cursor
+    final fieldMatch = RegExp(r'\{\{(\w+)\}\}').matchAsPrefix(word);
+
+    if (fieldMatch != null) {
+      final fieldName = fieldMatch.group(1)!;
+      if (_schemaFields.contains(fieldName)) {
+        return Hover(
+          contents: [
+            IMarkdownString(value: 'Field: **$fieldName**'),
+            IMarkdownString(
+              value:
+                  'This will be replaced with the value from your data source.',
+            ),
+          ],
+        );
+      }
+    }
+
+    return null;
   }
 }

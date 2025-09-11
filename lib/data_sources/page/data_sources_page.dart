@@ -1,10 +1,12 @@
 import 'package:jaspr/jaspr.dart';
+import 'package:logging/logging.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
+import '../../util/async_snapshot.dart';
 import '../component/data_source_selector.dart';
 import '../model/data_source.dart';
-import '../model/data_source_config.dart' as config;
+import '../model/data_source_config.dart';
 
 class DataSourcesPage extends StatefulComponent {
   const DataSourcesPage({super.key});
@@ -15,6 +17,8 @@ class DataSourcesPage extends StatefulComponent {
 
 class _DataSourcePageState extends State<DataSourcesPage>
     with ConfigurationManagerListener {
+  static final Logger _logger = Logger('DataSourcesPage');
+
   bool _showCreateDialog = false;
   bool _isEditing = false;
   DataSource? _selectedDataSource;
@@ -29,7 +33,7 @@ class _DataSourcePageState extends State<DataSourcesPage>
     });
   }
 
-  void _showEdit(config.DataSourceConfig dataSource) {
+  void _showEdit(DataSourceConfig dataSource) {
     setState(() {
       _isEditing = true;
       _selectedDataSource = DataSource.fromConfig(dataSource);
@@ -67,7 +71,7 @@ class _DataSourcePageState extends State<DataSourcesPage>
     _hideDialog();
   }
 
-  void _deleteDataSource(config.DataSourceConfig dataSource) {
+  void _deleteDataSource(DataSourceConfig dataSource) {
     configManager.dataSources.remove(dataSource.id);
   }
 
@@ -100,7 +104,12 @@ class _DataSourcePageState extends State<DataSourcesPage>
       ]),
 
       // Create/Edit Dialog
-      if (_showCreateDialog) _buildDataSourceDialog(),
+      Dialog(
+        isOpen: _showCreateDialog,
+        onClose: _hideDialog,
+        maxWidth: 'max-w-4xl',
+        builder: (_) => _buildDataSourceDialogContent(),
+      ),
     ]);
   }
 
@@ -122,13 +131,13 @@ class _DataSourcePageState extends State<DataSourcesPage>
     ]);
   }
 
-  Component _buildDataSourcesList(List<config.DataSourceConfig> dataSources) {
+  Component _buildDataSourcesList(List<DataSourceConfig> dataSources) {
     return div(classes: 'space-y-4', [
       for (final dataSource in dataSources) _buildDataSourceCard(dataSource),
     ]);
   }
 
-  Component _buildDataSourceCard(config.DataSourceConfig dataSource) {
+  Component _buildDataSourceCard(DataSourceConfig dataSource) {
     return Card(
       className: 'hover:shadow-md transition-shadow',
       children: [
@@ -139,7 +148,7 @@ class _DataSourcePageState extends State<DataSourcesPage>
                 text(dataSource.name),
               ]),
               Badge(
-                variant: dataSource.type == config.DataSourceType.csv
+                variant: dataSource.type == DataSourceType.csv
                     ? BadgeVariant.secondary
                     : BadgeVariant.outline,
                 children: [text(dataSource.type.name.toUpperCase())],
@@ -180,64 +189,60 @@ class _DataSourcePageState extends State<DataSourcesPage>
     );
   }
 
-  Component _buildAvailableFieldsSection(
-    config.DataSourceConfig dataSourceConfig,
-  ) {
+  Component _buildAvailableFieldsSection(DataSourceConfig dataSourceConfig) {
     return FutureBuilder<Map<String, String>>(
       future: _getDataSourceSchema(dataSourceConfig),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return div(classes: 'mb-3', [
-            p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
-              text('Available Fields:'),
-            ]),
-            p(classes: 'text-xs text-destructive', [
-              text('Error loading fields'),
-            ]),
-          ]);
-        }
+        switch (snapshot.result) {
+          case AsyncError():
+            return div(classes: 'mb-3', [
+              p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
+                text('Available Fields:'),
+              ]),
+              p(classes: 'text-xs text-destructive', [
+                text('Error loading fields'),
+              ]),
+            ]);
+          case AsyncLoading():
+            return div(classes: 'mb-3', [
+              p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
+                text('Available Fields:'),
+              ]),
+              p(classes: 'text-xs text-muted-foreground', [text('Loading...')]),
+            ]);
+          case AsyncData(data: final schema):
+            if (schema.isEmpty) {
+              return div(classes: 'mb-3', [
+                p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
+                  text('Available Fields:'),
+                ]),
+                p(classes: 'text-xs text-muted-foreground', [
+                  text('No fields detected'),
+                ]),
+              ]);
+            }
 
-        if (!snapshot.hasData) {
-          return div(classes: 'mb-3', [
-            p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
-              text('Available Fields:'),
-            ]),
-            p(classes: 'text-xs text-muted-foreground', [text('Loading...')]),
-          ]);
+            return div(classes: 'mb-3', [
+              p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
+                text('Available Fields (${schema.length}):'),
+              ]),
+              div(classes: 'flex flex-wrap gap-1', [
+                for (final field in schema.keys)
+                  Badge(
+                    variant: BadgeVariant.secondary,
+                    children: [
+                      Tooltip(child: text(field), content: schema[field]!),
+                    ],
+                  ),
+              ]),
+            ]);
         }
-
-        final schema = snapshot.data!;
-        if (schema.isEmpty) {
-          return div(classes: 'mb-3', [
-            p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
-              text('Available Fields:'),
-            ]),
-            p(classes: 'text-xs text-muted-foreground', [
-              text('No fields detected'),
-            ]),
-          ]);
-        }
-
-        return div(classes: 'mb-3', [
-          p(classes: 'text-xs font-medium text-muted-foreground mb-1', [
-            text('Available Fields (${schema.length}):'),
-          ]),
-          div(classes: 'flex flex-wrap gap-1', [
-            for (final field in schema.keys)
-              Badge(
-                variant: BadgeVariant.secondary,
-                children: [
-                  Tooltip(child: text(field), content: schema[field]!),
-                ],
-              ),
-          ]),
-        ]);
       },
     );
   }
 
   Future<Map<String, String>> _getDataSourceSchema(
-    config.DataSourceConfig dataSourceConfig,
+    DataSourceConfig dataSourceConfig,
   ) async {
     try {
       final dataSource = DataSource.fromConfig(dataSourceConfig);
@@ -249,170 +254,115 @@ class _DataSourcePageState extends State<DataSourcesPage>
       await dataSource.disconnect();
       return schema;
     } catch (e) {
-      print(
-        'Error getting schema for data source ${dataSourceConfig.name}: $e',
+      _logger.severe(
+        'Error getting schema for data source: $dataSourceConfig',
+        e,
       );
       return {};
     }
   }
 
-  Component _buildDataSourceDialog() {
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto',
+  Component _buildDataSourceDialogContent() {
+    return DialogContent(
+      children: [
+        DialogHeader(
           children: [
-            CardHeader(
+            div(classes: 'flex justify-between items-center', [
+              DialogTitle(
+                children: [
+                  text(_isEditing ? 'Edit Data Source' : 'Create Data Source'),
+                ],
+              ),
+              button(
+                classes:
+                    'text-muted-foreground hover:text-foreground transition-colors text-2xl',
+                events: {'click': (event) => _hideDialog()},
+                [text('×')],
+              ),
+            ]),
+            DialogDescription(
               children: [
-                div(classes: 'flex justify-between items-center', [
-                  CardTitle(
-                    as: Heading.h2,
-                    children: [
-                      text(
-                        _isEditing ? 'Edit Data Source' : 'Create Data Source',
-                      ),
-                    ],
-                  ),
-                  button(
-                    classes:
-                        'text-muted-foreground hover:text-foreground transition-colors text-2xl',
-                    events: {'click': (event) => _hideDialog()},
-                    [text('×')],
-                  ),
-                ]),
-                CardDescription(
-                  children: [
-                    text(
-                      _isEditing
-                          ? 'Update your data source configuration'
-                          : 'Configure a new data source for embedding generation',
-                    ),
-                  ],
+                text(
+                  _isEditing
+                      ? 'Update your data source configuration'
+                      : 'Configure a new data source for embedding generation',
                 ),
               ],
             ),
+          ],
+        ),
 
-            CardContent(
-              children: [
-                // Error message if any
-                if (_errorMessage != null)
-                  div(
-                    classes:
-                        'mb-6 bg-red-50 border border-red-200 rounded-md p-4',
-                    [
-                      div(classes: 'flex', [
-                        div(classes: 'flex-shrink-0', [
-                          svg(
-                            classes: 'h-5 w-5 text-red-400',
-                            attributes: {
-                              'fill': 'currentColor',
-                              'viewBox': '0 0 20 20',
-                            },
-                            [
-                              path(
-                                attributes: {
-                                  'fill-rule': 'evenodd',
-                                  'd':
-                                      'M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z',
-                                  'clip-rule': 'evenodd',
-                                },
-                                [],
-                              ),
-                            ],
-                          ),
-                        ]),
-                        div(classes: 'ml-3', [
-                          h3(classes: 'text-sm font-medium text-red-800', [
-                            text('Configuration Error'),
-                          ]),
-                          div(classes: 'mt-2 text-sm text-red-700', [
-                            p([text(_errorMessage!)]),
-                          ]),
-                        ]),
-                      ]),
-                    ],
-                  ),
+        // Error message, if any
+        if (_errorMessage case final errorMessage?)
+          div(classes: 'bg-red-50 border border-red-200 rounded-md p-3', [
+            div(classes: 'flex items-start', [
+              div(classes: 'flex-shrink-0', [
+                span(classes: 'text-red-500 text-lg', [text('⚠️')]),
+              ]),
+              div(classes: 'ml-2 flex-1 min-w-0', [
+                p(classes: 'text-sm font-medium text-red-800', [
+                  text('Configuration Error'),
+                ]),
+                p(classes: 'text-sm text-red-700 mt-1 break-words', [
+                  text(errorMessage),
+                ]),
+              ]),
+            ]),
+          ]),
 
-                // Success message if data source is selected
-                if (_selectedDataSource != null)
-                  div(
-                    classes:
-                        'mb-6 bg-green-50 border border-green-200 rounded-md p-4',
-                    [
-                      div(classes: 'flex', [
-                        div(classes: 'flex-shrink-0', [
-                          svg(
-                            classes: 'h-5 w-5 text-green-400',
-                            attributes: {
-                              'fill': 'currentColor',
-                              'viewBox': '0 0 20 20',
-                            },
-                            [
-                              path(
-                                attributes: {
-                                  'fill-rule': 'evenodd',
-                                  'd':
-                                      'M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z',
-                                  'clip-rule': 'evenodd',
-                                },
-                                [],
-                              ),
-                            ],
-                          ),
-                        ]),
-                        div(classes: 'ml-3', [
-                          h3(classes: 'text-sm font-medium text-green-800', [
-                            text('Data Source Ready'),
-                          ]),
-                          div(classes: 'mt-2 text-sm text-green-700', [
-                            p([
-                              text(
-                                'Data source "${_selectedDataSource!.name}" is configured and ready to save.',
-                              ),
-                            ]),
-                          ]),
-                        ]),
-                      ]),
-                    ],
-                  ),
-
-                // DataSourceSelector component
-                DataSourceSelector(
-                  onDataSourceSelected: (dataSource) {
-                    setState(() {
-                      _selectedDataSource = dataSource;
-                      _errorMessage = null;
-                    });
-                  },
-                  onError: (message) {
-                    setState(() {
-                      _errorMessage = message;
-                    });
-                  },
-                  initialDataSource: _selectedDataSource,
-                ),
-              ],
-            ),
-
-            CardFooter(
-              children: [
-                div(classes: 'flex justify-end space-x-3 w-full', [
-                  Button(
-                    variant: ButtonVariant.outline,
-                    onPressed: _hideDialog,
-                    children: [text('Cancel')],
-                  ),
-                  Button(
-                    onPressed: _selectedDataSource != null
-                        ? () => _saveDataSource(_selectedDataSource!)
-                        : null,
-                    children: [text(_isEditing ? 'Update' : 'Create')],
+        // Success message if data source is selected
+        if (_selectedDataSource case final selectedDataSource?)
+          div(classes: 'bg-green-50 border border-green-200 rounded-md p-3', [
+            div(classes: 'flex items-start', [
+              div(classes: 'flex-shrink-0', [
+                span(classes: 'text-green-500 text-lg', [text('✅')]),
+              ]),
+              div(classes: 'ml-2 flex-1 min-w-0', [
+                p(classes: 'text-sm font-medium text-green-800', [
+                  text('Data Source Ready'),
+                ]),
+                p(classes: 'text-sm text-green-700 mt-1 break-words', [
+                  text(
+                    'Data source "${selectedDataSource.name}" is configured and ready to save.',
                   ),
                 ]),
-              ],
-            ),
+              ]),
+            ]),
+          ]),
+
+        // DataSourceSelector component
+        div(classes: 'min-w-0 overflow-hidden', [
+          DataSourceSelector(
+            onDataSourceSelected: (dataSource) {
+              setState(() {
+                _selectedDataSource = dataSource;
+                _errorMessage = null;
+              });
+            },
+            onError: (message) {
+              setState(() {
+                _errorMessage = message;
+              });
+            },
+            initialDataSource: _selectedDataSource,
+          ),
+        ]),
+
+        DialogFooter(
+          children: [
+            div(classes: 'flex justify-end space-x-3 w-full', [
+              Button(
+                variant: ButtonVariant.outline,
+                onPressed: _hideDialog,
+                children: [text('Cancel')],
+              ),
+              Button(
+                onPressed: _selectedDataSource != null
+                    ? () => _saveDataSource(_selectedDataSource!)
+                    : null,
+                children: [text(_isEditing ? 'Update' : 'Create')],
+              ),
+            ]),
           ],
         ),
       ],

@@ -8,6 +8,7 @@ export 'button.dart';
 export 'card.dart';
 export 'checkbox.dart';
 export 'dialog.dart';
+export 'file_upload.dart';
 export 'input.dart';
 export 'label.dart';
 export 'progress.dart';

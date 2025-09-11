@@ -45,7 +45,7 @@ extension FileFutures on File {
         StateError('Failed to read file: ${reader.error?.message}'),
       );
     }.toJS;
-    reader.readAsText(this);
+    reader.readAsText(this, 'utf8-8');
     return completer.future;
   }
 }
