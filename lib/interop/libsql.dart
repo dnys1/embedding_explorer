@@ -637,11 +637,12 @@ extension type Database._(JSObject _) {
   external Database._new([DatabaseOptions? options]);
 
   factory Database({String? filename, String? flags, String? vfs}) {
-    if (filename == null && flags == null && vfs == null) {
-      return Database._new();
-    }
     return Database._new(
-      DatabaseOptions(filename: filename, flags: flags, vfs: vfs),
+      DatabaseOptions(
+        filename: filename ?? undefined,
+        flags: flags ?? undefined,
+        vfs: vfs ?? undefined,
+      ),
     );
   }
 

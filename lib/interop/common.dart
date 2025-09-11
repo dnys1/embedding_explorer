@@ -1,5 +1,9 @@
 import 'dart:js_interop';
 
+/// The JS `undefined` value.
+@JS()
+external Null get undefined;
+
 extension type JSErrorOptions._(JSObject _) implements JSObject {
   external factory JSErrorOptions({JSAny? cause});
 

@@ -5,3 +5,8 @@ analyzer:
     strict-casts: true
     strict-inference: true
     strict-raw-types: true
+
+linter:
+  rules:
+    - prefer_relative_imports
+    - unnecessary_breaks

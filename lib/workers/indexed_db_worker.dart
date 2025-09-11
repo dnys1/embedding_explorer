@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
-import 'package:embeddings_explorer/utils/indexed_db.dart';
+import '../util/indexed_db.dart';
 import 'package:logging/logging.dart';
 import 'package:worker_bee/worker_bee.dart';
 

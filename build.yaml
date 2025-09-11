@@ -36,7 +36,7 @@ targets:
         dev_options:
           compiler: dart2js
           dart2js_args:
-            - --no-minify
+            - --O4
             - --enable-asserts
       _embeddings_explorer_tool:worker_copy_builder:
         enabled: true

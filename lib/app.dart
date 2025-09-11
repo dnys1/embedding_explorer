@@ -1,15 +1,15 @@
-import 'package:embeddings_explorer/pages/editor_test_page.dart';
-import 'package:embeddings_explorer/pages/embedding_templates_page.dart';
+import 'editor_test_page.dart';
+import 'providers/page/model_providers_page.dart';
+import 'templates/page/embedding_templates_page.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
-import 'components/sidebar.dart';
-import 'models/configuration_manager.dart';
-import 'pages/configuration_dashboard.dart';
-import 'pages/data_sources_page.dart';
-import 'pages/home.dart';
-import 'pages/jobs_page.dart';
-import 'pages/provider_selection_page.dart';
+import 'common/sidebar.dart';
+import 'configurations/model/configuration_manager.dart';
+import 'configurations/page/configuration_dashboard_page.dart';
+import 'data_sources/page/data_sources_page.dart';
+import 'home_page.dart';
+import 'jobs/page/jobs_page.dart';
 
 class App extends StatefulComponent {
   const App({super.key});
@@ -65,12 +65,12 @@ class _AppState extends State<App> {
               Route(
                 path: '/',
                 title: 'Home',
-                builder: (context, state) => const Home(),
+                builder: (context, state) => const HomePage(),
               ),
               Route(
                 path: '/dashboard',
-                title: 'Configuration Dashboard',
-                builder: (context, state) => const ConfigurationDashboard(),
+                title: 'Dashboard',
+                builder: (context, state) => const Dashboard(),
               ),
               Route(
                 path: '/data-sources',
@@ -78,14 +78,14 @@ class _AppState extends State<App> {
                 builder: (context, state) => const DataSourcesPage(),
               ),
               Route(
-                path: '/embedding-templates',
+                path: '/templates',
                 title: 'Embedding Templates',
                 builder: (context, state) => const EmbeddingTemplatesPage(),
               ),
               Route(
-                path: '/model-providers',
+                path: '/providers',
                 title: 'Model Providers',
-                builder: (context, state) => const ProviderSelectionPage(),
+                builder: (context, state) => const ModelProvidersPage(),
               ),
               Route(
                 path: '/jobs',
