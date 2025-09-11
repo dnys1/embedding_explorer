@@ -38,5 +38,7 @@ migrate_working_dir/
 .vscode/
 
 # Web
+lib/**/*.js
+lib/**/*.js.map
 web/js/
 node_modules/
