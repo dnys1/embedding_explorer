@@ -5,6 +5,10 @@ analyzer:
     strict-casts: true
     strict-inference: true
     strict-raw-types: true
+  errors:
+    file_names: ignore
+    library_prefixes: ignore
+    no_leading_underscores_for_library_prefixes: ignore
 
 linter:
   rules:

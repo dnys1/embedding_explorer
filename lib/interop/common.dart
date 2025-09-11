@@ -1,5 +1,7 @@
 import 'dart:js_interop';
 
+import 'package:fixnum/fixnum.dart';
+
 /// The JS `undefined` value.
 @JS()
 external Null get undefined;
@@ -17,4 +19,10 @@ extension type JSError._(JSObject _) implements JSObject {
 
   external String get name;
   external String get message;
+}
+
+extension JSBigIntExtensions on JSBigInt {
+  int toInt() {
+    return Int64.parseInt(toString()).toInt();
+  }
 }

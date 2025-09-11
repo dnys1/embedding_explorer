@@ -62,6 +62,17 @@ extension type _LibsqlLoader._(JSObject _) implements JSObject {
 }
 
 extension type SqlValue._(JSAny _) implements JSAny {
+  static SqlValue? fromDart(Object? o) {
+    return switch (o) {
+      null => null,
+      String s => SqlValue.string(s),
+      num n => SqlValue.number(n),
+      Uint8List b => SqlValue.blob(b),
+      ByteBuffer b => SqlValue.arrayBuffer(b),
+      _ => throw ArgumentError.value(o, 'SqlValue', 'Unsupported type'),
+    };
+  }
+
   factory SqlValue.string(String s) => SqlValue._(s.toJS);
   factory SqlValue.number(num n) => SqlValue._(n.toJS);
   factory SqlValue.blob(Uint8List b) => SqlValue._(b.toJS);
@@ -103,19 +114,6 @@ extension type DatabaseOptions._(JSObject _) implements JSObject {
     String? vfs,
   });
 }
-extension type FlexibleString._(JSAny _) implements JSAny {
-  String get asString => (_ as JSString).toDart;
-
-  double get asDouble => (_ as JSNumber).toDartDouble;
-
-  JSUint8Array get asJSUint8Array => (_ as JSUint8Array);
-
-  JSInt8Array get asJSInt8Array => (_ as JSInt8Array);
-
-  JSArrayBuffer get asJSArrayBuffer => (_ as JSArrayBuffer);
-
-  JSArray<JSString> get asJSArray => (_ as JSArray<JSString>);
-}
 
 extension type BindingSpec._(JSAny _) implements JSAny {
   factory BindingSpec.positional(List<SqlValue?> values) =>
@@ -143,7 +141,7 @@ extension type const ExecReturnValue._(String _) implements String {
 
 extension type ExecOptions._(JSObject _) implements JSObject {
   external factory ExecOptions._create({
-    FlexibleString? sql,
+    String? sql,
     BindingSpec? bind,
     ExecReturnValue? returnValue,
     JSString? rowMode,
@@ -156,19 +154,8 @@ extension type ExecOptions._(JSObject _) implements JSObject {
     List<Object?> bind = const [],
   }) {
     return ExecOptions._create(
-      sql: FlexibleString._(sql.toJS),
-      bind: BindingSpec.positional(
-        bind.map((value) {
-          return switch (value) {
-            null => null,
-            String s => SqlValue.string(s),
-            num n => SqlValue.number(n),
-            Uint8List b => SqlValue.blob(b),
-            ByteBuffer b => SqlValue.arrayBuffer(b),
-            _ => SqlValue._(value.jsify()!),
-          };
-        }).toList(),
-      ),
+      sql: sql,
+      bind: BindingSpec.positional(bind.map(SqlValue.fromDart).toList()),
     );
   }
 
@@ -177,19 +164,8 @@ extension type ExecOptions._(JSObject _) implements JSObject {
     List<Object?> bind = const [],
   }) {
     final options = ExecOptions._create(
-      sql: FlexibleString._(sql.toJS),
-      bind: BindingSpec.positional(
-        bind.map((value) {
-          return switch (value) {
-            null => null,
-            String s => SqlValue.string(s),
-            num n => SqlValue.number(n),
-            Uint8List b => SqlValue.blob(b),
-            ByteBuffer b => SqlValue.arrayBuffer(b),
-            _ => SqlValue._(value.jsify()!),
-          };
-        }).toList(),
-      ),
+      sql: sql,
+      bind: BindingSpec.positional(bind.map(SqlValue.fromDart).toList()),
       returnValue: ExecReturnValue.resultRows,
       columnNames: JSArray<JSString>(),
       resultRows: JSArray<JSAny>(),
@@ -200,7 +176,7 @@ extension type ExecOptions._(JSObject _) implements JSObject {
 
   /// The SQL to run (unless it's provided as the first argument). The SQL may
   /// contain any number of statements.
-  external FlexibleString? sql;
+  external String? sql;
 
   /// A single value valid as an argument for PreparedStatement#bind . This
   /// is only applied to the first non-empty statement in the SQL which has any
@@ -318,10 +294,10 @@ extension type PreparedStatement._(JSObject _) implements JSObject {
   /// collected
   /// and cached when the statement is created, but that can lead to misbehavior
   /// if changes are made to the database schema while this statement is active.
-  external double columnCount;
+  external int columnCount;
 
   /// The number of bindable parameters this statement has.
-  external double parameterCount;
+  external int parameterCount;
 
   /// WASM pointer rwhich resolves to the `sqlite3_stmt*` which this object
   /// wraps. This value may be passed to any WASM-bound functions which accept
@@ -639,7 +615,7 @@ extension type Database._(JSObject _) {
   factory Database({String? filename, String? flags, String? vfs}) {
     return Database._new(
       DatabaseOptions(
-        filename: filename ?? undefined,
+        filename: filename ?? undefined, // Cannot pass `null`
         flags: flags ?? undefined,
         vfs: vfs ?? undefined,
       ),
@@ -703,7 +679,7 @@ extension type Database._(JSObject _) {
 
   /// Compiles the given SQL and returns a PreparedStatement. This is the
   /// only way to create new PreparedStatement objects. Throws on error.
-  external PreparedStatement prepare(FlexibleString sql);
+  external PreparedStatement prepare(String sql);
 
   /// Returns true if the database handle is open, else false.
   external bool isOpen();
@@ -782,10 +758,7 @@ extension type Database._(JSObject _) {
   /// `undefined`, it is treated like an argument to
   /// PreparedStatement#bind , so may be any type supported by that
   /// function. Throws on error.
-  external JSArray<SqlValue?>? selectArray(
-    FlexibleString sql, [
-    BindingSpec? bind,
-  ]);
+  external JSArray<SqlValue?>? selectArray(String sql, [BindingSpec? bind]);
 
   /// Runs the given SQL and returns an array of all results, with each row
   /// represented as an array, as per the `'array'` `rowMode` option to
@@ -793,7 +766,7 @@ extension type Database._(JSObject _) {
   /// second argument, if any, is treated as the `bind` option to a call to
   /// `exec()`. Throws on error.
   external JSArray<JSArray<SqlValue?>> selectArrays(
-    FlexibleString sql, [
+    String sql, [
     BindingSpec? bind,
   ]);
 
@@ -804,15 +777,12 @@ extension type Database._(JSObject _) {
   /// query string. If passed a second argument other than undefined, it is
   /// treated like an argument to Stmt.bind(), so may be any type supported by
   /// that function. Throws on error.
-  external JSObject? selectObject(FlexibleString sql, [BindingSpec? bind]);
+  external JSObject? selectObject(String sql, [BindingSpec? bind]);
 
   /// Works identically to Database#selectArrays  except that each value in
   /// the returned array is an object, as per the `"object"` rowMode option to
   /// Database#exec .
-  external JSArray<JSObject> selectObjects(
-    FlexibleString sql, [
-    BindingSpec? bind,
-  ]);
+  external JSArray<JSObject> selectObjects(String sql, [BindingSpec? bind]);
 
   /// Prepares the given SQL, `step()`s the resulting PreparedStatement
   /// one time, and returns the value of the first result column. If it has no
@@ -824,7 +794,7 @@ extension type Database._(JSObject _) {
   /// `undefined` value is the same as not passing a value. Throws on error
   /// (e.g.
   /// malformed SQL).
-  external SqlValue? selectValue(FlexibleString sql, BindingSpec? bind);
+  external SqlValue? selectValue(String sql, BindingSpec? bind);
 
   /// Runs the given query and returns an array of the values from the first
   /// result column of each row of the result set. The 2nd argument is an
@@ -833,10 +803,7 @@ extension type Database._(JSObject _) {
   /// for use as the 2nd argument to PreparedStatement#get . If a 3rd
   /// argument is desired but no bind data are needed, pass `undefined` for the
   /// 2nd argument. If there are no result rows, an empty array is returned.
-  external JSArray<SqlValue?> selectValues(
-    FlexibleString sql, [
-    BindingSpec? bind,
-  ]);
+  external JSArray<SqlValue?> selectValues(String sql, [BindingSpec? bind]);
 
   /// Returns the number of currently-opened PreparedStatement handles for
   /// this db handle, or 0 if this object is `close()`d. Note that only handles
@@ -881,7 +848,7 @@ extension type Database._(JSObject _) {
   }
 
   external double getAutocommit();
-  external double lastInsertRowid();
+  external JSBigInt lastInsertRowid();
 }
 
 extension type const JSStorageMode._(String _) implements String {
