@@ -1,15 +1,20 @@
-import 'dart:convert';
-
 import 'package:jaspr/jaspr.dart';
 import 'package:logging/logging.dart';
 
-import '../../util/indexed_db.dart';
+import '../../util/type_id.dart';
+import '../service/configuration_service.dart';
+import 'configuration_item.dart';
 
 /// Base class for managing collections of configurations
-abstract class ConfigurationCollection<T> with ChangeNotifier {
+abstract class ConfigurationCollection<T extends ConfigurationItem>
+    with ChangeNotifier {
+  ConfigurationCollection(this.configService);
+
   final Map<String, T> _items = {};
 
   static final Logger _logger = Logger('ConfigurationCollection');
+
+  final ConfigurationService configService;
 
   /// Get all configuration items
   Map<String, T> get items => Map.unmodifiable(_items);
@@ -30,71 +35,60 @@ abstract class ConfigurationCollection<T> with ChangeNotifier {
   int get length => _items.length;
 
   /// Add or update a configuration
-  void set(String id, T item) {
+  Future<void> set(String id, T item) async {
     _items[id] = item;
     notifyListeners();
-    _saveToStorage();
+    await _saveToStorage();
   }
 
   /// Remove a configuration
-  bool remove(String id) {
+  Future<bool> remove(String id) async {
     final removed = _items.remove(id);
     if (removed != null) {
       notifyListeners();
-      _saveToStorage();
+      await configService.database.execute(
+        'DELETE FROM $tableName WHERE id = ?',
+        [id],
+      );
       return true;
     }
     return false;
   }
 
   /// Clear all configurations
-  void clear() {
+  Future<void> clear() async {
     _items.clear();
     notifyListeners();
-    _saveToStorage();
+    await configService.database.execute('DELETE FROM $tableName');
   }
 
   /// Generate a unique ID for a new configuration
   String generateId() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    var counter = 1;
-    String id;
-    do {
-      id = '${prefix}_${timestamp}_$counter';
-      counter++;
-    } while (_items.containsKey(id));
-    return id;
+    return typeId(prefix);
   }
 
-  /// Load configurations from local storage
+  /// Load configurations from database
   Future<void> loadFromStorage() async {
     try {
-      final jsonString = await _getStorageValue();
-      if (jsonString != null) {
-        final Map<String, dynamic> data =
-            jsonDecode(jsonString) as Map<String, dynamic>;
-        _items.clear();
-        for (final entry in data.entries) {
-          final item = fromJson(entry.value as Map<String, dynamic>);
-          if (item != null) {
-            _items[entry.key] = item;
-          }
-        }
-        notifyListeners();
+      final items = await loadAllItems();
+      _items.clear();
+      for (final item in items) {
+        final id = item.id;
+        _items[id] = item;
       }
+      notifyListeners();
     } catch (e) {
       _logger.severe('Error loading configurations from storage', e);
     }
   }
 
-  /// Save configurations to local storage
+  /// Save configurations to database
   Future<void> _saveToStorage() async {
     try {
-      final data = <String, dynamic>{};
+      // Save all items to the database
       for (final entry in _items.entries) {
-        data[entry.key] = toJson(entry.value);
+        await saveItem(entry.key, entry.value);
       }
-      await _setStorageValue(jsonEncode(data));
     } catch (e) {
       _logger.severe('Error saving configurations to storage', e);
     }
@@ -103,22 +97,15 @@ abstract class ConfigurationCollection<T> with ChangeNotifier {
   /// The prefix for generating IDs
   String get prefix;
 
-  /// The storage key for this collection
-  String get storageKey;
+  /// The name of the data table.
+  String get tableName;
 
-  /// Convert an item to JSON
-  Map<String, dynamic> toJson(T item);
+  /// Save a single item to the database
+  Future<void> saveItem(String id, T item);
 
-  /// Convert JSON to an item
-  T? fromJson(Map<String, dynamic> json);
+  /// Load a single item from the database
+  Future<T?> loadItem(String id);
 
-  /// Get value from storage (to be implemented with actual storage mechanism)
-  Future<String?> _getStorageValue() async {
-    return indexedDB.getValue(storageKey);
-  }
-
-  /// Set value in storage (to be implemented with actual storage mechanism)
-  Future<void> _setStorageValue(String value) async {
-    await indexedDB.setValue(storageKey, value);
-  }
+  /// Load all items from the database
+  Future<List<T>> loadAllItems();
 }

@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import '../../configurations/model/configuration_collection.dart';
+import '../../configurations/model/configuration_item.dart';
 
 /// Configuration for an embedding template with metadata
-class EmbeddingTemplateConfig {
+class EmbeddingTemplateConfig implements ConfigurationItem {
+  @override
   final String id;
   final String name;
   final String description;
@@ -49,43 +51,6 @@ class EmbeddingTemplateConfig {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'template': template,
-      'dataSourceId': dataSourceId,
-      'availableFields': availableFields,
-      'metadata': metadata,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  /// Create from JSON
-  static EmbeddingTemplateConfig? fromJson(Map<String, dynamic> json) {
-    try {
-      return EmbeddingTemplateConfig(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String? ?? '',
-        template: json['template'] as String? ?? '',
-        dataSourceId: json['dataSourceId'] as String? ?? '',
-        availableFields: List<String>.from(
-          json['availableFields'] as List? ?? [],
-        ),
-        metadata: Map<String, dynamic>.from(json['metadata'] as Map? ?? {}),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
-    } catch (e) {
-      print('Error parsing EmbeddingTemplateConfig from JSON: $e');
-      return null;
-    }
   }
 
   /// Create from database result
@@ -146,37 +111,23 @@ class EmbeddingTemplateConfig {
 /// Collection for managing embedding template configurations
 class EmbeddingTemplateConfigCollection
     extends ConfigurationCollection<EmbeddingTemplateConfig> {
-  static final EmbeddingTemplateConfigCollection _instance =
-      EmbeddingTemplateConfigCollection._internal();
-
-  factory EmbeddingTemplateConfigCollection() {
-    return _instance;
-  }
-
-  EmbeddingTemplateConfigCollection._internal();
+  EmbeddingTemplateConfigCollection(super.configService);
 
   @override
   String get prefix => 'et';
 
   @override
-  String get storageKey => 'embedding_template_configs';
-
-  @override
-  Map<String, dynamic> toJson(EmbeddingTemplateConfig item) => item.toJson();
-
-  @override
-  EmbeddingTemplateConfig? fromJson(Map<String, dynamic> json) =>
-      EmbeddingTemplateConfig.fromJson(json);
+  String get tableName => 'embedding_template_configs';
 
   /// Add a new embedding template configuration
-  String addConfig({
+  Future<String> addConfig({
     required String name,
     required String dataSourceId,
     String? description,
     String? template,
     List<String>? availableFields,
     Map<String, dynamic>? metadata,
-  }) {
+  }) async {
     final id = generateId();
     final config = EmbeddingTemplateConfig.createDefault(
       name: name,
@@ -187,12 +138,12 @@ class EmbeddingTemplateConfigCollection
       metadata: metadata,
     ).copyWith(id: id);
 
-    set(id, config);
+    await set(id, config);
     return id;
   }
 
   /// Update an existing configuration
-  bool updateConfig(
+  Future<bool> updateConfig(
     String id, {
     String? name,
     String? description,
@@ -200,7 +151,7 @@ class EmbeddingTemplateConfigCollection
     String? dataSourceId,
     List<String>? availableFields,
     Map<String, dynamic>? metadata,
-  }) {
+  }) async {
     final existing = getById(id);
     if (existing == null) return false;
 
@@ -214,7 +165,7 @@ class EmbeddingTemplateConfigCollection
       updatedAt: DateTime.now(),
     );
 
-    set(id, updated);
+    await set(id, updated);
     return true;
   }
 
@@ -242,5 +193,20 @@ class EmbeddingTemplateConfigCollection
           (config) => fields.any((field) => config.template.contains(field)),
         )
         .toList();
+  }
+
+  @override
+  Future<void> saveItem(String id, EmbeddingTemplateConfig item) async {
+    await configService.saveEmbeddingTemplateConfig(item);
+  }
+
+  @override
+  Future<EmbeddingTemplateConfig?> loadItem(String id) async {
+    return await configService.getEmbeddingTemplateConfig(id);
+  }
+
+  @override
+  Future<List<EmbeddingTemplateConfig>> loadAllItems() async {
+    return await configService.getAllEmbeddingTemplateConfigs();
   }
 }

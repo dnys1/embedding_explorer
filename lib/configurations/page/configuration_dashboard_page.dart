@@ -1,7 +1,7 @@
-import '../../common/ui/button.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import '../../common/ui/button.dart';
 import '../model/configuration_manager.dart';
 
 class Dashboard extends StatefulComponent {
@@ -30,12 +30,12 @@ class _DashboardState extends State<Dashboard>
             ]),
           ]),
           div(classes: 'flex space-x-2', [
-            button(
-              classes:
-                  'px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50',
-              events: {'click': (_) => _createSampleConfigurations()},
-              [text('Add Sample Data')],
-            ),
+            // button(
+            //   classes:
+            //       'px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50',
+            //   events: {'click': (_) => _createSampleConfigurations()},
+            //   [text('Add Sample Data')],
+            // ),
             button(
               classes:
                   'px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700',
@@ -96,7 +96,7 @@ class _DashboardState extends State<Dashboard>
           value: '$totalProviderCount',
           subtitle: totalProviderCount == 0
               ? null
-              : '${_summary.activeProvidersCount} active',
+              : '${_summary.modelProviderCount} active',
           icon: '🤖',
           color: 'bg-purple-500',
         ),
@@ -238,8 +238,7 @@ class _DashboardState extends State<Dashboard>
           ...providers.map(
             (config) => _buildConfigItem(
               title: config.name,
-              subtitle:
-                  '${config.type.name} ${config.isActive ? '(Active)' : '(Inactive)'}',
+              subtitle: config.type.name,
               description: config.description.isNotEmpty
                   ? config.description
                   : 'No description',
@@ -324,16 +323,8 @@ class _DashboardState extends State<Dashboard>
     return '< 1KB';
   }
 
-  void _createSampleConfigurations() {
-    configManager.createSampleConfigurations();
-  }
-
   void _clearAllConfigurations() {
-    if (confirm(
-      'Are you sure you want to clear all configurations? This cannot be undone.',
-    )) {
-      configManager.clearAll();
-    }
+    configManager.clearAll();
   }
 
   // Simple confirm dialog (would be better to use a proper modal)

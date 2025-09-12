@@ -238,8 +238,8 @@ class ConfigurationService with ChangeNotifier {
     await database.execute(
       '''
       INSERT OR REPLACE INTO model_provider_configs 
-      (id, name, description, type, custom_template_id, settings, credentials, is_active, persist_credentials, enabled_models, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, name, description, type, custom_template_id, settings, credentials, persist_credentials, enabled_models, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
       [
         config.id,
@@ -249,7 +249,6 @@ class ConfigurationService with ChangeNotifier {
         config.customTemplateId,
         jsonEncode(config.settings),
         jsonEncode(config.credentials),
-        config.isActive ? 1 : 0,
         config.persistCredentials ? 1 : 0,
         jsonEncode(config.enabledModels.toList()),
         config.createdAt.toIso8601String(),
@@ -277,15 +276,6 @@ class ConfigurationService with ChangeNotifier {
   Future<List<ModelProviderConfig>> getAllModelProviderConfigs() async {
     final result = await database.select(
       'SELECT * FROM model_provider_configs ORDER BY created_at DESC',
-    );
-
-    return result.map(ModelProviderConfig.fromDatabase).nonNulls.toList();
-  }
-
-  /// Get active model provider configurations
-  Future<List<ModelProviderConfig>> getActiveModelProviderConfigs() async {
-    final result = await database.select(
-      'SELECT * FROM model_provider_configs WHERE is_active = 1 ORDER BY created_at DESC',
     );
 
     return result.map(ModelProviderConfig.fromDatabase).nonNulls.toList();

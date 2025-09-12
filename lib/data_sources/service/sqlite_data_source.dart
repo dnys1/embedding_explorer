@@ -471,11 +471,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     return SqliteDataSource.fromConfig(newConfig);
   }
 
-  @override
-  Map<String, dynamic> toJson() {
-    return config.toJson();
-  }
-
   /// Execute a custom SQL query (for advanced users)
   Future<List<Map<String, dynamic>>> executeQuery(
     String sql, {

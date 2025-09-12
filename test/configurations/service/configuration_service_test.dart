@@ -318,7 +318,6 @@ void main() {
             'dimensions': 1536,
           },
           credentials: <String, String>{'apiKey': 'sk-test-key-123'},
-          isActive: true,
           persistCredentials: false,
           enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
           createdAt: now,
@@ -331,7 +330,6 @@ void main() {
         expect(retrieved, isNotNull);
         expect(retrieved!.name, equals('Test OpenAI Provider'));
         expect(retrieved.type, equals(ProviderType.openai));
-        expect(retrieved.isActive, isTrue);
         expect(retrieved.persistCredentials, isFalse);
         expect(retrieved.settings['model'], equals('text-embedding-3-small'));
         expect(retrieved.credentials['apiKey'], equals('sk-test-key-123'));
@@ -352,7 +350,6 @@ void main() {
           customTemplateId: null,
           settings: <String, dynamic>{},
           credentials: <String, String>{},
-          isActive: true,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,
@@ -367,7 +364,6 @@ void main() {
           customTemplateId: null,
           settings: <String, dynamic>{},
           credentials: <String, String>{},
-          isActive: false,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,
@@ -376,11 +372,6 @@ void main() {
 
         await service.saveModelProviderConfig(activeProvider);
         await service.saveModelProviderConfig(inactiveProvider);
-
-        final activeProviders = await service.getActiveModelProviderConfigs();
-        expect(activeProviders, hasLength(1));
-        expect(activeProviders[0].id, equals('active_1'));
-        expect(activeProviders[0].isActive, isTrue);
 
         final allProviders = await service.getAllModelProviderConfigs();
         expect(allProviders, hasLength(2));
@@ -396,7 +387,6 @@ void main() {
           customTemplateId: null,
           settings: <String, dynamic>{},
           credentials: <String, String>{},
-          isActive: false,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,

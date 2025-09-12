@@ -1,7 +1,7 @@
-import 'data_source_config.dart';
-import 'data_source_settings.dart';
 import '../service/csv_data_source.dart';
 import '../service/sqlite_data_source.dart';
+import 'data_source_config.dart';
+import 'data_source_settings.dart';
 
 /// Abstract base class for all data sources in the embedding explorer.
 ///
@@ -108,9 +108,6 @@ abstract class DataSource<Settings extends DataSourceSettings> {
   DataSource updateConfig(DataSourceConfig<DataSourceSettings> newConfig) {
     return DataSource.fromConfig(newConfig);
   }
-
-  /// Serialize this data source to a JSON representation
-  Map<String, dynamic> toJson() => config.toJson();
 }
 
 /// Exception thrown when data source operations fail

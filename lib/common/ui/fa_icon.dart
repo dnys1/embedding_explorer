@@ -114,6 +114,7 @@ class FaSolidIcons {
   FaIcon get wrench => const FaIcon.solid('wrench');
   FaIcon get tools => const FaIcon.solid('screwdriver-wrench');
   FaIcon get sliders => const FaIcon.solid('sliders');
+  FaIcon get hammer => const FaIcon.solid('hammer');
 
   // Status & Notifications
   FaIcon get info => const FaIcon.solid('circle-info');
@@ -323,6 +324,7 @@ class FaBrandIcons {
   FaIcon get figma => const FaIcon.brand('figma');
   FaIcon get sketch => const FaIcon.brand('sketch');
   FaIcon get adobe => const FaIcon.brand('adobe');
+  FaIcon get openai => const FaIcon.brand('openai');
 
   // Operating Systems & Browsers
   FaIcon get windows => const FaIcon.brand('windows');

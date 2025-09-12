@@ -3,21 +3,10 @@ import 'package:web/web.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
+import '../component/available_providers_view.dart';
 import '../model/available_providers.dart';
 import '../model/custom_provider_template.dart';
 import '../model/model_provider_config.dart';
-
-/// Configuration state for providers
-enum ConfigurationState {
-  /// No configuration exists
-  notConfigured,
-
-  /// Configuration exists but credentials not persisted
-  partiallyConfigured,
-
-  /// Configuration exists with persisted credentials
-  fullyConfigured,
-}
 
 class ModelProvidersPage extends StatefulComponent {
   const ModelProvidersPage({super.key});
@@ -138,37 +127,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     }
   }
 
-  /// Determine the configuration state for a provider type
-  ConfigurationState _getConfigurationState(ProviderType providerType) {
-    final config = configManager.modelProviders.getByType(providerType);
-    if (config == null) {
-      return ConfigurationState.notConfigured;
-    }
-
-    // Check if credentials are required and whether they're persisted
-    final availableProvider = AvailableProviders.all.firstWhere(
-      (p) => p.type == providerType,
-      orElse: () => throw StateError('Provider type $providerType not found'),
-    );
-
-    if (availableProvider.requiredCredentials.isNotEmpty) {
-      // If credentials are required but not persisted, it's partially configured
-      if (!config.persistCredentials || config.credentials.isEmpty) {
-        return ConfigurationState.partiallyConfigured;
-      }
-
-      // Check if all required credentials are present
-      for (final requiredCred in availableProvider.requiredCredentials) {
-        if (!config.credentials.containsKey(requiredCred) ||
-            config.credentials[requiredCred]?.isEmpty == true) {
-          return ConfigurationState.partiallyConfigured;
-        }
-      }
-    }
-
-    return ConfigurationState.fullyConfigured;
-  }
-
   @override
   Component build(BuildContext context) {
     return div(classes: 'flex flex-col h-full', [
@@ -197,10 +155,11 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
               text('Built-in Providers'),
             ]),
             div(classes: 'space-y-4', [
-              for (final availableProvider in AvailableProviders.all)
-                _buildProviderRow(
-                  availableProvider,
-                  _getConfigurationState(availableProvider.type),
+              for (final provider in AvailableProviders.all)
+                AvailableProviderView(
+                  provider: provider,
+                  onConfigure: () => _showConfigureProvider(provider),
+                  onEdit: () => _showEditExisting(provider.type),
                 ),
             ]),
           ]),
@@ -218,206 +177,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
       if (_showCredentialsDialog) _buildCredentialsDialog(),
       if (_showCustomProviderDialog) _buildCustomProviderDialog(),
     ]);
-  }
-
-  Component _buildProviderRow(
-    AvailableProvider provider,
-    ConfigurationState configState,
-  ) {
-    final bool isConfigured = configState != ConfigurationState.notConfigured;
-    final bool isPartiallyConfigured =
-        configState == ConfigurationState.partiallyConfigured;
-    final bool isFullyConfigured =
-        configState == ConfigurationState.fullyConfigured;
-
-    return Card(
-      className: 'border border-gray-200',
-      children: [
-        div(classes: 'p-5', [
-          // Provider header with name and gear switch
-          div(classes: 'flex items-center justify-between mb-4', [
-            div(classes: 'flex items-center space-x-4', [
-              div(classes: 'text-3xl', [text(provider.icon)]),
-              div([
-                h2(classes: 'text-xl font-semibold text-foreground', [
-                  text(provider.name),
-                ]),
-                p(classes: 'text-sm text-muted-foreground', [
-                  text(provider.description),
-                ]),
-              ]),
-            ]),
-            div(classes: 'flex items-center space-x-3', [
-              // Configuration status badge
-              if (isFullyConfigured)
-                span(
-                  classes:
-                      'text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full',
-                  [text('Configured')],
-                )
-              else if (isPartiallyConfigured)
-                span(
-                  classes:
-                      'text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full',
-                  [text('⚠️ Needs Credentials')],
-                )
-              else
-                span(
-                  classes:
-                      'text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full',
-                  [text('Not configured')],
-                ),
-              // Gear switch for provider configuration
-              button(
-                classes: isConfigured
-                    ? (isPartiallyConfigured
-                          ? 'p-2 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-600 transition-colors'
-                          : 'p-2 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors')
-                    : 'p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
-                events: {
-                  'click': (_) => isConfigured
-                      ? _showEditExisting(provider.type)
-                      : _showConfigureProvider(provider),
-                },
-                [
-                  div(classes: 'text-lg', [text('⚙️')]),
-                ],
-              ),
-            ]),
-          ]),
-
-          // Warning message for partially configured providers
-          if (isPartiallyConfigured)
-            div(
-              classes:
-                  'mb-3 p-2 bg-amber-50 border border-amber-200 rounded-md',
-              [
-                div(classes: 'flex items-center space-x-2', [
-                  div(classes: 'text-amber-600 text-sm', [text('⚠️')]),
-                  p(classes: 'text-xs text-amber-800', [
-                    text(
-                      'Missing credentials. Click the gear button to configure.',
-                    ),
-                  ]),
-                ]),
-              ],
-            ),
-
-          // Model grid
-          div(
-            classes:
-                'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4',
-            [
-              for (final model in provider.availableModels)
-                _buildModelTile(model, provider, isConfigured),
-            ],
-          ),
-        ]),
-      ],
-    );
-  }
-
-  Component _buildModelTile(
-    AvailableModel model,
-    AvailableProvider provider,
-    bool isProviderConfigured,
-  ) {
-    // Get the detailed configuration state
-    final configState = _getConfigurationState(provider.type);
-    final isFullyConfigured = configState == ConfigurationState.fullyConfigured;
-    final isPartiallyConfigured =
-        configState == ConfigurationState.partiallyConfigured;
-
-    // Check if this specific model is enabled for this provider type
-    bool isModelEnabled = false;
-    String? providerConfigId;
-
-    if (isProviderConfigured) {
-      final config = configManager.modelProviders.getByType(provider.type);
-      if (config != null) {
-        providerConfigId = config.id;
-        isModelEnabled = config.enabledModels.contains(model.id);
-      }
-    }
-
-    // Determine card styling based on configuration state
-    String cardClassName;
-    Map<String, void Function(Event)> events = {};
-
-    if (isFullyConfigured) {
-      cardClassName = isModelEnabled
-          ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
-          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors';
-      if (providerConfigId != null) {
-        events = {'click': (_) => _toggleModel(model, providerConfigId!)};
-      }
-    } else if (isPartiallyConfigured) {
-      cardClassName =
-          'border border-amber-300 bg-amber-50 cursor-not-allowed opacity-75';
-    } else {
-      cardClassName =
-          'border border-gray-200 bg-gray-100 cursor-not-allowed opacity-60';
-    }
-
-    return Card(
-      className: cardClassName,
-      children: [
-        div(classes: 'p-4', events: events, [
-          div(classes: 'flex items-center justify-between mb-2', [
-            div(classes: 'flex items-center space-x-2', [
-              h3(classes: 'text-sm font-medium text-foreground', [
-                text(model.name),
-              ]),
-              if (model.isRecommended)
-                span(
-                  classes:
-                      'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded',
-                  [text('★')],
-                ),
-            ]),
-            // Status indicator based on configuration state
-            if (isFullyConfigured)
-              div(
-                classes: isModelEnabled ? 'text-green-500' : 'text-gray-400',
-                [text(isModelEnabled ? '●' : '○')],
-              )
-            else if (isPartiallyConfigured)
-              div(classes: 'text-amber-500', [text('⚠')])
-            else
-              div(classes: 'text-gray-300', [text('○')]),
-          ]),
-
-          p(classes: 'text-xs text-muted-foreground mb-2', [
-            text(model.description),
-          ]),
-
-          // Show warning for partially configured providers
-          if (isPartiallyConfigured)
-            p(classes: 'text-xs text-amber-600 mb-2 font-medium', [
-              text('⚠️ Add credentials to enable'),
-            ])
-          else if (!isProviderConfigured)
-            p(classes: 'text-xs text-gray-500 mb-2', [
-              text('Configure provider first'),
-            ]),
-
-          div(classes: 'text-xs text-gray-500', [text('ID: ${model.id}')]),
-        ]),
-      ],
-    );
-  }
-
-  void _toggleModel(AvailableModel model, String providerConfigId) {
-    final success = configManager.modelProviders.toggleModel(
-      providerConfigId,
-      model.id,
-    );
-    if (success) {
-      setState(() {}); // Refresh the UI
-      print('Toggled model ${model.id} for provider config $providerConfigId');
-    } else {
-      print('Failed to toggle model ${model.id}');
-    }
   }
 
   void _showEditExisting(ProviderType type) {
@@ -449,23 +208,32 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
           className: 'border border-gray-200',
           children: [
             div(classes: 'p-6 text-center', [
-              div(classes: 'text-3xl mb-2', [text('🔧')]),
+              div(classes: 'text-5xl mb-6', [FaIcons.solid.hammer]),
               h3(classes: 'text-base font-medium text-foreground mb-2', [
                 text('No Custom Providers'),
               ]),
-              Tooltip(
-                content:
-                    'Create custom provider templates to connect to your own embedding endpoints.',
-                child: p(classes: 'text-xs text-muted-foreground mb-3', [
-                  text('Create templates for your own embedding endpoints.'),
-                ]),
-              ),
-              Button(
-                variant: ButtonVariant.primary,
-                size: ButtonSize.sm,
-                onPressed: () => _showCreateCustomProvider(),
-                children: [text('Create First Custom Provider')],
-              ),
+              div([
+                Tooltip(
+                  content:
+                      'Create custom provider templates to connect to your own embedding endpoints.',
+                  child: p(
+                    classes: 'text-xs text-muted-foreground mb-4 block',
+                    [
+                      text(
+                        'Create templates for your own embedding endpoints.',
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+              div([
+                Button(
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.sm,
+                  onPressed: () => _showCreateCustomProvider(),
+                  children: [text('Create First Custom Provider')],
+                ),
+              ]),
             ]),
           ],
         )
@@ -490,7 +258,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
         div(classes: 'p-4', [
           div(classes: 'flex items-center justify-between mb-3', [
             div(classes: 'flex items-center space-x-3 min-w-0 flex-1', [
-              div(classes: 'text-2xl', [text('🔧')]),
+              div(classes: 'text-2xl', [FaIcons.solid.hammer]),
               div(classes: 'min-w-0 flex-1', [
                 h3(classes: 'text-base font-semibold text-foreground', [
                   text(template.name),
@@ -525,19 +293,19 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 events: {
                   'click': (_) => _showConfigureCustomProvider(template),
                 },
-                [text('⚙️')],
+                [FaIcons.solid.settings],
               ),
               button(
                 classes:
                     'p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
                 events: {'click': (_) => _showEditCustomProvider(template)},
-                [text('✏️')],
+                [FaIcons.solid.edit],
               ),
               button(
                 classes:
                     'p-2 rounded-md bg-red-100 hover:bg-red-200 text-red-600 transition-colors',
                 events: {'click': (_) => _showDeleteCustomProvider(template)},
-                [text('🗑️')],
+                [FaIcons.solid.delete],
               ),
             ]),
           ]),
@@ -1026,47 +794,51 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
 
       if (_editingCustomProviderId != null) {
         // Update existing template
-        final success = configManager.customProviderTemplates.updateTemplate(
-          _editingCustomProviderId!,
-          name: _customProviderName.trim(),
-          baseUri: _baseUri.trim(),
-          requiredCredentials: filteredCredentials,
-          availableModels: filteredModels,
-          embeddingRequestTemplate: HttpRequestTemplate(
-            method: HttpMethod.values.firstWhere(
-              (m) => m.name.toLowerCase() == _httpMethod.toLowerCase(),
-              orElse: () => HttpMethod.post,
-            ),
-            path: _httpPath.trim(),
-            headers: Map.from(_httpHeaders),
-            bodyTemplate: _httpBodyTemplate.trim().isNotEmpty
-                ? _httpBodyTemplate.trim()
-                : null,
-          ),
-        );
+        final success = await configManager.customProviderTemplates
+            .updateTemplate(
+              _editingCustomProviderId!,
+              name: _customProviderName.trim(),
+              baseUri: _baseUri.trim(),
+              requiredCredentials: filteredCredentials,
+              availableModels: filteredModels,
+              embeddingRequestTemplate: HttpRequestTemplate(
+                method: HttpMethod.values.firstWhere(
+                  (m) => m.name.toLowerCase() == _httpMethod.toLowerCase(),
+                  orElse: () => HttpMethod.post,
+                ),
+                path: _httpPath.trim(),
+                headers: Map.from(_httpHeaders),
+                bodyTemplate: _httpBodyTemplate.trim().isNotEmpty
+                    ? _httpBodyTemplate.trim()
+                    : null,
+              ),
+            );
 
+        if (!mounted) return;
         if (success) {
           _hideDialogs();
         }
       } else {
         // Create new template
-        configManager.customProviderTemplates.addTemplate(
-          name: _customProviderName.trim(),
-          baseUri: _baseUri.trim(),
-          requiredCredentials: filteredCredentials,
-          availableModels: filteredModels,
-          embeddingRequestTemplate: HttpRequestTemplate(
-            method: HttpMethod.values.firstWhere(
-              (m) => m.name.toLowerCase() == _httpMethod.toLowerCase(),
-              orElse: () => HttpMethod.post,
-            ),
-            path: _httpPath.trim(),
-            headers: Map.from(_httpHeaders),
-            bodyTemplate: _httpBodyTemplate.trim().isNotEmpty
-                ? _httpBodyTemplate.trim()
-                : null,
-          ),
-        );
+        configManager.customProviderTemplates
+            .addTemplate(
+              name: _customProviderName.trim(),
+              baseUri: _baseUri.trim(),
+              requiredCredentials: filteredCredentials,
+              availableModels: filteredModels,
+              embeddingRequestTemplate: HttpRequestTemplate(
+                method: HttpMethod.values.firstWhere(
+                  (m) => m.name.toLowerCase() == _httpMethod.toLowerCase(),
+                  orElse: () => HttpMethod.post,
+                ),
+                path: _httpPath.trim(),
+                headers: Map.from(_httpHeaders),
+                bodyTemplate: _httpBodyTemplate.trim().isNotEmpty
+                    ? _httpBodyTemplate.trim()
+                    : null,
+              ),
+            )
+            .ignore();
 
         _hideDialogs();
       }
@@ -1193,11 +965,9 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                                 },
                               },
                               [
-                                text(
-                                  _visibleCredentials.contains(credentialKey)
-                                      ? '🙈'
-                                      : '👁️',
-                                ),
+                                _visibleCredentials.contains(credentialKey)
+                                    ? FaIcons.solid.eyeSlash
+                                    : FaIcons.solid.eye,
                               ],
                             ),
                           ]),
@@ -1295,36 +1065,33 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     try {
       if (_editingProviderId != null) {
         // Update existing configuration
-        final success = configManager.modelProviders.updateConfig(
+        final success = await configManager.modelProviders.updateConfig(
           _editingProviderId!,
           name: _name.trim(),
-          credentials: _persistCredentials
-              ? Map<String, String>.from(_credentials)
-              : {},
-          settings: Map<String, dynamic>.from(_settings),
+          credentials: _credentials,
+          settings: _settings,
           persistCredentials: _persistCredentials,
-          enabledModels: Set<String>.from(
-            template.availableModels,
-          ), // Enable all models by default for now
+          // Enable all models by default for now
+          enabledModels: template.availableModels.toSet(),
         );
 
+        if (!mounted) return;
         if (success) {
           _hideDialogs();
         }
       } else {
         // Create new configuration using custom template
-        configManager.modelProviders.addCustomConfig(
-          name: _name.trim(),
-          customTemplateId: template.id,
-          credentials: _persistCredentials
-              ? Map<String, String>.from(_credentials)
-              : {},
-          settings: Map<String, dynamic>.from(_settings),
-          persistCredentials: _persistCredentials,
-          enabledModels: Set<String>.from(
-            template.availableModels,
-          ), // Enable all models by default for now
-        );
+        configManager.modelProviders
+            .addCustomConfig(
+              name: _name.trim(),
+              customTemplateId: template.id,
+              credentials: _credentials,
+              settings: _settings,
+              persistCredentials: _persistCredentials,
+              // Enable all models by default for now
+              enabledModels: template.availableModels.toSet(),
+            )
+            .ignore();
 
         _hideDialogs();
       }
@@ -1372,7 +1139,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
           classes:
               'flex items-center space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-md',
           [
-            span(classes: 'text-amber-600', [text('⚠️')]),
+            span(classes: 'text-amber-600', [FaIcons.solid.warning]),
             p(classes: 'text-sm text-amber-800', [
               text(
                 'Credentials will not be saved. You\'ll need to re-enter them each time you reload the page.',
@@ -1429,7 +1196,11 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 });
               },
             },
-            [text(_visibleCredentials.contains('apiKey') ? '🙈' : '👁️')],
+            [
+              _visibleCredentials.contains("apiKey")
+                  ? FaIcons.solid.eyeSlash
+                  : FaIcons.solid.eye,
+            ],
           ),
         ]),
       ]),
@@ -1482,7 +1253,11 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 });
               },
             },
-            [text(_visibleCredentials.contains('apiKey') ? '🙈' : '👁️')],
+            [
+              _visibleCredentials.contains("apiKey")
+                  ? FaIcons.solid.eyeSlash
+                  : FaIcons.solid.eye,
+            ],
           ),
         ]),
       ]),
@@ -1757,9 +1532,12 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
           classes:
               'text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200',
           [
-            text(
-              '⚠️ Warning: Credentials will be stored locally in your browser. Only enable this if you trust this device.',
-            ),
+            div(classes: 'flex items-center space-x-1', [
+              FaIcons.solid.warning,
+              text(
+                'Warning: Credentials will be stored locally in your browser. Only enable this if you trust this device.',
+              ),
+            ]),
           ],
         )
       else
@@ -1786,56 +1564,47 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     }
   }
 
-  void _saveConfiguration() async {
+  void _saveConfiguration() {
     if (_configuringProvider == null || _name.trim().isEmpty) return;
 
     final provider = _configuringProvider!;
 
     try {
-      if (_editingProviderId != null) {
+      if (_editingProviderId case final id?) {
         // Update existing configuration
-        final existingConfig = configManager.modelProviders.getById(
-          _editingProviderId!,
-        );
+        final existingConfig = configManager.modelProviders.getById(id);
         if (existingConfig != null) {
-          final updatedConfig = existingConfig.copyWith(
-            name: _name.trim(),
-            description: provider.description,
-            credentials: Map<String, String>.from(_credentials),
-            settings: Map<String, dynamic>.from(_settings),
-            persistCredentials: _persistCredentials,
-            updatedAt: DateTime.now(),
-          );
-          configManager.modelProviders.set(_editingProviderId!, updatedConfig);
+          configManager.modelProviders
+              .updateConfig(
+                id,
+                name: _name.trim(),
+                credentials: _credentials,
+                settings: _settings,
+                persistCredentials: _persistCredentials,
+                enabledModels: existingConfig.enabledModels,
+              )
+              .ignore();
         }
       } else {
         // Add new configuration
-        ConfigurationManager.instance.modelProviders.addConfig(
-          name: _name.trim(),
-          type: provider.type,
-          description: provider.description,
-          credentials: Map<String, String>.from(_credentials),
-          settings: Map<String, dynamic>.from(_settings),
-          persistCredentials: _persistCredentials,
-          isActive: true,
-        );
+        configManager.modelProviders
+            .addConfig(
+              name: _name.trim(),
+              type: provider.type,
+              description: provider.description,
+              credentials: _credentials,
+              settings: _settings,
+              persistCredentials: _persistCredentials,
+              isActive: true,
+            )
+            .ignore();
       }
 
-      setState(() {
-        _loadProviders();
-        _hideDialogs();
-      });
+      _hideDialogs();
 
       print('Provider configuration saved successfully');
     } catch (e) {
       print('Failed to save provider configuration: $e');
     }
-  }
-
-  void _loadProviders() {
-    // Refresh the provider list from ConfigurationManager
-    setState(() {
-      // The configured providers will be automatically updated through the ConfigurationManager
-    });
   }
 }

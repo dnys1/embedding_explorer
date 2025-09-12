@@ -53,7 +53,7 @@ class _SidebarState extends State<Sidebar> {
               div(classes: 'flex items-center space-x-2', [
                 img(src: 'images/logo.png', width: 24, height: 24),
                 h2(classes: 'text-lg font-semibold text-white', [
-                  Link(to: '/', child: text('Embeddings Explorer')),
+                  Link(to: '/dashboard', child: text('Embeddings Explorer')),
                 ]),
               ]),
               // Mobile close button

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../configurations/model/configuration_item.dart';
+
 /// Represents a job status
 enum JobStatus {
   pending,
@@ -40,7 +42,8 @@ enum JobStatus {
 }
 
 /// Represents an embedding job configuration
-class EmbeddingJob {
+class EmbeddingJob implements ConfigurationItem {
+  @override
   final String id;
   final String name;
   final String description;
@@ -129,53 +132,6 @@ class EmbeddingJob {
       results: results ?? this.results,
       totalRecords: totalRecords ?? this.totalRecords,
       processedRecords: processedRecords ?? this.processedRecords,
-    );
-  }
-
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'dataSourceId': dataSourceId,
-      'embeddingTemplateId': embeddingTemplateId,
-      'modelProviderIds': modelProviderIds,
-      'status': status.name,
-      'createdAt': createdAt.toIso8601String(),
-      'startedAt': startedAt?.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
-      'errorMessage': errorMessage,
-      'results': results,
-      'totalRecords': totalRecords,
-      'processedRecords': processedRecords,
-    };
-  }
-
-  /// Create from JSON
-  factory EmbeddingJob.fromJson(Map<String, dynamic> json) {
-    return EmbeddingJob(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      dataSourceId: json['dataSourceId'] as String,
-      embeddingTemplateId: json['embeddingTemplateId'] as String,
-      modelProviderIds: List<String>.from(json['modelProviderIds'] as List),
-      status: JobStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => JobStatus.pending,
-      ),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      startedAt: json['startedAt'] != null
-          ? DateTime.parse(json['startedAt'] as String)
-          : null,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
-          : null,
-      errorMessage: json['errorMessage'] as String?,
-      results: json['results'] as Map<String, dynamic>?,
-      totalRecords: json['totalRecords'] as int?,
-      processedRecords: json['processedRecords'] as int?,
     );
   }
 

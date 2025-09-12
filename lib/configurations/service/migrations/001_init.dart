@@ -48,17 +48,15 @@ CREATE TABLE IF NOT EXISTS custom_provider_templates (
 CREATE TABLE IF NOT EXISTS model_provider_configs (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
     type TEXT NOT NULL, -- openai, gemini, custom
     custom_template_id TEXT, -- Reference to custom_provider_templates for custom providers
     settings TEXT NOT NULL DEFAULT '{}', -- JSON object for provider-specific settings
     credentials TEXT NOT NULL DEFAULT '{}', -- JSON object for encrypted credentials (if persisted)
-    is_active INTEGER NOT NULL DEFAULT 1, -- Boolean: 1 for true, 0 for false
     persist_credentials INTEGER NOT NULL DEFAULT 0, -- Boolean: whether to persist credentials
     enabled_models TEXT NOT NULL DEFAULT '[]', -- JSON array of enabled model IDs
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL, -- ISO 8601 datetime
-    FOREIGN KEY (custom_template_id) REFERENCES custom_provider_templates(id) ON DELETE SET NULL
+    FOREIGN KEY (custom_template_id) REFERENCES custom_provider_templates(id) ON DELETE CASCADE
 );
 
 -- Create embedding jobs table
@@ -94,7 +92,6 @@ CREATE TABLE IF NOT EXISTS embedding_job_providers (
 CREATE INDEX IF NOT EXISTS idx_embedding_template_configs_data_source_id ON embedding_template_configs(data_source_id);
 CREATE INDEX IF NOT EXISTS idx_model_provider_configs_type ON model_provider_configs(type);
 CREATE INDEX IF NOT EXISTS idx_model_provider_configs_custom_template_id ON model_provider_configs(custom_template_id);
-CREATE INDEX IF NOT EXISTS idx_model_provider_configs_is_active ON model_provider_configs(is_active);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_status ON embedding_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_data_source_id ON embedding_jobs(data_source_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_embedding_template_id ON embedding_jobs(embedding_template_id);

@@ -1,3 +1,5 @@
+import '../model/model_provider_config.dart';
+
 /// Abstract interface for embedding providers
 abstract class EmbeddingProvider {
   /// Unique identifier for this provider
@@ -13,22 +15,25 @@ abstract class EmbeddingProvider {
   bool get requiresApiKey;
 
   /// List of available models for this provider
-  List<EmbeddingModel> get availableModels;
+  Future<Map<String, EmbeddingModel>> listAvailableModels(
+    ModelProviderConfig config,
+  );
 
   /// Whether this provider supports custom configuration
   bool get supportsCustomConfig => false;
 
   /// Validate the provider configuration
-  ValidationResult validateConfig(Map<String, dynamic> config);
+  ValidationResult validateConfig(ModelProviderConfig config);
 
   /// Test the provider connection
-  Future<bool> testConnection(Map<String, dynamic> config);
+  Future<bool> testConnection(ModelProviderConfig config);
 
   /// Generate embeddings for the given texts
-  Future<List<List<double>>> generateEmbeddings(
-    List<String> texts,
-    Map<String, dynamic> config,
-  );
+  Future<List<List<double>>> generateEmbeddings({
+    required String modelId,
+    required List<String> texts,
+    required ModelProviderConfig config,
+  });
 
   /// Get the dimension of embeddings produced by this provider
   int getEmbeddingDimension(String modelId);
@@ -40,16 +45,16 @@ class EmbeddingModel {
   final String name;
   final String description;
   final int dimensions;
-  final int maxInputTokens;
-  final double costPer1kTokens;
+  final int? maxInputTokens;
+  final double? costPer1kTokens;
 
   const EmbeddingModel({
     required this.id,
     required this.name,
     required this.description,
     required this.dimensions,
-    required this.maxInputTokens,
-    required this.costPer1kTokens,
+    this.maxInputTokens,
+    this.costPer1kTokens,
   });
 
   Map<String, dynamic> toJson() => {
@@ -57,17 +62,17 @@ class EmbeddingModel {
     'name': name,
     'description': description,
     'dimensions': dimensions,
-    'maxInputTokens': maxInputTokens,
-    'costPer1kTokens': costPer1kTokens,
+    'maxInputTokens': ?maxInputTokens,
+    'costPer1kTokens': ?costPer1kTokens,
   };
 
   factory EmbeddingModel.fromJson(Map<String, dynamic> json) => EmbeddingModel(
     id: json['id'] as String,
     name: json['name'] as String,
     description: json['description'] as String,
-    dimensions: json['dimensions'] as int,
-    maxInputTokens: json['maxInputTokens'] as int,
-    costPer1kTokens: (json['costPer1kTokens'] as num).toDouble(),
+    dimensions: (json['dimensions'] as num).toInt(),
+    maxInputTokens: (json['maxInputTokens'] as num?)?.toInt(),
+    costPer1kTokens: (json['costPer1kTokens'] as num?)?.toDouble(),
   );
 }
 
@@ -90,45 +95,4 @@ class ValidationResult {
 
   factory ValidationResult.withWarnings(List<String> warnings) =>
       ValidationResult(isValid: true, warnings: warnings);
-}
-
-/// Provider configuration for UI components
-class ProviderConfig {
-  final String providerId;
-  final String? apiKey;
-  final String modelId;
-  final Map<String, dynamic> customParams;
-
-  const ProviderConfig({
-    required this.providerId,
-    this.apiKey,
-    required this.modelId,
-    this.customParams = const {},
-  });
-
-  Map<String, dynamic> toJson() => {
-    'providerId': providerId,
-    if (apiKey != null) 'apiKey': apiKey,
-    'modelId': modelId,
-    'customParams': customParams,
-  };
-
-  factory ProviderConfig.fromJson(Map<String, dynamic> json) => ProviderConfig(
-    providerId: json['providerId'] as String,
-    apiKey: json['apiKey'] as String?,
-    modelId: json['modelId'] as String,
-    customParams: json['customParams'] as Map<String, dynamic>? ?? {},
-  );
-
-  ProviderConfig copyWith({
-    String? providerId,
-    String? apiKey,
-    String? modelId,
-    Map<String, dynamic>? customParams,
-  }) => ProviderConfig(
-    providerId: providerId ?? this.providerId,
-    apiKey: apiKey ?? this.apiKey,
-    modelId: modelId ?? this.modelId,
-    customParams: customParams ?? this.customParams,
-  );
 }

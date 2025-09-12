@@ -3,12 +3,30 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 
 import '../../configurations/model/configuration_collection.dart';
+import '../../configurations/model/configuration_item.dart';
 
 /// Types of embedding providers
 enum ProviderType { openai, gemini, custom }
 
+/// Configuration state for providers
+enum ConfigurationState {
+  /// No configuration exists
+  notConfigured,
+
+  /// Configuration exists but credentials not persisted
+  partiallyConfigured,
+
+  /// Configuration exists with persisted credentials
+  fullyConfigured;
+
+  bool get hasConfiguration => this != notConfigured;
+  bool get isPartiallyConfigured => this == partiallyConfigured;
+  bool get isFullyConfigured => this == fullyConfigured;
+}
+
 /// Configuration for a model provider with metadata
-class ModelProviderConfig {
+class ModelProviderConfig implements ConfigurationItem {
+  @override
   final String id;
   final String name;
   final String description;
@@ -17,7 +35,6 @@ class ModelProviderConfig {
   customTemplateId; // Reference to CustomProviderTemplate for custom providers
   final Map<String, dynamic> settings;
   final Map<String, String> credentials;
-  final bool isActive;
   final bool persistCredentials; // Whether to persist credentials in storage
   final Set<String> enabledModels; // Track which models are enabled
   final DateTime createdAt;
@@ -31,7 +48,6 @@ class ModelProviderConfig {
     this.customTemplateId,
     required this.settings,
     required this.credentials,
-    required this.isActive,
     required this.persistCredentials,
     required this.enabledModels,
     required this.createdAt,
@@ -47,7 +63,6 @@ class ModelProviderConfig {
     String? customTemplateId,
     Map<String, dynamic>? settings,
     Map<String, String>? credentials,
-    bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
     DateTime? createdAt,
@@ -59,58 +74,15 @@ class ModelProviderConfig {
       description: description ?? this.description,
       type: type ?? this.type,
       customTemplateId: customTemplateId ?? this.customTemplateId,
-      settings: settings ?? Map.of(this.settings),
-      credentials: credentials ?? Map.of(this.credentials),
-      isActive: isActive ?? this.isActive,
+      settings: settings ?? this.settings,
+      credentials: (persistCredentials ?? this.persistCredentials)
+          ? (credentials ?? this.credentials)
+          : const {},
       persistCredentials: persistCredentials ?? this.persistCredentials,
-      enabledModels: enabledModels ?? Set.of(this.enabledModels),
+      enabledModels: enabledModels ?? this.enabledModels,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-
-  /// Convert to JSON (without exposing credentials in storage)
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'type': type.name, // nullable for custom providers
-      'customTemplateId': customTemplateId,
-      'settings': settings,
-      // Only store credentials if user chose to persist them
-      'credentials': persistCredentials
-          ? _encodeCredentials(credentials)
-          : <String, dynamic>{},
-      'isActive': isActive,
-      'persistCredentials': persistCredentials,
-      'enabledModels': enabledModels.toList(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  /// Create from JSON
-  static ModelProviderConfig? fromJson(Map<String, dynamic> json) {
-    try {
-      return ModelProviderConfig(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String? ?? '',
-        type: ProviderType.values.byName(json['type'] as String),
-        customTemplateId: json['customTemplateId'] as String?,
-        settings: Map<String, dynamic>.from(json['settings'] as Map? ?? {}),
-        credentials: _decodeCredentials(json['credentials']),
-        isActive: json['isActive'] as bool? ?? true,
-        persistCredentials: json['persistCredentials'] as bool? ?? false,
-        enabledModels: Set<String>.from(json['enabledModels'] as List? ?? []),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
-    } catch (e) {
-      print('Error parsing ModelProviderConfig from JSON: $e');
-      return null;
-    }
   }
 
   /// Create from database result
@@ -128,7 +100,6 @@ class ModelProviderConfig {
         credentials: row['credentials'] != null
             ? _decodeCredentials(jsonDecode(row['credentials'] as String))
             : <String, String>{},
-        isActive: (row['is_active'] as int? ?? 1) == 1,
         persistCredentials: (row['persist_credentials'] as int? ?? 0) == 1,
         enabledModels: row['enabled_models'] != null
             ? Set<String>.from(
@@ -164,7 +135,6 @@ class ModelProviderConfig {
       customTemplateId: null,
       settings: settings ?? {},
       credentials: credentials ?? {},
-      isActive: isActive ?? true,
       persistCredentials: persistCredentials ?? false,
       enabledModels: enabledModels ?? <String>{},
       createdAt: now,
@@ -192,7 +162,6 @@ class ModelProviderConfig {
       customTemplateId: customTemplateId,
       settings: settings ?? {},
       credentials: credentials ?? {},
-      isActive: isActive ?? true,
       persistCredentials: persistCredentials ?? false,
       enabledModels: enabledModels ?? <String>{},
       createdAt: now,
@@ -220,15 +189,6 @@ class ModelProviderConfig {
     }
   }
 
-  /// Simple encoding for credentials (in a real app, use proper encryption)
-  static Map<String, String> _encodeCredentials(
-    Map<String, String> credentials,
-  ) {
-    // TODO: Implement proper encryption for credentials
-    // For now, just return as-is (this is not secure for production)
-    return Map.of(credentials);
-  }
-
   /// Simple decoding for credentials
   static Map<String, String> _decodeCredentials(dynamic credentialsData) {
     // TODO: Implement proper decryption for credentials
@@ -242,30 +202,16 @@ class ModelProviderConfig {
 /// Collection for managing model provider configurations
 class ModelProviderConfigCollection
     extends ConfigurationCollection<ModelProviderConfig> {
-  static final ModelProviderConfigCollection _instance =
-      ModelProviderConfigCollection._internal();
-
-  factory ModelProviderConfigCollection() {
-    return _instance;
-  }
-
-  ModelProviderConfigCollection._internal();
+  ModelProviderConfigCollection(super.configService);
 
   @override
   String get prefix => 'mp';
 
   @override
-  String get storageKey => 'model_provider_configs';
-
-  @override
-  Map<String, dynamic> toJson(ModelProviderConfig item) => item.toJson();
-
-  @override
-  ModelProviderConfig? fromJson(Map<String, dynamic> json) =>
-      ModelProviderConfig.fromJson(json);
+  String get tableName => 'model_provider_configs';
 
   /// Add a new model provider configuration for built-in providers
-  String addConfig({
+  Future<String> addConfig({
     required String name,
     required ProviderType type,
     String? description,
@@ -274,7 +220,7 @@ class ModelProviderConfigCollection
     bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
-  }) {
+  }) async {
     final id = generateId();
     final config = ModelProviderConfig.createDefault(
       name: name,
@@ -287,12 +233,12 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    set(id, config);
+    await set(id, config);
     return id;
   }
 
   /// Add a new custom provider configuration
-  String addCustomConfig({
+  Future<String> addCustomConfig({
     required String name,
     required String customTemplateId,
     String? description,
@@ -301,7 +247,7 @@ class ModelProviderConfigCollection
     bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
-  }) {
+  }) async {
     final id = generateId();
     final config = ModelProviderConfig.createDefaultCustom(
       name: name,
@@ -314,12 +260,12 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    set(id, config);
+    await set(id, config);
     return id;
   }
 
   /// Update an existing configuration
-  bool updateConfig(
+  Future<bool> updateConfig(
     String id, {
     String? name,
     String? description,
@@ -330,7 +276,7 @@ class ModelProviderConfigCollection
     bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
-  }) {
+  }) async {
     final existing = getById(id);
     if (existing == null) return false;
 
@@ -341,13 +287,12 @@ class ModelProviderConfigCollection
       customTemplateId: customTemplateId,
       settings: settings,
       credentials: credentials,
-      isActive: isActive,
       persistCredentials: persistCredentials,
       enabledModels: enabledModels,
       updatedAt: DateTime.now(),
     );
 
-    set(id, updated);
+    await set(id, updated);
     return true;
   }
 
@@ -373,11 +318,6 @@ class ModelProviderConfigCollection
     return all.where((config) => config.type != ProviderType.custom).toList();
   }
 
-  /// Get only active configurations
-  List<ModelProviderConfig> getActiveConfigs() {
-    return all.where((config) => config.isActive).toList();
-  }
-
   /// Get only valid configurations
   List<ModelProviderConfig> getValidConfigs() {
     return all.where((config) => config.isValid).toList();
@@ -395,16 +335,8 @@ class ModelProviderConfigCollection
         .toList();
   }
 
-  /// Toggle active status of a configuration
-  bool toggleActive(String id) {
-    final existing = getById(id);
-    if (existing == null) return false;
-
-    return updateConfig(id, isActive: !existing.isActive);
-  }
-
   /// Toggle model enabled status for a provider
-  bool toggleModel(String providerId, String modelId) {
+  Future<bool> toggleModel(String providerId, String modelId) async {
     final existing = getById(providerId);
     if (existing == null) return false;
 
@@ -415,12 +347,31 @@ class ModelProviderConfigCollection
       newEnabledModels.add(modelId);
     }
 
-    return updateConfig(providerId, enabledModels: newEnabledModels);
+    return await updateConfig(providerId, enabledModels: newEnabledModels);
   }
 
   /// Check if a specific model is enabled for a provider
   bool isModelEnabled(String providerId, String modelId) {
     final config = getById(providerId);
     return config?.enabledModels.contains(modelId) ?? false;
+  }
+
+  @override
+  Future<void> saveItem(String id, ModelProviderConfig item) async {
+    await configService.saveModelProviderConfig(
+      item.copyWith(
+        credentials: item.persistCredentials ? item.credentials : const {},
+      ),
+    );
+  }
+
+  @override
+  Future<ModelProviderConfig?> loadItem(String id) async {
+    return await configService.getModelProviderConfig(id);
+  }
+
+  @override
+  Future<List<ModelProviderConfig>> loadAllItems() async {
+    return await configService.getAllModelProviderConfigs();
   }
 }

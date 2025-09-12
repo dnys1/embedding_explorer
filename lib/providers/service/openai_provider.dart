@@ -1,13 +1,45 @@
 import 'dart:convert';
 import 'dart:js_interop';
 
+import 'package:aws_common/aws_common.dart';
+import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
-import '../model/embedding_provider.dart';
+import '../model/model_provider_config.dart';
+import 'embedding_provider.dart';
 
 /// OpenAI embedding provider implementation
 class OpenAIProvider implements EmbeddingProvider {
   static const String _baseUrl = 'https://api.openai.com/v1';
+
+  static final Logger _logger = Logger('OpenAIProvider');
+
+  static const Map<String, EmbeddingModel> _knownModels = {
+    'text-embedding-3-small': EmbeddingModel(
+      id: 'text-embedding-3-small',
+      name: 'Text Embedding 3 Small',
+      description: 'Most affordable embedding model with good performance',
+      dimensions: 1536,
+      maxInputTokens: 8192,
+      costPer1kTokens: 0.00002,
+    ),
+    'text-embedding-3-large': EmbeddingModel(
+      id: 'text-embedding-3-large',
+      name: 'Text Embedding 3 Large',
+      description: 'Highest performance embedding model',
+      dimensions: 3072,
+      maxInputTokens: 8192,
+      costPer1kTokens: 0.00013,
+    ),
+    'text-embedding-ada-002': EmbeddingModel(
+      id: 'text-embedding-ada-002',
+      name: 'Text Embedding Ada 002',
+      description: 'Previous generation embedding model (legacy)',
+      dimensions: 1536,
+      maxInputTokens: 8192,
+      costPer1kTokens: 0.0001,
+    ),
+  };
 
   @override
   String get id => 'openai';
@@ -25,53 +57,34 @@ class OpenAIProvider implements EmbeddingProvider {
   @override
   bool get supportsCustomConfig => false;
 
-  @override
-  List<EmbeddingModel> get availableModels => [
-    const EmbeddingModel(
-      id: 'text-embedding-3-small',
-      name: 'Text Embedding 3 Small',
-      description: 'Most affordable embedding model with good performance',
-      dimensions: 1536,
-      maxInputTokens: 8192,
-      costPer1kTokens: 0.00002,
-    ),
-    const EmbeddingModel(
-      id: 'text-embedding-3-large',
-      name: 'Text Embedding 3 Large',
-      description: 'Highest performance embedding model',
-      dimensions: 3072,
-      maxInputTokens: 8192,
-      costPer1kTokens: 0.00013,
-    ),
-    const EmbeddingModel(
-      id: 'text-embedding-ada-002',
-      name: 'Text Embedding Ada 002',
-      description: 'Previous generation embedding model (legacy)',
-      dimensions: 1536,
-      maxInputTokens: 8192,
-      costPer1kTokens: 0.0001,
-    ),
-  ];
+  Map<String, EmbeddingModel>? _modelCache;
 
   @override
-  ValidationResult validateConfig(Map<String, dynamic> config) {
+  Future<Map<String, EmbeddingModel>> listAvailableModels(
+    ModelProviderConfig config,
+  ) async {
+    if (_modelCache case final cache?) {
+      return cache;
+    }
+    try {
+      return _modelCache = await _fetchAvailableModels(config);
+    } catch (e) {
+      _logger.warning('Failed to fetch OpenAI models', e);
+      return _knownModels;
+    }
+  }
+
+  @override
+  ValidationResult validateConfig(ModelProviderConfig config) {
     final errors = <String>[];
     final warnings = <String>[];
 
     // Check API key
-    final apiKey = config['apiKey'] as String?;
+    final apiKey = config.credentials['apiKey'];
     if (apiKey == null || apiKey.isEmpty) {
       errors.add('OpenAI API key is required');
     } else if (!apiKey.startsWith('sk-')) {
       warnings.add('OpenAI API key should start with "sk-"');
-    }
-
-    // Check model ID
-    final modelId = config['modelId'] as String?;
-    if (modelId == null || modelId.isEmpty) {
-      errors.add('Model selection is required');
-    } else if (!availableModels.any((m) => m.id == modelId)) {
-      errors.add('Selected model "$modelId" is not available');
     }
 
     if (errors.isNotEmpty) {
@@ -84,36 +97,26 @@ class OpenAIProvider implements EmbeddingProvider {
   }
 
   @override
-  Future<bool> testConnection(Map<String, dynamic> config) async {
+  Future<bool> testConnection(ModelProviderConfig config) async {
     try {
-      final apiKey = config['apiKey'] as String;
-      final modelId = config['modelId'] as String;
-
-      // Test with a simple embedding request
-      final response = await _makeRequest(
-        apiKey: apiKey,
-        endpoint: '/embeddings',
-        body: {
-          'model': modelId,
-          'input': 'test connection',
-          'encoding_format': 'float',
-        },
-      );
-
-      final data = response['data'] as List?;
-      return data != null && data.isNotEmpty;
+      _modelCache ??= await _fetchAvailableModels(config);
+      return true;
     } catch (e) {
+      _logger.warning('OpenAI connection test failed', e);
       return false;
     }
   }
 
   @override
-  Future<List<List<double>>> generateEmbeddings(
-    List<String> texts,
-    Map<String, dynamic> config,
-  ) async {
-    final apiKey = config['apiKey'] as String;
-    final modelId = config['modelId'] as String;
+  Future<List<List<double>>> generateEmbeddings({
+    required String modelId,
+    required List<String> texts,
+    required ModelProviderConfig config,
+  }) async {
+    final apiKey = config.credentials['apiKey'];
+    if (apiKey == null || apiKey.isEmpty) {
+      throw ArgumentError('API key is required to generate embeddings');
+    }
 
     // OpenAI has a batch limit, so we may need to split large requests
     const batchSize = 100;
@@ -140,17 +143,59 @@ class OpenAIProvider implements EmbeddingProvider {
 
   @override
   int getEmbeddingDimension(String modelId) {
-    final model = availableModels.firstWhere(
-      (m) => m.id == modelId,
-      orElse: () => availableModels.first,
+    final models = _modelCache ?? _knownModels;
+    return models[modelId]!.dimensions;
+  }
+
+  Future<Map<String, EmbeddingModel>> _fetchAvailableModels(
+    ModelProviderConfig config,
+  ) async {
+    final apiKey = config.credentials['apiKey']!;
+    final response = await _makeRequest(
+      apiKey: apiKey,
+      endpoint: '/models',
+      body: {},
+      method: 'GET',
     );
-    return model.dimensions;
+
+    final models = (response['data'] as List)
+        .cast<Map<String, dynamic>>()
+        .where((model) => (model['id'] as String).contains('embedding'))
+        .map(
+          (json) => MapEntry(
+            json['id'] as String,
+            _mapOpenAIModelToEmbeddingModel(json),
+          ),
+        );
+    return Map.fromEntries(models);
+  }
+
+  EmbeddingModel _mapOpenAIModelToEmbeddingModel(
+    Map<String, dynamic> apiModel,
+  ) {
+    final modelId = apiModel['id'] as String;
+    if (_knownModels[modelId] case final knownModel?) {
+      return knownModel;
+    }
+
+    // For unknown models, provide reasonable defaults
+    return EmbeddingModel(
+      id: modelId,
+      name: modelId
+          .replaceAll('-', ' ')
+          .split(' ')
+          .map((w) => w.capitalized)
+          .join(' '),
+      description: 'OpenAI embedding model',
+      dimensions: 1536, // Default dimension
+    );
   }
 
   Future<Map<String, dynamic>> _makeRequest({
     required String apiKey,
     required String endpoint,
     required Map<String, dynamic> body,
+    String method = 'POST',
   }) async {
     final url = '$_baseUrl$endpoint';
 
@@ -159,32 +204,29 @@ class OpenAIProvider implements EmbeddingProvider {
       'Authorization': 'Bearer $apiKey',
     };
 
-    try {
-      final response = await web.window
-          .fetch(
-            url.toJS,
-            web.RequestInit(
-              method: 'POST',
-              headers: headers.jsify()! as JSObject,
-              body: jsonEncode(body).toJS,
-            ),
-          )
-          .toDart;
+    final requestInit = web.RequestInit(
+      method: method,
+      headers: headers.jsify()! as JSObject,
+    );
 
-      if (!response.ok) {
-        final errorText = await response.text().toDart;
-        throw Exception(
-          'OpenAI API request failed (${response.status}): $errorText',
-        );
-      }
-
-      final responseText = await response.text().toDart;
-      final responseData =
-          jsonDecode(responseText.toDart) as Map<String, dynamic>;
-
-      return responseData;
-    } catch (e) {
-      throw Exception('OpenAI API request failed: $e');
+    // Only add body for non-GET requests
+    if (method != 'GET' && body.isNotEmpty) {
+      requestInit.body = jsonEncode(body).toJS;
     }
+
+    final response = await web.window.fetch(url.toJS, requestInit).toDart;
+
+    if (!response.ok) {
+      final errorText = await response.text().toDart;
+      throw Exception(
+        'OpenAI API request failed (${response.status}): ${errorText.toDart}',
+      );
+    }
+
+    final responseText = await response.text().toDart;
+    final responseData =
+        jsonDecode(responseText.toDart) as Map<String, dynamic>;
+
+    return responseData;
   }
 }

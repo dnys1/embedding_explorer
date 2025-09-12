@@ -273,11 +273,6 @@ class CsvDataSource extends DataSource {
     return CsvDataSource.fromConfig(newConfig);
   }
 
-  @override
-  Map<String, dynamic> toJson() {
-    return config.toJson();
-  }
-
   /// Convert raw CSV rows to list of maps with proper field names
   List<Map<String, dynamic>> _convertRowsToMaps(Iterable<List<dynamic>> rows) {
     _logger.finest(

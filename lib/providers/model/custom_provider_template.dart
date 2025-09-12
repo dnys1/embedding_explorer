@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../configurations/model/configuration_collection.dart';
+import '../../configurations/model/configuration_item.dart';
 
 /// HTTP method for API requests
 enum HttpMethod { get, post, put, patch, delete }
@@ -55,7 +56,8 @@ class HttpRequestTemplate {
 }
 
 /// Template for a custom provider configuration
-class CustomProviderTemplate {
+class CustomProviderTemplate implements ConfigurationItem {
+  @override
   final String id;
   final String name;
   final String description;
@@ -111,56 +113,6 @@ class CustomProviderTemplate {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
-  }
-
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'icon': icon,
-      'baseUri': baseUri,
-      'requiredCredentials': requiredCredentials,
-      'defaultSettings': defaultSettings,
-      'availableModels': availableModels,
-      'embeddingRequestTemplate': embeddingRequestTemplate.toJson(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  /// Create from JSON
-  static CustomProviderTemplate? fromJson(Map<String, dynamic> json) {
-    try {
-      final requestTemplate = HttpRequestTemplate.fromJson(
-        json['embeddingRequestTemplate'] as Map<String, dynamic>,
-      );
-      if (requestTemplate == null) return null;
-
-      return CustomProviderTemplate(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        description: json['description'] as String? ?? '',
-        icon: json['icon'] as String? ?? '🔧',
-        baseUri: json['baseUri'] as String,
-        requiredCredentials: List<String>.from(
-          json['requiredCredentials'] as List? ?? [],
-        ),
-        defaultSettings: Map<String, dynamic>.from(
-          json['defaultSettings'] as Map? ?? {},
-        ),
-        availableModels: List<String>.from(
-          json['availableModels'] as List? ?? [],
-        ),
-        embeddingRequestTemplate: requestTemplate,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
-    } catch (e) {
-      print('Error parsing CustomProviderTemplate from JSON: $e');
-      return null;
-    }
   }
 
   /// Create from database result
@@ -252,21 +204,16 @@ class CustomProviderTemplate {
 /// Collection for managing custom provider templates
 class CustomProviderTemplateCollection
     extends ConfigurationCollection<CustomProviderTemplate> {
+  CustomProviderTemplateCollection(super.configService);
+
   @override
   String get prefix => 'cpt';
 
   @override
-  String get storageKey => 'custom_provider_templates';
-
-  @override
-  Map<String, dynamic> toJson(CustomProviderTemplate item) => item.toJson();
-
-  @override
-  CustomProviderTemplate? fromJson(Map<String, dynamic> json) =>
-      CustomProviderTemplate.fromJson(json);
+  String get tableName => 'custom_provider_templates';
 
   /// Add a new custom provider template
-  String addTemplate({
+  Future<String> addTemplate({
     required String name,
     required String baseUri,
     String? description,
@@ -274,7 +221,7 @@ class CustomProviderTemplateCollection
     List<String>? requiredCredentials,
     List<String>? availableModels,
     HttpRequestTemplate? embeddingRequestTemplate,
-  }) {
+  }) async {
     final id = generateId();
     final template = CustomProviderTemplate.createDefault(
       name: name,
@@ -286,12 +233,12 @@ class CustomProviderTemplateCollection
       embeddingRequestTemplate: embeddingRequestTemplate,
     ).copyWith(id: id);
 
-    set(id, template);
+    await set(id, template);
     return id;
   }
 
   /// Update an existing template
-  bool updateTemplate(
+  Future<bool> updateTemplate(
     String id, {
     String? name,
     String? description,
@@ -300,7 +247,7 @@ class CustomProviderTemplateCollection
     List<String>? requiredCredentials,
     List<String>? availableModels,
     HttpRequestTemplate? embeddingRequestTemplate,
-  }) {
+  }) async {
     final existing = getById(id);
     if (existing == null) return false;
 
@@ -315,12 +262,27 @@ class CustomProviderTemplateCollection
       updatedAt: DateTime.now(),
     );
 
-    set(id, updated);
+    await set(id, updated);
     return true;
   }
 
   /// Get all valid templates
   List<CustomProviderTemplate> getValidTemplates() {
     return all.where((template) => template.isValid).toList();
+  }
+
+  @override
+  Future<void> saveItem(String id, CustomProviderTemplate item) async {
+    await configService.saveCustomProviderTemplate(item);
+  }
+
+  @override
+  Future<CustomProviderTemplate?> loadItem(String id) async {
+    return await configService.getCustomProviderTemplate(id);
+  }
+
+  @override
+  Future<List<CustomProviderTemplate>> loadAllItems() async {
+    return await configService.getAllCustomProviderTemplates();
   }
 }
