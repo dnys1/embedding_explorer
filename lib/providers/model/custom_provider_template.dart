@@ -285,4 +285,9 @@ class CustomProviderTemplateCollection
   Future<List<CustomProviderTemplate>> loadAllItems() async {
     return await configService.getAllCustomProviderTemplates();
   }
+
+  @override
+  Future<void> removeItem(CustomProviderTemplate item) async {
+    await configService.deleteCustomProviderTemplate(item.id);
+  }
 }

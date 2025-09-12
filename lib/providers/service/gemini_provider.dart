@@ -5,6 +5,7 @@ import 'package:aws_common/aws_common.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../credentials/model/credential.dart';
 import '../model/model_provider_config.dart';
 import 'embedding_provider.dart';
 
@@ -61,8 +62,10 @@ class GeminiProvider implements EmbeddingProvider {
     }
     try {
       return _modelCache = await _fetchAvailableModels(config);
-    } catch (e) {
-      _logger.warning('Failed to fetch Gemini models', e);
+    } catch (e, st) {
+      if (config.credential != null) {
+        _logger.warning('Failed to fetch OpenAI models', e, st);
+      }
       return _knownModels;
     }
   }
@@ -73,7 +76,10 @@ class GeminiProvider implements EmbeddingProvider {
     final warnings = <String>[];
 
     // Check API key
-    final apiKey = config.credentials['apiKey'];
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
     if (apiKey == null || apiKey.isEmpty) {
       errors.add('Gemini API key is required');
     } else if (!apiKey.startsWith('AIza')) {
@@ -94,8 +100,8 @@ class GeminiProvider implements EmbeddingProvider {
     try {
       _modelCache ??= await _fetchAvailableModels(config);
       return true;
-    } catch (e) {
-      _logger.warning('Gemini connection test failed', e);
+    } catch (e, st) {
+      _logger.warning('Gemini connection test failed', e, st);
       return false;
     }
   }
@@ -106,7 +112,10 @@ class GeminiProvider implements EmbeddingProvider {
     required List<String> texts,
     required ModelProviderConfig config,
   }) async {
-    final apiKey = config.credentials['apiKey'];
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
     if (apiKey == null || apiKey.isEmpty) {
       throw ArgumentError('API key is required to generate embeddings');
     }
@@ -143,7 +152,14 @@ class GeminiProvider implements EmbeddingProvider {
   Future<Map<String, EmbeddingModel>> _fetchAvailableModels(
     ModelProviderConfig config,
   ) async {
-    final apiKey = config.credentials['apiKey']!;
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
+    if (apiKey == null || apiKey.isEmpty) {
+      throw ArgumentError('API key is required to fetch models');
+    }
+
     final url = '$_baseUrl/models';
 
     final headers = <String, String>{
@@ -165,9 +181,9 @@ class GeminiProvider implements EmbeddingProvider {
       );
     }
 
-    final responseJson = await response.json().toDart;
-    final responseData = (responseJson.dartify() as Map)
-        .cast<String, dynamic>();
+    final responseText = await response.text().toDart;
+    final responseData =
+        jsonDecode(responseText.toDart) as Map<String, dynamic>;
 
     final models = (responseData['models'] as List)
         .cast<Map<String, dynamic>>()

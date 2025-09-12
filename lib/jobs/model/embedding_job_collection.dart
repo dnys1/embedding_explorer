@@ -149,4 +149,9 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
   Future<List<EmbeddingJob>> loadAllItems() async {
     return await configService.getAllEmbeddingJobs();
   }
+
+  @override
+  Future<void> removeItem(EmbeddingJob item) async {
+    await configService.deleteEmbeddingJob(item.id);
+  }
 }

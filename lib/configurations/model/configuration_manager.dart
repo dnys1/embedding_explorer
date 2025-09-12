@@ -1,5 +1,6 @@
 import 'package:jaspr/jaspr.dart';
 
+import '../../credentials/service/credential_service.dart';
 import '../../data_sources/model/data_source_config.dart';
 import '../../jobs/model/embedding_job_collection.dart';
 import '../../providers/model/custom_provider_template.dart';
@@ -21,7 +22,10 @@ class ConfigurationManager with ChangeNotifier {
   late final EmbeddingTemplateConfigCollection embeddingTemplates =
       EmbeddingTemplateConfigCollection(_configService);
   late final ModelProviderConfigCollection modelProviders =
-      ModelProviderConfigCollection(_configService);
+      ModelProviderConfigCollection(
+        _configService,
+        CredentialService(_configService.database),
+      );
   late final CustomProviderTemplateCollection customProviderTemplates =
       CustomProviderTemplateCollection(_configService);
   late final EmbeddingJobCollection embeddingJobs = EmbeddingJobCollection(

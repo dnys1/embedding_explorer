@@ -209,4 +209,9 @@ class EmbeddingTemplateConfigCollection
   Future<List<EmbeddingTemplateConfig>> loadAllItems() async {
     return await configService.getAllEmbeddingTemplateConfigs();
   }
+
+  @override
+  Future<void> removeItem(EmbeddingTemplateConfig item) async {
+    await configService.deleteEmbeddingTemplateConfig(item.id);
+  }
 }

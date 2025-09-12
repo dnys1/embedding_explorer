@@ -1,8 +1,9 @@
 import 'package:jaspr/jaspr.dart';
-import 'package:web/web.dart';
+import 'package:web/web.dart' hide Credential;
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
+import '../../credentials/model/credential.dart';
 import '../component/available_providers_view.dart';
 import '../model/available_providers.dart';
 import '../model/custom_provider_template.dart';
@@ -18,23 +19,19 @@ class ModelProvidersPage extends StatefulComponent {
 class _ModelProvidersPageState extends State<ModelProvidersPage>
     with ConfigurationManagerListener {
   bool _showDeleteDialog = false;
-  bool _showCredentialsDialog = false;
   bool _showCustomProviderDialog = false;
   AvailableProvider? _configuringProvider;
   ModelProviderConfig? _deletingProvider;
-  ModelProviderConfig? _viewingCredentials;
-  CustomProviderTemplate? _configuringCustomProvider;
   CustomProviderTemplate? _deletingCustomProvider;
   String? _editingProviderId;
   String? _editingCustomProviderId;
 
   // Form state
   String _name = '';
-  Map<String, String> _credentials = {};
+  Credential? _credential;
   Map<String, dynamic> _settings = {};
   bool _persistCredentials = false;
-  Set<String> _visibleCredentials =
-      {}; // Track which credential fields are visible
+  bool _credentialsVisible = false;
 
   // Custom provider form state
   String _customProviderName = '';
@@ -54,11 +51,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     _name = provider.name;
     _settings = Map.of(provider.defaultSettings);
 
-    // Initialize credentials map with required keys
-    _credentials = Map.fromEntries(
-      provider.requiredCredentials.map((key) => MapEntry(key, '')),
-    );
-
     setState(() {
       // _configuringProvider is already set above
     });
@@ -74,18 +66,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     setState(() {
       _configuringProvider = availableProvider;
       _name = provider.name;
-
-      // If credentials weren't persisted, start with empty credentials
-      // but remember the user's preference for persistence
-      if (provider.persistCredentials) {
-        _credentials = Map.of(provider.credentials);
-      } else {
-        // Initialize with empty credentials but preserve structure
-        _credentials = Map.fromEntries(
-          availableProvider.requiredCredentials.map((key) => MapEntry(key, '')),
-        );
-      }
-
+      _credential = provider.credential;
       _settings = Map<String, dynamic>.from(provider.settings);
       _persistCredentials = provider.persistCredentials;
       _editingProviderId = provider.id;
@@ -95,26 +76,22 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
   void _hideDialogs() {
     setState(() {
       _showDeleteDialog = false;
-      _showCredentialsDialog = false;
       _showCustomProviderDialog = false;
       _deletingProvider = null;
-      _viewingCredentials = null;
       _configuringProvider = null;
-      _configuringCustomProvider = null;
       _deletingCustomProvider = null;
       _editingProviderId = null;
       _editingCustomProviderId = null;
-      _visibleCredentials =
-          {}; // Clear visible credentials when closing dialogs
+      _credentialsVisible = false;
     });
   }
 
   void _resetForm() {
     _name = '';
-    _credentials = {};
+    _credential = null;
     _settings = {};
     _persistCredentials = false;
-    _visibleCredentials = {};
+    _credentialsVisible = false;
   }
 
   void _performDelete() {
@@ -171,10 +148,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
 
       // Dialogs
       if (_configuringProvider != null) _buildConfigDialog(),
-      if (_configuringCustomProvider != null)
-        _buildCustomProviderConfigDialog(),
       if (_showDeleteDialog) _buildDeleteDialog(),
-      if (_showCredentialsDialog) _buildCredentialsDialog(),
       if (_showCustomProviderDialog) _buildCustomProviderDialog(),
     ]);
   }
@@ -373,7 +347,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     _resetCustomProviderForm();
     setState(() {
       _showCustomProviderDialog = true;
-      _configuringCustomProvider = null;
       _editingCustomProviderId = null;
     });
   }
@@ -382,7 +355,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     _loadCustomProviderForm(template);
     setState(() {
       _showCustomProviderDialog = true;
-      _configuringCustomProvider = template;
       _editingCustomProviderId = template.id;
     });
   }
@@ -393,15 +365,11 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
 
     setState(() {
       _name = '${template.name} Configuration';
-      _credentials = Map.fromEntries(
-        template.requiredCredentials.map((key) => MapEntry(key, '')),
-      );
+      _credential = null;
       _settings = {};
       _persistCredentials = false;
       _editingProviderId = null;
       _configuringProvider = null; // This will be null for custom providers
-      _configuringCustomProvider =
-          template; // Store the template being configured
 
       // Show the configuration dialog (we'll create a special one for custom providers)
     });
@@ -848,308 +816,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
     }
   }
 
-  Component _buildCustomProviderConfigDialog() {
-    if (_configuringCustomProvider == null) return div([]);
-
-    final template = _configuringCustomProvider!;
-
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-lg w-full mx-4',
-          children: [
-            CardHeader(
-              children: [
-                CardTitle(
-                  children: [
-                    text(
-                      _editingProviderId != null
-                          ? 'Edit Configuration'
-                          : 'Configure ${template.name}',
-                    ),
-                  ],
-                ),
-                CardDescription(
-                  children: [
-                    text(
-                      'Set up credentials and configuration for this custom provider.',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            CardContent(
-              children: [
-                div(classes: 'space-y-6', [
-                  // Configuration Name
-                  div(classes: 'space-y-2', [
-                    label(classes: 'text-sm font-medium text-foreground', [
-                      text('Configuration Name *'),
-                    ]),
-                    input(
-                      classes:
-                          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                      attributes: {
-                        'placeholder': 'My ${template.name} Config',
-                        'value': _name,
-                      },
-                      events: {
-                        'input': (event) {
-                          setState(() {
-                            _name = (event.target as HTMLInputElement).value;
-                          });
-                        },
-                      },
-                    ),
-                  ]),
-
-                  // Credentials
-                  if (template.requiredCredentials.isNotEmpty) ...[
-                    div(classes: 'space-y-4', [
-                      h3(classes: 'text-lg font-semibold text-foreground', [
-                        text('Credentials'),
-                      ]),
-                      for (final credentialKey in template.requiredCredentials)
-                        div(classes: 'space-y-2', [
-                          label(classes: 'text-sm font-medium text-foreground', [
-                            text(
-                              '${credentialKey.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ')} *',
-                            ),
-                          ]),
-                          div(classes: 'relative', [
-                            input(
-                              classes:
-                                  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                              attributes: {
-                                'type':
-                                    _visibleCredentials.contains(credentialKey)
-                                    ? 'text'
-                                    : 'password',
-                                'placeholder':
-                                    'Enter your ${credentialKey.replaceAll('_', ' ')}',
-                                'value': _credentials[credentialKey] ?? '',
-                              },
-                              events: {
-                                'input': (event) {
-                                  setState(() {
-                                    _credentials[credentialKey] =
-                                        (event.target as HTMLInputElement)
-                                            .value;
-                                  });
-                                },
-                              },
-                            ),
-                            button(
-                              classes:
-                                  'absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors',
-                              attributes: {
-                                'type': 'button',
-                                'title':
-                                    _visibleCredentials.contains(credentialKey)
-                                    ? 'Hide credential'
-                                    : 'Show credential',
-                              },
-                              events: {
-                                'click': (_) {
-                                  setState(() {
-                                    if (_visibleCredentials.contains(
-                                      credentialKey,
-                                    )) {
-                                      _visibleCredentials.remove(credentialKey);
-                                    } else {
-                                      _visibleCredentials.add(credentialKey);
-                                    }
-                                  });
-                                },
-                              },
-                              [
-                                _visibleCredentials.contains(credentialKey)
-                                    ? FaIcons.solid.eyeSlash
-                                    : FaIcons.solid.eye,
-                              ],
-                            ),
-                          ]),
-                        ]),
-                    ]),
-
-                    // Credential persistence option
-                    _buildCredentialsPersistenceSection(),
-                  ],
-
-                  // Available Models
-                  if (template.availableModels.isNotEmpty)
-                    div(classes: 'space-y-4', [
-                      h3(classes: 'text-lg font-semibold text-foreground', [
-                        text('Available Models'),
-                      ]),
-                      div(classes: 'grid grid-cols-2 gap-2', [
-                        for (final model in template.availableModels)
-                          div(
-                            classes:
-                                'flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-gray-50',
-                            [
-                              input(
-                                attributes: {
-                                  'type': 'checkbox',
-                                  'id': 'model_$model',
-                                  'checked':
-                                      '', // For now, enable all models by default
-                                },
-                                classes: 'rounded',
-                              ),
-                              label(
-                                attributes: {'for': 'model_$model'},
-                                classes: 'text-sm cursor-pointer',
-                                [text(model)],
-                              ),
-                            ],
-                          ),
-                      ]),
-                    ]),
-                ]),
-              ],
-            ),
-            CardFooter(
-              children: [
-                div(classes: 'flex space-x-2 w-full', [
-                  button(
-                    classes:
-                        'flex-1 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors',
-                    events: {'click': (_) => _hideDialogs()},
-                    [text('Cancel')],
-                  ),
-                  button(
-                    classes:
-                        'flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                    attributes: {
-                      if (_name.trim().isEmpty ||
-                          !_areRequiredCredentialsFilled(template))
-                        'disabled': '',
-                    },
-                    events: {
-                      'click': (_) => _saveCustomProviderConfiguration(),
-                    },
-                    [
-                      text(
-                        _editingProviderId != null
-                            ? 'Update Configuration'
-                            : 'Create Configuration',
-                      ),
-                    ],
-                  ),
-                ]),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  bool _areRequiredCredentialsFilled(CustomProviderTemplate template) {
-    for (final credential in template.requiredCredentials) {
-      if (_credentials[credential]?.trim().isEmpty ?? true) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  void _saveCustomProviderConfiguration() async {
-    if (_configuringCustomProvider == null || _name.trim().isEmpty) return;
-
-    final template = _configuringCustomProvider!;
-
-    try {
-      if (_editingProviderId != null) {
-        // Update existing configuration
-        final success = await configManager.modelProviders.updateConfig(
-          _editingProviderId!,
-          name: _name.trim(),
-          credentials: _credentials,
-          settings: _settings,
-          persistCredentials: _persistCredentials,
-          // Enable all models by default for now
-          enabledModels: template.availableModels.toSet(),
-        );
-
-        if (!mounted) return;
-        if (success) {
-          _hideDialogs();
-        }
-      } else {
-        // Create new configuration using custom template
-        configManager.modelProviders
-            .addCustomConfig(
-              name: _name.trim(),
-              customTemplateId: template.id,
-              credentials: _credentials,
-              settings: _settings,
-              persistCredentials: _persistCredentials,
-              // Enable all models by default for now
-              enabledModels: template.availableModels.toSet(),
-            )
-            .ignore();
-
-        _hideDialogs();
-      }
-    } catch (e) {
-      print('Error saving custom provider configuration: $e');
-      // TODO: Show error message to user
-    }
-  }
-
-  Component _buildCredentialsPersistenceSection() {
-    return div(classes: 'space-y-3', [
-      div(classes: 'flex items-start space-x-3', [
-        input(
-          attributes: {
-            'type': 'checkbox',
-            'id': 'persistCredentials',
-            if (_persistCredentials) 'checked': '',
-          },
-          classes: 'mt-1',
-          events: {
-            'change': (event) {
-              setState(() {
-                _persistCredentials =
-                    (event.target as HTMLInputElement).checked;
-              });
-            },
-          },
-        ),
-        div(classes: 'flex-1', [
-          label(
-            attributes: {'for': 'persistCredentials'},
-            classes: 'text-sm font-medium text-foreground cursor-pointer',
-            [text('Store credentials locally')],
-          ),
-          p(classes: 'text-xs text-muted-foreground mt-1', [
-            text(
-              'If checked, credentials will be saved in browser storage. If unchecked, you\'ll need to re-enter them each session.',
-            ),
-          ]),
-        ]),
-      ]),
-
-      if (!_persistCredentials)
-        div(
-          classes:
-              'flex items-center space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-md',
-          [
-            span(classes: 'text-amber-600', [FaIcons.solid.warning]),
-            p(classes: 'text-sm text-amber-800', [
-              text(
-                'Credentials will not be saved. You\'ll need to re-enter them each time you reload the page.',
-              ),
-            ]),
-          ],
-        ),
-    ]);
-  }
-
   Component _buildOpenAIConfig() {
     return div(classes: 'space-y-4', [
       div(classes: 'space-y-2', [
@@ -1161,17 +827,19 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
             classes:
                 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             attributes: {
-              'type': _visibleCredentials.contains('apiKey')
-                  ? 'text'
-                  : 'password',
+              'type': _credentialsVisible ? 'text' : 'password',
               'placeholder': 'sk-...',
-              'value': _credentials['apiKey'] ?? '',
+              'value': switch (_credential) {
+                ApiKeyCredential(:final apiKey) => apiKey,
+                _ => '',
+              },
             },
             events: {
               'input': (event) {
                 setState(() {
-                  _credentials['apiKey'] =
-                      (event.target as HTMLInputElement).value;
+                  _credential = ApiKeyCredential(
+                    apiKey: (event.target as HTMLInputElement).value,
+                  );
                 });
               },
             },
@@ -1181,26 +849,16 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 'absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors',
             attributes: {
               'type': 'button',
-              'title': _visibleCredentials.contains('apiKey')
-                  ? 'Hide API key'
-                  : 'Show API key',
+              'title': _credentialsVisible ? 'Hide API key' : 'Show API key',
             },
             events: {
               'click': (_) {
                 setState(() {
-                  if (_visibleCredentials.contains('apiKey')) {
-                    _visibleCredentials.remove('apiKey');
-                  } else {
-                    _visibleCredentials.add('apiKey');
-                  }
+                  _credentialsVisible = !_credentialsVisible;
                 });
               },
             },
-            [
-              _visibleCredentials.contains("apiKey")
-                  ? FaIcons.solid.eyeSlash
-                  : FaIcons.solid.eye,
-            ],
+            [_credentialsVisible ? FaIcons.solid.eyeSlash : FaIcons.solid.eye],
           ),
         ]),
       ]),
@@ -1218,17 +876,19 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
             classes:
                 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             attributes: {
-              'type': _visibleCredentials.contains('apiKey')
-                  ? 'text'
-                  : 'password',
+              'type': _credentialsVisible ? 'text' : 'password',
               'placeholder': 'AIza...',
-              'value': _credentials['apiKey'] ?? '',
+              'value': switch (_credential) {
+                ApiKeyCredential(:final apiKey) => apiKey,
+                _ => '',
+              },
             },
             events: {
               'input': (event) {
                 setState(() {
-                  _credentials['apiKey'] =
-                      (event.target as HTMLInputElement).value;
+                  _credential = ApiKeyCredential(
+                    apiKey: (event.target as HTMLInputElement).value,
+                  );
                 });
               },
             },
@@ -1238,26 +898,16 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 'absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors',
             attributes: {
               'type': 'button',
-              'title': _visibleCredentials.contains('apiKey')
-                  ? 'Hide API key'
-                  : 'Show API key',
+              'title': _credentialsVisible ? 'Hide API key' : 'Show API key',
             },
             events: {
               'click': (_) {
                 setState(() {
-                  if (_visibleCredentials.contains('apiKey')) {
-                    _visibleCredentials.remove('apiKey');
-                  } else {
-                    _visibleCredentials.add('apiKey');
-                  }
+                  _credentialsVisible = !_credentialsVisible;
                 });
               },
             },
-            [
-              _visibleCredentials.contains("apiKey")
-                  ? FaIcons.solid.eyeSlash
-                  : FaIcons.solid.eye,
-            ],
+            [_credentialsVisible ? FaIcons.solid.eyeSlash : FaIcons.solid.eye],
           ),
         ]),
       ]),
@@ -1315,115 +965,6 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                     onPressed: _performDelete,
                     children: [text('Delete')],
                   ),
-                ]),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Component _buildCredentialsDialog() {
-    if (_viewingCredentials == null) return div([]);
-
-    final provider = _viewingCredentials!;
-
-    return div(
-      classes:
-          'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
-      [
-        Card(
-          className: 'max-w-md w-full mx-4',
-          children: [
-            CardHeader(
-              children: [
-                div(classes: 'flex justify-between items-center', [
-                  CardTitle(children: [text('Provider Credentials')]),
-                  button(
-                    classes:
-                        'text-muted-foreground hover:text-foreground transition-colors',
-                    events: {'click': (event) => _hideDialogs()},
-                    [text('×')],
-                  ),
-                ]),
-                CardDescription(
-                  children: [text('Credentials for "${provider.name}"')],
-                ),
-              ],
-            ),
-
-            CardContent(
-              children: [
-                div(classes: 'space-y-4', [
-                  div([
-                    h4(classes: 'font-medium text-foreground mb-2', [
-                      text('Configuration Status'),
-                    ]),
-                    Badge(
-                      variant: provider.isValid
-                          ? BadgeVariant.secondary
-                          : BadgeVariant.destructive,
-                      children: [
-                        text(
-                          provider.isValid
-                              ? 'Valid Configuration'
-                              : 'Invalid Configuration',
-                        ),
-                      ],
-                    ),
-                  ]),
-
-                  div([
-                    h4(classes: 'font-medium text-foreground mb-2', [
-                      text('Credentials'),
-                    ]),
-                    div(classes: 'space-y-2 text-sm', [
-                      for (final MapEntry(key: key, value: value)
-                          in provider.credentials.entries)
-                        div(
-                          classes:
-                              'flex justify-between items-center p-2 bg-muted rounded',
-                          [
-                            span(classes: 'font-medium', [text('$key:')]),
-                            span(classes: 'font-mono text-xs', [
-                              text(
-                                key.toLowerCase().contains('key')
-                                    ? '••••••••'
-                                    : value,
-                              ),
-                            ]),
-                          ],
-                        ),
-                    ]),
-                  ]),
-
-                  if (provider.settings.isNotEmpty)
-                    div([
-                      h4(classes: 'font-medium text-foreground mb-2', [
-                        text('Settings'),
-                      ]),
-                      div(classes: 'space-y-2 text-sm', [
-                        for (final MapEntry(key: key, value: value)
-                            in provider.settings.entries)
-                          div(
-                            classes:
-                                'flex justify-between items-center p-2 bg-muted rounded',
-                            [
-                              span(classes: 'font-medium', [text('$key:')]),
-                              span([text(value.toString())]),
-                            ],
-                          ),
-                      ]),
-                    ]),
-                ]),
-              ],
-            ),
-
-            CardFooter(
-              children: [
-                div(classes: 'flex justify-end w-full', [
-                  Button(onPressed: _hideDialogs, children: [text('Close')]),
                 ]),
               ],
             ),
@@ -1578,7 +1119,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
               .updateConfig(
                 id,
                 name: _name.trim(),
-                credentials: _credentials,
+                credential: _credential,
                 settings: _settings,
                 persistCredentials: _persistCredentials,
                 enabledModels: existingConfig.enabledModels,
@@ -1592,7 +1133,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
               name: _name.trim(),
               type: provider.type,
               description: provider.description,
-              credentials: _credentials,
+              credential: _credential,
               settings: _settings,
               persistCredentials: _persistCredentials,
               isActive: true,

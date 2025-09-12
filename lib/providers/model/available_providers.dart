@@ -1,4 +1,5 @@
 import '../../common/ui/fa_icon.dart';
+import '../../credentials/model/credential.dart';
 import '../service/embedding_provider.dart';
 import '../service/gemini_provider.dart';
 import '../service/openai_provider.dart';
@@ -10,7 +11,7 @@ class AvailableProvider {
   final String name;
   final String description;
   final FaIcon icon;
-  final List<String> requiredCredentials;
+  final CredentialType? requiredCredential;
   final Map<String, dynamic> defaultSettings;
   final EmbeddingProvider _provider;
 
@@ -19,7 +20,7 @@ class AvailableProvider {
     required this.name,
     required this.description,
     required this.icon,
-    required this.requiredCredentials,
+    required this.requiredCredential,
     required this.defaultSettings,
     required EmbeddingProvider provider,
   }) : _provider = provider;
@@ -47,7 +48,7 @@ class AvailableProviders {
       description:
           'OpenAI embeddings including text-embedding-ada-002 and text-embedding-3-small/large',
       icon: FaIcons.brands.openai,
-      requiredCredentials: ['apiKey'],
+      requiredCredential: CredentialType.apiKey,
       defaultSettings: {
         'model': 'text-embedding-3-small',
         'dimensions': 1536,
@@ -61,7 +62,7 @@ class AvailableProviders {
       description:
           'Google Gemini embeddings with text-embedding-004 and embedding-001 models',
       icon: FaIcons.brands.google,
-      requiredCredentials: ['apiKey'],
+      requiredCredential: CredentialType.apiKey,
       defaultSettings: {
         'model': 'text-embedding-004',
         'task_type': 'RETRIEVAL_DOCUMENT',

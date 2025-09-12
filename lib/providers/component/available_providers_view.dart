@@ -85,7 +85,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                   hasConfiguration
                       ? (isPartiallyConfigured
                             ? 'p-2 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-600 transition-colors'
-                            : 'p-2 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors')
+                            : 'p-2 rounded-md bg-green-100 hover:bg-green-200 text-green-600 transition-colors')
                       : 'p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
                   'cursor-pointer',
                 ].clsx,
@@ -161,10 +161,10 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
               classes: [
                 'grid',
                 gridCols(1),
-                gridCols(2, 'sm'),
-                gridCols(3, 'md'),
+                gridCols(1, 'sm'),
+                gridCols(2, 'md'),
                 gridCols(4, 'lg'),
-                gridCols(5, 'xl'),
+                gridCols(4, 'xl'),
                 'gap-4',
               ].clsx,
               [for (final model in models.values) _buildModelTile(model)],
@@ -198,9 +198,6 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
       if (providerConfigId case final providerConfigId?) {
         events = {'click': (_) => _toggleModel(model, providerConfigId)};
       }
-    } else if (isPartiallyConfigured) {
-      cardClassName =
-          'border border-amber-300 bg-amber-50 cursor-not-allowed opacity-75';
     } else {
       cardClassName =
           'border border-gray-200 bg-gray-100 cursor-not-allowed opacity-60';
@@ -274,18 +271,10 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
           throw StateError('Provider type ${provider.type} not found'),
     );
 
-    if (availableProvider.requiredCredentials.isNotEmpty) {
+    if (availableProvider.requiredCredential case final requiredCred?) {
       // If credentials are required but not persisted, it's partially configured
-      if (config.credentials.isEmpty) {
+      if (config.credential?.type != requiredCred) {
         return ConfigurationState.partiallyConfigured;
-      }
-
-      // Check if all required credentials are present
-      for (final requiredCred in availableProvider.requiredCredentials) {
-        if (!config.credentials.containsKey(requiredCred) ||
-            config.credentials[requiredCred]?.isEmpty == true) {
-          return ConfigurationState.partiallyConfigured;
-        }
       }
     }
 

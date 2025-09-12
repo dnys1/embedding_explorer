@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:embeddings_explorer/configurations/model/embedding_tables.dart';
 import 'package:embeddings_explorer/configurations/service/configuration_service.dart';
 import 'package:embeddings_explorer/configurations/service/migrations/migrations.dart';
+import 'package:embeddings_explorer/credentials/model/credential.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_config.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_settings.dart';
 import 'package:embeddings_explorer/jobs/model/embedding_job.dart';
@@ -304,40 +305,88 @@ void main() {
         await service.initialize();
       });
 
-      test('should save and retrieve model provider config', () async {
-        final now = DateTime.now();
-        final config = ModelProviderConfig(
-          id: 'provider_1',
-          name: 'Test OpenAI Provider',
-          description: 'OpenAI embedding provider',
-          type: ProviderType.openai,
-          customTemplateId: null,
-          settings: <String, dynamic>{
-            'apiUrl': 'https://api.openai.com/v1',
-            'model': 'text-embedding-3-small',
-            'dimensions': 1536,
-          },
-          credentials: <String, String>{'apiKey': 'sk-test-key-123'},
-          persistCredentials: false,
-          enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
-          createdAt: now,
-          updatedAt: now,
-        );
+      test(
+        'should save and retrieve model provider config (no persist creds)',
+        () async {
+          final now = DateTime.now();
+          final config = ModelProviderConfig(
+            id: 'provider_1',
+            name: 'Test OpenAI Provider',
+            description: 'OpenAI embedding provider',
+            type: ProviderType.openai,
+            customTemplateId: null,
+            settings: <String, dynamic>{
+              'apiUrl': 'https://api.openai.com/v1',
+              'model': 'text-embedding-3-small',
+              'dimensions': 1536,
+            },
+            credential: ApiKeyCredential(apiKey: 'sk-test-key-123'),
+            persistCredentials: false,
+            enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
+            createdAt: now,
+            updatedAt: now,
+          );
 
-        await service.saveModelProviderConfig(config);
+          await service.saveModelProviderConfig(config);
 
-        final retrieved = await service.getModelProviderConfig('provider_1');
-        expect(retrieved, isNotNull);
-        expect(retrieved!.name, equals('Test OpenAI Provider'));
-        expect(retrieved.type, equals(ProviderType.openai));
-        expect(retrieved.persistCredentials, isFalse);
-        expect(retrieved.settings['model'], equals('text-embedding-3-small'));
-        expect(retrieved.credentials['apiKey'], equals('sk-test-key-123'));
-        expect(
-          retrieved.enabledModels,
-          containsAll(['text-embedding-3-small', 'text-embedding-3-large']),
-        );
-      });
+          final retrieved = await service.getModelProviderConfig('provider_1');
+          expect(retrieved, isNotNull);
+          expect(retrieved!.name, equals('Test OpenAI Provider'));
+          expect(retrieved.type, equals(ProviderType.openai));
+          expect(retrieved.persistCredentials, isFalse);
+          expect(retrieved.settings['model'], equals('text-embedding-3-small'));
+          expect(retrieved.credential, isNull);
+          expect(
+            retrieved.enabledModels,
+            containsAll(['text-embedding-3-small', 'text-embedding-3-large']),
+          );
+        },
+      );
+
+      test(
+        'should save and retrieve model provider config (persist creds)',
+        () async {
+          final now = DateTime.now();
+          final config = ModelProviderConfig(
+            id: 'provider_1',
+            name: 'Test OpenAI Provider',
+            description: 'OpenAI embedding provider',
+            type: ProviderType.openai,
+            customTemplateId: null,
+            settings: <String, dynamic>{
+              'apiUrl': 'https://api.openai.com/v1',
+              'model': 'text-embedding-3-small',
+              'dimensions': 1536,
+            },
+            credential: ApiKeyCredential(apiKey: 'sk-test-key-123'),
+            persistCredentials: true,
+            enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
+            createdAt: now,
+            updatedAt: now,
+          );
+
+          await service.saveModelProviderConfig(config);
+
+          final retrieved = await service.getModelProviderConfig('provider_1');
+          expect(retrieved, isNotNull);
+          expect(retrieved!.name, equals('Test OpenAI Provider'));
+          expect(retrieved.type, equals(ProviderType.openai));
+          expect(retrieved.persistCredentials, isFalse);
+          expect(retrieved.settings['model'], equals('text-embedding-3-small'));
+          expect(
+            retrieved.credential,
+            isA<ApiKeyCredential>().having(
+              (k) => k.apiKey,
+              'apiKey',
+              equals('sk-test-key-123'),
+            ),
+          );
+          expect(
+            retrieved.enabledModels,
+            containsAll(['text-embedding-3-small', 'text-embedding-3-large']),
+          );
+        },
+      );
 
       test('should get active model provider configs only', () async {
         final now = DateTime.now();
@@ -349,7 +398,7 @@ void main() {
           type: ProviderType.openai,
           customTemplateId: null,
           settings: <String, dynamic>{},
-          credentials: <String, String>{},
+          credential: null,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,
@@ -363,7 +412,7 @@ void main() {
           type: ProviderType.gemini,
           customTemplateId: null,
           settings: <String, dynamic>{},
-          credentials: <String, String>{},
+          credential: null,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,
@@ -386,7 +435,7 @@ void main() {
           type: ProviderType.custom,
           customTemplateId: null,
           settings: <String, dynamic>{},
-          credentials: <String, String>{},
+          credential: null,
           persistCredentials: false,
           enabledModels: <String>{},
           createdAt: now,

@@ -5,6 +5,7 @@ import 'package:aws_common/aws_common.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../credentials/model/credential.dart';
 import '../model/model_provider_config.dart';
 import 'embedding_provider.dart';
 
@@ -68,8 +69,10 @@ class OpenAIProvider implements EmbeddingProvider {
     }
     try {
       return _modelCache = await _fetchAvailableModels(config);
-    } catch (e) {
-      _logger.warning('Failed to fetch OpenAI models', e);
+    } catch (e, st) {
+      if (config.credential != null) {
+        _logger.warning('Failed to fetch OpenAI models', e, st);
+      }
       return _knownModels;
     }
   }
@@ -80,7 +83,10 @@ class OpenAIProvider implements EmbeddingProvider {
     final warnings = <String>[];
 
     // Check API key
-    final apiKey = config.credentials['apiKey'];
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
     if (apiKey == null || apiKey.isEmpty) {
       errors.add('OpenAI API key is required');
     } else if (!apiKey.startsWith('sk-')) {
@@ -101,8 +107,8 @@ class OpenAIProvider implements EmbeddingProvider {
     try {
       _modelCache ??= await _fetchAvailableModels(config);
       return true;
-    } catch (e) {
-      _logger.warning('OpenAI connection test failed', e);
+    } catch (e, st) {
+      _logger.warning('OpenAI connection test failed', e, st);
       return false;
     }
   }
@@ -113,7 +119,10 @@ class OpenAIProvider implements EmbeddingProvider {
     required List<String> texts,
     required ModelProviderConfig config,
   }) async {
-    final apiKey = config.credentials['apiKey'];
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
     if (apiKey == null || apiKey.isEmpty) {
       throw ArgumentError('API key is required to generate embeddings');
     }
@@ -150,7 +159,14 @@ class OpenAIProvider implements EmbeddingProvider {
   Future<Map<String, EmbeddingModel>> _fetchAvailableModels(
     ModelProviderConfig config,
   ) async {
-    final apiKey = config.credentials['apiKey']!;
+    final apiKey = switch (config.credential) {
+      ApiKeyCredential(:final apiKey) => apiKey,
+      _ => null,
+    };
+    if (apiKey == null || apiKey.isEmpty) {
+      throw ArgumentError('API key is required to fetch models');
+    }
+
     final response = await _makeRequest(
       apiKey: apiKey,
       endpoint: '/models',

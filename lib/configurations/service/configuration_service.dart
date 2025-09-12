@@ -235,26 +235,45 @@ class ConfigurationService with ChangeNotifier {
   Future<void> saveModelProviderConfig(ModelProviderConfig config) async {
     final now = DateTime.now().toIso8601String();
 
-    await database.execute(
-      '''
+    await database.transaction((tx) {
+      tx.execute(
+        '''
       INSERT OR REPLACE INTO model_provider_configs 
-      (id, name, description, type, custom_template_id, settings, credentials, persist_credentials, enabled_models, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, name, description, type, custom_template_id, settings, enabled_models, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
-      [
-        config.id,
-        config.name,
-        config.description,
-        config.type.name,
-        config.customTemplateId,
-        jsonEncode(config.settings),
-        jsonEncode(config.credentials),
-        config.persistCredentials ? 1 : 0,
-        jsonEncode(config.enabledModels.toList()),
-        config.createdAt.toIso8601String(),
-        now,
-      ],
-    );
+        [
+          config.id,
+          config.name,
+          config.description,
+          config.type.name,
+          config.customTemplateId,
+          jsonEncode(config.settings),
+          jsonEncode(config.enabledModels.toList()),
+          config.createdAt.toIso8601String(),
+          now,
+        ],
+      );
+
+      if (config.persistCredentials) {
+        if (config.credential case final credential?) {
+          tx.execute(
+            '''
+      INSERT OR REPLACE INTO model_provider_credentials
+      (model_provider_id, credential)
+      VALUES (?, ?)
+    ''',
+            [config.id, jsonEncode(credential.toJson())],
+          );
+        } else {
+          // Remove existing credentials if credential is null
+          tx.execute(
+            'DELETE FROM model_provider_credentials WHERE model_provider_id = ?',
+            [config.id],
+          );
+        }
+      }
+    });
 
     _logger.fine('Saved model provider config: ${config.id}');
   }
@@ -262,7 +281,13 @@ class ConfigurationService with ChangeNotifier {
   /// Get a model provider configuration by ID
   Future<ModelProviderConfig?> getModelProviderConfig(String id) async {
     final result = await database.select(
-      'SELECT * FROM model_provider_configs WHERE id = ?',
+      '''
+SELECT *
+FROM model_provider_configs
+LEFT JOIN model_provider_credentials
+  ON model_provider_configs.id = model_provider_credentials.model_provider_id
+WHERE id = ?
+''',
       [id],
     );
 
@@ -274,19 +299,31 @@ class ConfigurationService with ChangeNotifier {
 
   /// Get all model provider configurations
   Future<List<ModelProviderConfig>> getAllModelProviderConfigs() async {
-    final result = await database.select(
-      'SELECT * FROM model_provider_configs ORDER BY created_at DESC',
-    );
+    final result = await database.select('''
+SELECT *
+FROM model_provider_configs
+LEFT JOIN model_provider_credentials
+  ON model_provider_configs.id = model_provider_credentials.model_provider_id
+ORDER BY created_at DESC
+''');
 
-    return result.map(ModelProviderConfig.fromDatabase).nonNulls.toList();
+    return result.map(ModelProviderConfig.fromDatabase).toList();
   }
 
   /// Delete a model provider configuration
   Future<void> deleteModelProviderConfig(String id) async {
-    await database.execute('DELETE FROM model_provider_configs WHERE id = ?', [
-      id,
-    ]);
-    _logger.fine('Deleted model provider config: $id');
+    await database.transaction((tx) {
+      // Delete associated credentials first
+      tx.execute(
+        'DELETE FROM model_provider_credentials WHERE model_provider_id = ?',
+        [id],
+      );
+
+      // Delete the provider config
+      tx.execute('DELETE FROM model_provider_configs WHERE id = ?', [id]);
+    });
+
+    _logger.fine('Deleted model provider config and credentials: $id');
   }
 
   // Custom Provider Template Methods
@@ -356,7 +393,7 @@ class ConfigurationService with ChangeNotifier {
 
   /// Save an embedding job to the database
   Future<void> saveEmbeddingJob(EmbeddingJob job) async {
-    await database.transaction((tx) async {
+    await database.transaction((tx) {
       // Insert or update the main job record
       tx.execute(
         '''
@@ -511,7 +548,7 @@ class ConfigurationService with ChangeNotifier {
 
     final tableName = tableResult.first['table_name'] as String;
 
-    await database.transaction((tx) async {
+    await database.transaction((tx) {
       // Add the vector column to the table
       tx.execute('''
         ALTER TABLE $tableName 

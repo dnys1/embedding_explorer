@@ -38,7 +38,7 @@ abstract class ConfigurationCollection<T extends ConfigurationItem>
   Future<void> set(String id, T item) async {
     _items[id] = item;
     notifyListeners();
-    await _saveToStorage();
+    await saveItem(id, item);
   }
 
   /// Remove a configuration
@@ -46,10 +46,7 @@ abstract class ConfigurationCollection<T extends ConfigurationItem>
     final removed = _items.remove(id);
     if (removed != null) {
       notifyListeners();
-      await configService.database.execute(
-        'DELETE FROM $tableName WHERE id = ?',
-        [id],
-      );
+      await removeItem(removed);
       return true;
     }
     return false;
@@ -82,18 +79,6 @@ abstract class ConfigurationCollection<T extends ConfigurationItem>
     }
   }
 
-  /// Save configurations to database
-  Future<void> _saveToStorage() async {
-    try {
-      // Save all items to the database
-      for (final entry in _items.entries) {
-        await saveItem(entry.key, entry.value);
-      }
-    } catch (e) {
-      _logger.severe('Error saving configurations to storage', e);
-    }
-  }
-
   /// The prefix for generating IDs
   String get prefix;
 
@@ -101,11 +86,20 @@ abstract class ConfigurationCollection<T extends ConfigurationItem>
   String get tableName;
 
   /// Save a single item to the database
+  @protected
   Future<void> saveItem(String id, T item);
 
   /// Load a single item from the database
+  @protected
   Future<T?> loadItem(String id);
 
   /// Load all items from the database
+  @protected
   Future<List<T>> loadAllItems();
+
+  /// Remove a single item from the database
+  @protected
+  Future<void> removeItem(T item);
+
+  Logger get logger => Logger('ConfigurationCollection.$tableName');
 }

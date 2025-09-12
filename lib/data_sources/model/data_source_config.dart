@@ -218,4 +218,9 @@ class DataSourceConfigCollection
   Future<List<DataSourceConfig<DataSourceSettings>>> loadAllItems() async {
     return await configService.getAllDataSourceConfigs();
   }
+
+  @override
+  Future<void> removeItem(DataSourceConfig<DataSourceSettings> item) async {
+    await configService.deleteDataSourceConfig(item.id);
+  }
 }
