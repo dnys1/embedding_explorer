@@ -18,7 +18,7 @@ build:
 
 .PHONY: serve
 serve:
-	( cd web && pnpm install && pnpm run build:dev && cd .. && jaspr serve )
+	( cd web && pnpm install && pnpm run build:dev && cd .. && webdev serve )
 
 .PHONY: serve-build
 serve-build: build

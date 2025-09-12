@@ -1,6 +1,8 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import 'ui/fa_icon.dart';
+
 class Sidebar extends StatefulComponent {
   const Sidebar({super.key, this.isOpen = false, this.onClose});
 
@@ -51,7 +53,7 @@ class _SidebarState extends State<Sidebar> {
               div(classes: 'flex items-center space-x-2', [
                 img(src: 'images/logo.png', width: 24, height: 24),
                 h2(classes: 'text-lg font-semibold text-white', [
-                  Link(to: '/dashboard', child: text('Embeddings Explorer')),
+                  Link(to: '/', child: text('Embeddings Explorer')),
                 ]),
               ]),
               // Mobile close button
@@ -88,28 +90,28 @@ class _SidebarState extends State<Sidebar> {
           nav(classes: 'flex-1 px-2 py-4 space-y-1', [
             _buildNavItem(
               context,
-              icon: 'database',
+              icon: FaIcons.solid.database,
               label: 'Data Sources',
               path: '/data-sources',
               isActive: currentPath.startsWith('/data-source'),
             ),
             _buildNavItem(
               context,
-              icon: 'template',
+              icon: FaIcons.solid.fileText,
               label: 'Templates',
               path: '/templates',
-              isActive: currentPath.startsWith('/transformation'),
+              isActive: currentPath.startsWith('/templates'),
             ),
             _buildNavItem(
               context,
-              icon: 'provider',
+              icon: FaIcons.solid.server,
               label: 'Providers',
               path: '/providers',
               isActive: currentPath.startsWith('/providers'),
             ),
             _buildNavItem(
               context,
-              icon: 'query',
+              icon: FaIcons.solid.cog,
               label: 'Jobs',
               path: '/jobs',
               isActive: currentPath.startsWith('/jobs'),
@@ -124,7 +126,7 @@ class _SidebarState extends State<Sidebar> {
                 classes:
                     'flex items-center space-x-2 text-neutral-400 hover:text-white transition-colors duration-200',
                 [
-                  _buildIcon('info'),
+                  FaIcons.solid.info,
                   span(classes: 'text-sm', [text('About')]),
                 ],
               ),
@@ -137,7 +139,7 @@ class _SidebarState extends State<Sidebar> {
 
   Component _buildNavItem(
     BuildContext context, {
-    required String icon,
+    required FaIcon icon,
     required String label,
     required String path,
     required bool isActive,
@@ -153,25 +155,10 @@ class _SidebarState extends State<Sidebar> {
             'text-neutral-300 hover:bg-neutral-700 hover:text-white',
         ].join(' '),
         [
-          _buildIcon(icon),
+          icon,
           span([text(label)]),
         ],
       ),
     );
-  }
-
-  Component _buildIcon(String iconType) {
-    // Using simple text icons for now - can be replaced with proper icon library later
-    final iconMap = {
-      'database': '🗃️',
-      'template': '📝',
-      'provider': '🤖',
-      'query': '🔍',
-      'info': 'ℹ️',
-    };
-
-    return span(classes: 'w-5 h-5 flex items-center justify-center text-sm', [
-      text(iconMap[iconType] ?? '•'),
-    ]);
   }
 }

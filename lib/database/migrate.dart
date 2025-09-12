@@ -33,7 +33,7 @@ class Migrate {
 
   /// Ensures the migrations table exists in the database.
   /// Creates a table to track which migrations have been applied.
-  Future<void> _ensureMigrationsTable(LibsqlDatabase database) async {
+  Future<void> _ensureMigrationsTable(Database database) async {
     database.execute('''
         CREATE TABLE IF NOT EXISTS schema_migrations (
           version INTEGER PRIMARY KEY,
@@ -45,10 +45,10 @@ class Migrate {
   /// Gets the current database schema version by finding the highest
   /// version number in the migrations table.
   /// Returns 0 if no migrations have been applied yet.
-  Future<int> getCurrentVersion(LibsqlDatabase database) async {
+  Future<int> getCurrentVersion(Database database) async {
     await _ensureMigrationsTable(database);
 
-    final result = database.select(
+    final result = await database.select(
       'SELECT COALESCE(MAX(version), 0) as current_version FROM schema_migrations',
     );
 
@@ -66,7 +66,7 @@ class Migrate {
   /// If [to] is specified, only migrations up to that version will be applied.
   /// If [to] is null, all pending migrations will be applied.
   /// If [to] is less than the current version, no migrations will be applied.
-  Future<void> up(LibsqlDatabase database, {int? to}) async {
+  Future<void> up(Database database, {int? to}) async {
     final currentVersion = await getCurrentVersion(database);
 
     // Determine the target version
@@ -104,7 +104,7 @@ class Migrate {
     );
 
     for (final migration in pendingMigrations) {
-      database.transaction((tx) {
+      await database.transaction((tx) {
         // Run each migration in a batch (transaction-like behavior)
         // Execute all statements in the migration
         for (final statement in migration.upStatements) {
@@ -131,7 +131,7 @@ class Migrate {
   /// If [to] is specified, migrations will be rolled back to that version.
   /// If [to] is null, only the most recent migration will be rolled back.
   /// If [to] is greater than or equal to the current version, no rollbacks will be performed.
-  Future<void> down(LibsqlDatabase database, {int? to}) async {
+  Future<void> down(Database database, {int? to}) async {
     final currentVersion = await getCurrentVersion(database);
 
     if (currentVersion == 0) {
@@ -186,7 +186,7 @@ class Migrate {
         );
       }
 
-      database.transaction((tx) {
+      await database.transaction((tx) {
         // Execute all down statements in the migration
         for (final statement in migration.downStatements) {
           tx.execute(statement);

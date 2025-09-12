@@ -3,14 +3,14 @@ import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:aws_common/aws_common.dart';
-import '../model/data_source_config.dart';
-import '../model/data_source_settings.dart';
 import 'package:logging/logging.dart';
 import 'package:sqlparser/sqlparser.dart';
 
 import '../../interop/libsql.dart' as libsql show loadModule;
 import '../../interop/libsql.dart';
 import '../model/data_source.dart';
+import '../model/data_source_config.dart';
+import '../model/data_source_settings.dart';
 
 /// Extension to add utility methods to SqlEngine
 extension SqlEngineExtensions on SqlEngine {

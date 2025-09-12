@@ -23,7 +23,7 @@ class _AppState extends State<App> {
   static final Logger _logger = Logger('App');
   bool _isSidebarOpen = false;
   bool _isLoading = true;
-  final ConfigurationManager _configManager = ConfigurationManager();
+  final ConfigurationManager _configManager = ConfigurationManager.instance;
 
   @override
   void initState() {

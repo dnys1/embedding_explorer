@@ -1,41 +1,13 @@
 @TestOn('browser')
 library;
 
-import 'dart:js_interop';
-
 import 'package:embeddings_explorer/util/indexed_db.dart' as impl;
-import 'package:logging/logging.dart';
 import 'package:test/test.dart';
-import 'package:web/web.dart';
+
+import '../common.dart';
 
 void main() {
-  Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
-    final buffer = StringBuffer();
-    buffer.write('[${record.loggerName}]: ${record.message}');
-    if (record.error case final error?) {
-      buffer
-        ..writeln()
-        ..write('Error: $error');
-    }
-    if (record.stackTrace case final stackTrace?) {
-      buffer
-        ..writeln()
-        ..write('StackTrace: $stackTrace');
-    }
-    final message = buffer.toString().toJS;
-    print(message);
-    switch (record.level) {
-      case Level.SEVERE || Level.SHOUT:
-        console.error(message);
-      case Level.WARNING:
-        console.warn(message);
-      case Level.CONFIG || Level.INFO:
-        console.info(message);
-      case Level.FINE || Level.FINER || Level.FINEST:
-        console.debug(message);
-    }
-  });
+  setupTests();
 
   for (final (name, indexedDB) in [
     ('local IndexedDB', impl.indexedDB),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../configurations/model/configuration_collection.dart';
 
 /// Configuration for an embedding template with metadata
@@ -82,6 +84,32 @@ class EmbeddingTemplateConfig {
       );
     } catch (e) {
       print('Error parsing EmbeddingTemplateConfig from JSON: $e');
+      return null;
+    }
+  }
+
+  /// Create from database result
+  static EmbeddingTemplateConfig? fromDatabase(Map<String, Object?> row) {
+    try {
+      return EmbeddingTemplateConfig(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String? ?? '',
+        template: row['template'] as String? ?? '',
+        dataSourceId: row['data_source_id'] as String? ?? '',
+        availableFields: row['available_fields'] != null
+            ? List<String>.from(
+                jsonDecode(row['available_fields'] as String) as List,
+              )
+            : <String>[],
+        metadata: row['metadata'] != null
+            ? jsonDecode(row['metadata'] as String) as Map<String, dynamic>
+            : <String, dynamic>{},
+        createdAt: DateTime.parse(row['created_at'] as String),
+        updatedAt: DateTime.parse(row['updated_at'] as String),
+      );
+    } catch (e) {
+      print('Error parsing EmbeddingTemplateConfig from database: $e');
       return null;
     }
   }

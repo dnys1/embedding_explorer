@@ -29,7 +29,7 @@ Future<WorkerAssignment> getWorkerAssignment() async {
     self.postMessage(
       workerBeeSerializers
           .serialize(e, specifiedType: FullType.unspecified)
-          ?.toJSBoxOrCast,
+          ?.serialized,
     );
   }
 

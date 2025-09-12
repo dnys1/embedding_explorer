@@ -4,9 +4,6 @@ Migration get migration {
   return Migration.fromStrings(
     version: 1,
     up: '''
--- Enable foreign key constraints
-PRAGMA foreign_keys = ON;
-
 -- Create data source configurations table
 CREATE TABLE IF NOT EXISTS data_source_configs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -102,7 +99,14 @@ CREATE INDEX IF NOT EXISTS idx_embedding_jobs_status ON embedding_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_data_source_id ON embedding_jobs(data_source_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_embedding_template_id ON embedding_jobs(embedding_template_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_created_at ON embedding_jobs(created_at);
-
+''',
+    down: '''
+DROP TABLE IF EXISTS embedding_job_providers;
+DROP TABLE IF EXISTS embedding_jobs;
+DROP TABLE IF EXISTS model_provider_configs;
+DROP TABLE IF EXISTS custom_provider_templates;
+DROP TABLE IF EXISTS embedding_template_configs;
+DROP TABLE IF EXISTS data_source_configs;
 ''',
   );
 }

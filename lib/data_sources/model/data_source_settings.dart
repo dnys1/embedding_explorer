@@ -1,3 +1,5 @@
+import 'data_source_config.dart';
+
 /// Base class for all data source settings.
 ///
 /// This provides type safety for data source configuration and ensures
@@ -9,14 +11,15 @@ abstract class DataSourceSettings {
   Map<String, dynamic> toJson();
 
   /// Create settings from JSON data
-  static DataSourceSettings fromJson(String type, Map<String, dynamic> json) {
+  static DataSourceSettings fromJson(
+    DataSourceType type,
+    Map<String, dynamic> json,
+  ) {
     switch (type) {
-      case 'csv':
+      case DataSourceType.csv:
         return CsvDataSourceSettings.fromJson(json);
-      case 'sqlite':
+      case DataSourceType.sqlite:
         return SqliteDataSourceSettings.fromJson(json);
-      default:
-        throw ArgumentError('Unknown data source type: $type');
     }
   }
 }
@@ -84,11 +87,11 @@ class CsvDataSourceSettings extends DataSourceSettings {
       'escapeChar': escapeChar,
       'skipEmptyLines': skipEmptyLines,
       'skipRows': skipRows,
-      if (maxRows != null) 'maxRows': maxRows,
-      if (content != null) 'content': content,
+      'maxRows': ?maxRows,
+      'content': ?content,
       'source': source,
       'persistent': persistent,
-      if (persistentName != null) 'persistentName': persistentName,
+      'persistentName': ?persistentName,
     };
   }
 
@@ -100,8 +103,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
       quoteChar: json['quoteChar'] as String? ?? '"',
       escapeChar: json['escapeChar'] as String? ?? '\\',
       skipEmptyLines: json['skipEmptyLines'] as bool? ?? true,
-      skipRows: json['skipRows'] as int? ?? 0,
-      maxRows: json['maxRows'] as int?,
+      skipRows: (json['skipRows'] as num?)?.toInt() ?? 0,
+      maxRows: (json['maxRows'] as num?)?.toInt(),
       content: json['content'] as String?,
       source: json['source'] as String? ?? 'file',
       persistent: json['persistent'] as bool? ?? false,
@@ -247,14 +250,14 @@ class SqliteDataSourceSettings extends DataSourceSettings {
   Map<String, dynamic> toJson() {
     return {
       'type': type.name,
-      if (query != null) 'query': query,
+      'query': ?query,
       'persistent': persistent,
-      if (persistentName != null) 'persistentName': persistentName,
-      if (databaseData != null) 'databaseData': databaseData,
+      'persistentName': ?persistentName,
+      'databaseData': ?databaseData,
       'connectionTimeout': connectionTimeout,
       'enableWal': enableWal,
-      if (pageSize != null) 'pageSize': pageSize,
-      if (cacheSize != null) 'cacheSize': cacheSize,
+      'pageSize': ?pageSize,
+      'cacheSize': ?cacheSize,
     };
   }
 
@@ -264,11 +267,14 @@ class SqliteDataSourceSettings extends DataSourceSettings {
       query: json['query'] as String?,
       persistent: json['persistent'] as bool? ?? false,
       persistentName: json['persistentName'] as String?,
-      databaseData: (json['databaseData'] as List<dynamic>?)?.cast<int>(),
-      connectionTimeout: json['connectionTimeout'] as int? ?? 30000,
+      databaseData: (json['databaseData'] as List<dynamic>?)
+          ?.cast<num>()
+          .map((e) => e.toInt())
+          .toList(),
+      connectionTimeout: (json['connectionTimeout'] as num?)?.toInt() ?? 30000,
       enableWal: json['enableWal'] as bool? ?? false,
-      pageSize: json['pageSize'] as int?,
-      cacheSize: json['cacheSize'] as int?,
+      pageSize: (json['pageSize'] as num?)?.toInt(),
+      cacheSize: (json['cacheSize'] as num?)?.toInt(),
     );
   }
 

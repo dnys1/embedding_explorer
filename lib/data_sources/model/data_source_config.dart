@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:logging/logging.dart';
 
 import '../../configurations/model/configuration_collection.dart';
@@ -63,10 +65,9 @@ class DataSourceConfig<T extends DataSourceSettings> {
     Map<String, dynamic> json,
   ) {
     try {
-      final typeStr = json['type'] as String;
-      final type = DataSourceType.values.byName(typeStr);
+      final type = DataSourceType.values.byName(json['type'] as String);
       final settingsJson = json['settings'] as Map<String, dynamic>? ?? {};
-      final settings = DataSourceSettings.fromJson(typeStr, settingsJson);
+      final settings = DataSourceSettings.fromJson(type, settingsJson);
 
       return DataSourceConfig<DataSourceSettings>(
         id: json['id'] as String,
@@ -79,6 +80,30 @@ class DataSourceConfig<T extends DataSourceSettings> {
       );
     } catch (e) {
       _logger.severe('Error parsing DataSourceConfig from JSON', e);
+      return null;
+    }
+  }
+
+  /// Create from database result set
+  static DataSourceConfig<DataSourceSettings>? fromDatabase(
+    Map<String, Object?> row,
+  ) {
+    try {
+      final type = DataSourceType.values.byName(row['type'] as String);
+      return DataSourceConfig<DataSourceSettings>(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String? ?? '',
+        type: type,
+        settings: DataSourceSettings.fromJson(
+          type,
+          jsonDecode(row['settings'] as String) as Map<String, dynamic>,
+        ),
+        createdAt: DateTime.parse(row['created_at'] as String),
+        updatedAt: DateTime.parse(row['updated_at'] as String),
+      );
+    } catch (e) {
+      _logger.severe('Error parsing DataSourceConfig from ResultSet: $row', e);
       return null;
     }
   }

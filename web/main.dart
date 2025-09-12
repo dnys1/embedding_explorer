@@ -11,7 +11,7 @@ void main() {
   Chain.capture(
     when: kDebugMode,
     () {
-      Logger.root.level = Level.ALL;
+      Logger.root.level = kDebugMode ? Level.ALL : Level.INFO;
       Logger.root.onRecord.listen((record) {
         print(
           '[${record.time} - ${record.loggerName}] '

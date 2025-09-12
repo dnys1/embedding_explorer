@@ -1,24 +1,21 @@
-import '../../jobs/model/embedding_job.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../../data_sources/model/data_source_config.dart';
 import '../../data_sources/model/data_source_settings.dart';
+import '../../jobs/model/embedding_job.dart';
 import '../../jobs/model/embedding_job_collection.dart';
 import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/model_provider_config.dart';
 import '../../templates/model/embedding_template_config.dart';
-import '../../util/indexed_db.dart';
+import '../service/configuration_service.dart';
 
 /// Global state manager for all configuration collections
 class ConfigurationManager with ChangeNotifier {
-  static final ConfigurationManager _instance =
-      ConfigurationManager._internal();
+  static final ConfigurationManager instance = ConfigurationManager._();
 
-  factory ConfigurationManager() {
-    return _instance;
-  }
+  ConfigurationManager._() : _configService = ConfigurationService();
 
-  ConfigurationManager._internal();
+  final ConfigurationService _configService;
 
   // Configuration collections
   final DataSourceConfigCollection dataSources = DataSourceConfigCollection();
@@ -33,15 +30,15 @@ class ConfigurationManager with ChangeNotifier {
   /// Initialize all collections and load from storage
   Future<void> initialize() async {
     // Initialize IndexedDB first
-    await indexedDB.initialize();
+    await _configService.initialize();
 
-    await Future.wait([
-      dataSources.loadFromStorage(),
-      embeddingTemplates.loadFromStorage(),
-      modelProviders.loadFromStorage(),
-      customProviderTemplates.loadFromStorage(),
-      embeddingJobs.loadFromStorage(),
-    ]);
+    // await Future.wait([
+    //   dataSources.loadFromStorage(),
+    //   embeddingTemplates.loadFromStorage(),
+    //   modelProviders.loadFromStorage(),
+    //   customProviderTemplates.loadFromStorage(),
+    //   embeddingJobs.loadFromStorage(),
+    // ]);
 
     // Set up change listeners to notify global listeners
     dataSources.addListener(notifyListeners);
@@ -227,7 +224,7 @@ class ConfigurationManager with ChangeNotifier {
 }
 
 mixin ConfigurationManagerListener<T extends StatefulComponent> on State<T> {
-  final ConfigurationManager configManager = ConfigurationManager();
+  final ConfigurationManager configManager = ConfigurationManager.instance;
 
   @override
   void initState() {

@@ -1,6 +1,7 @@
 import 'package:jaspr/jaspr.dart';
 
 import '../../util/clsx.dart';
+import 'fa_icon.dart';
 
 enum ButtonVariant {
   primary,
@@ -11,8 +12,7 @@ enum ButtonVariant {
   link;
 
   String get classes => switch (this) {
-    ButtonVariant.primary =>
-      'bg-primary text-primary-foreground hover:bg-primary/90',
+    ButtonVariant.primary => 'bg-primary-600 hover:bg-primary-700 text-white',
     ButtonVariant.secondary =>
       'bg-secondary text-secondary-foreground hover:bg-secondary/80',
     ButtonVariant.destructive =>
@@ -31,9 +31,9 @@ enum ButtonSize {
   icon;
 
   String get classes => switch (this) {
-    ButtonSize.sm => 'h-9 rounded-md px-3',
-    ButtonSize.md => 'h-10 px-4 py-2',
-    ButtonSize.lg => 'h-11 rounded-md px-8',
+    ButtonSize.sm => 'h-9 rounded-md px-3 text-sm',
+    ButtonSize.md => 'h-10 px-4 py-2 text-md',
+    ButtonSize.lg => 'h-11 rounded-md px-8 text-lg',
     ButtonSize.icon => 'h-10 w-10',
   };
 }
@@ -64,7 +64,10 @@ class Button extends StatelessComponent {
   Component build(BuildContext context) {
     return button(
       classes: [
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'inline-flex items-center justify-center whitespace-nowrap rounded-md',
+        'font-medium ring-offset-background transition-colors focus-visible:outline-none',
+        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
         if (disabled) 'disabled:pointer-events-none disabled:opacity-50',
         variant.classes,
         size.classes,
@@ -89,13 +92,15 @@ class IconButton extends StatelessComponent {
   const IconButton({
     super.key,
     required this.icon,
+    this.child,
     this.onPressed,
     this.variant = ButtonVariant.ghost,
     this.className,
     this.disabled = false,
   });
 
-  final Component icon;
+  final FaIcon icon;
+  final Component? child;
   final void Function()? onPressed;
   final ButtonVariant variant;
   final String? className;
@@ -109,7 +114,7 @@ class IconButton extends StatelessComponent {
       size: ButtonSize.icon,
       className: className,
       disabled: disabled,
-      children: [icon],
+      children: [icon, ?child],
     );
   }
 }

@@ -85,7 +85,7 @@ class MessagePortChannel<T>
       () => _serializers.serialize(event, specifiedType: _specifiedType),
       zoneValues: {#transfer: transfer},
     );
-    messagePort.postMessage(serialized?.toJSBoxOrCast, transfer.toJSBoxOrCast);
+    messagePort.postMessage(serialized?.serialized, transfer.serialized);
   }
 
   @override
@@ -95,7 +95,7 @@ class MessagePortChannel<T>
       specifiedType: FullType.unspecified,
     );
 
-    messagePort.postMessage(serialized?.toJSBoxOrCast);
+    messagePort.postMessage(serialized?.serialized);
     close();
   }
 

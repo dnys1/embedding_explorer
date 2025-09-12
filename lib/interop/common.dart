@@ -19,6 +19,7 @@ extension type JSError._(JSObject _) implements JSObject {
 
   external String get name;
   external String get message;
+  external String? get stack;
 }
 
 extension JSBigIntExtensions on JSBigInt {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../configurations/model/configuration_collection.dart';
 
 /// HTTP method for API requests
@@ -157,6 +159,45 @@ class CustomProviderTemplate {
       );
     } catch (e) {
       print('Error parsing CustomProviderTemplate from JSON: $e');
+      return null;
+    }
+  }
+
+  /// Create from database result
+  static CustomProviderTemplate? fromDatabase(Map<String, Object?> row) {
+    try {
+      final requestTemplate = HttpRequestTemplate.fromJson(
+        jsonDecode(row['embedding_request_template'] as String)
+            as Map<String, dynamic>,
+      );
+      if (requestTemplate == null) return null;
+
+      return CustomProviderTemplate(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String? ?? '',
+        icon: row['icon'] as String? ?? '🔧',
+        baseUri: row['base_uri'] as String,
+        requiredCredentials: row['required_credentials'] != null
+            ? List<String>.from(
+                jsonDecode(row['required_credentials'] as String) as List,
+              )
+            : <String>[],
+        defaultSettings: row['default_settings'] != null
+            ? jsonDecode(row['default_settings'] as String)
+                  as Map<String, dynamic>
+            : <String, dynamic>{},
+        availableModels: row['available_models'] != null
+            ? List<String>.from(
+                jsonDecode(row['available_models'] as String) as List,
+              )
+            : <String>[],
+        embeddingRequestTemplate: requestTemplate,
+        createdAt: DateTime.parse(row['created_at'] as String),
+        updatedAt: DateTime.parse(row['updated_at'] as String),
+      );
+    } catch (e) {
+      print('Error parsing CustomProviderTemplate from database: $e');
       return null;
     }
   }

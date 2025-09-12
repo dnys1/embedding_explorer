@@ -1810,7 +1810,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
         }
       } else {
         // Add new configuration
-        ConfigurationManager().modelProviders.addConfig(
+        ConfigurationManager.instance.modelProviders.addConfig(
           name: _name.trim(),
           type: provider.type,
           description: provider.description,

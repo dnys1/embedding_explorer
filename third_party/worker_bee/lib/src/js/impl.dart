@@ -93,8 +93,8 @@ mixin WorkerBeeImpl<Request extends Object, Response>
       final serialized = _serialize(error);
       error = serialized.value!;
       self.postMessage(
-        serialized.value?.toJSBoxOrCast,
-        serialized.transfer.toJSBoxOrCast,
+        serialized.value?.serialized,
+        serialized.transfer.serialized,
       );
     }
     super.completeError(error, stackTrace);
@@ -107,9 +107,7 @@ mixin WorkerBeeImpl<Request extends Object, Response>
       await super.connect(logsChannel: logsChannel);
       final channel = StreamChannelController<Object?>(sync: true);
 
-      void onMessage(Event event) {
-        event as MessageEvent;
-        logger.finest('Got message: ${event.data}');
+      void onMessage(MessageEvent event) {
         final serialized = event.data;
         final message = _deserialize<Request>(serialized);
         channel.foreign.sink.add(message);
@@ -117,15 +115,15 @@ mixin WorkerBeeImpl<Request extends Object, Response>
 
       self.addEventListener(
         'message',
-        Zone.current.bindUnaryCallback<void, Event>(onMessage).toJS,
+        Zone.current.bindUnaryCallback<void, MessageEvent>(onMessage).toJS,
       );
       channel.foreign.stream.listen(
         Zone.current.bindUnaryCallback((message) {
           logger.finest('Sending message: $message');
           final serialized = _serialize(message);
           self.postMessage(
-            serialized.value?.toJSBoxOrCast,
-            serialized.transfer.toJSBoxOrCast,
+            serialized.value?.serialized,
+            serialized.transfer.serialized,
           );
         }),
       );
@@ -140,8 +138,8 @@ mixin WorkerBeeImpl<Request extends Object, Response>
 
       final serializedResult = _serialize(result);
       self.postMessage(
-        serializedResult.value?.toJSBoxOrCast,
-        serializedResult.transfer.toJSBoxOrCast,
+        serializedResult.value?.serialized,
+        serializedResult.transfer.serialized,
       );
 
       // Allow streams to flush, then close underlying resources.
@@ -190,8 +188,7 @@ mixin WorkerBeeImpl<Request extends Object, Response>
             },
           );
 
-          void onEvent(Event event) {
-            event as MessageEvent;
+          void onEvent(MessageEvent event) {
             final error = WorkerBeeExceptionImpl(
               'Could not serialize message: ${event.data}',
             );
@@ -232,15 +229,15 @@ mixin WorkerBeeImpl<Request extends Object, Response>
               final serialized = _serialize(message);
 
               _worker!.postMessage(
-                serialized.value?.toJSBoxOrCast,
-                serialized.transfer.toJSBoxOrCast,
+                serialized.value?.serialized,
+                serialized.transfer.serialized,
               );
             }),
           );
 
           void onMessage(MessageEvent event) {
             final eventData = event.data;
-            logger.finest('Got message: $eventData');
+            logger.finest('Got data: $eventData');
 
             if (eventData.typeofEquals('string')) {
               final state = (eventData as JSString).toDart;
@@ -256,6 +253,7 @@ mixin WorkerBeeImpl<Request extends Object, Response>
                 return;
               }
             }
+
             final message = _deserialize(eventData);
             logger.finest('Got message: $message');
             if (message is WorkerBeeException) {

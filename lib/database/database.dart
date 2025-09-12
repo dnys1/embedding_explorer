@@ -1,57 +1,106 @@
-import 'package:sqlite3/common.dart';
+import 'dart:async';
+
+import 'package:logging/logging.dart';
 import 'package:sqlite3/wasm.dart' as sqlite3;
+import 'package:worker_bee/worker_bee.dart';
 
-import '../interop/common.dart';
 import '../interop/libsql.dart' as libsql;
-import 'prepared_statement.dart';
+import '../workers/libsql_worker.dart';
 
-/// Platform-specific LibSQL database implementation for Web/JS.
-///
-/// This implementation uses WASM bindings to provide LibSQL functionality
-/// in web browsers.
-class LibsqlDatabase extends CommonDatabase {
-  final libsql.Database _db;
-  bool get _disposed => !_db.isOpen();
-
-  LibsqlDatabase._(this._db);
+abstract interface class Database {
+  static final Logger _logger = Logger('LibsqlDatabase');
 
   /// Creates a LibSQL database from a file path.
   ///
   /// On Web platforms, this creates an in-memory database if path is ':memory:',
   /// otherwise attempts to use the provided path (may not be supported in all environments).
   /// The WASM module is automatically initialized before creating the database.
-  static Future<LibsqlDatabase> open(String path, [Uri? moduleUri]) async {
-    await libsql.loadModule();
-    final db = libsql.Database(filename: path);
-    db.affirmOpen();
-    return LibsqlDatabase._(db);
+  static Future<Database> open(
+    String path, {
+    Uri? moduleUri,
+    bool isWorker = false,
+  }) async {
+    await libsql.loadModule(moduleUri: moduleUri);
+    if (path == ':memory:') {
+      return Database.memory();
+    } else if (isWorker) {
+      return Database.opfs(path);
+    } else {
+      if (!isWorker) {
+        try {
+          return await Database.worker(path: path, moduleUri: moduleUri);
+        } catch (e) {
+          _logger.warning('Failed to spawn worker', e);
+        }
+      }
+      return Database.local(path);
+    }
   }
 
-  /// Creates a LibSQL database connection to a remote server.
+  /// Creates an in-memory LibSQL database.
+  factory Database.memory() {
+    _logger.config('Initializing in-memory LibSQL database');
+    return _Database._(libsql.Database());
+  }
+
+  /// Creates a LibSQL database using the OPFS VFS at the given path.
   ///
-  /// On Web platforms, this currently throws an UnimplementedError.
-  /// Future implementation will use fetch API to connect to LibSQL servers.
-  static Future<LibsqlDatabase> remote(
-    String url, {
-    String? authToken,
-    Uri? moduleUri,
-  }) async {
-    throw UnimplementedError(
-      'Remote database connections not yet implemented for Web platform',
+  /// **NOTE**: This can only be used in environments that support OPFS, and
+  /// requires APIs only available in workers. If OPFS is not supported, an
+  /// [UnsupportedError] is thrown.
+  factory Database.opfs(String path) {
+    if (!libsql.supportsOpfs) {
+      throw UnsupportedError('OPFS is not supported in this environment');
+    }
+    _logger.config('Initializing LibSQL OPFS database at $path');
+    return _Database._(
+      libsql.Database(filename: path, flags: 'c', vfs: 'opfs'),
     );
+  }
+
+  /// Creates a LibSQL database using the browser's local storage.
+  factory Database.local(String path) {
+    _logger.config('Initializing LibSQL local database at $path');
+    return _Database._(libsql.Database(filename: path, flags: 'c'));
+  }
+
+  /// Creates a LibSQL database accessed via a worker.
+  ///
+  /// This is useful for accessing persistent databases in environments that
+  /// support OPFS, as the OPFS VFS requires worker context.
+  ///
+  /// The [moduleUri] can be provided to specify the location of the WASM module
+  /// to be used by the worker.
+  static Future<Database> worker({required String path, Uri? moduleUri}) {
+    _logger.config('Initializing LibSQL worker for $path');
+    return DatabaseWorker.spawn(filename: path, moduleUri: moduleUri);
+  }
+
+  FutureOr<void> execute(String sql, [List<Object?> parameters = const []]);
+  FutureOr<sqlite3.ResultSet> select(
+    String sql, [
+    List<Object?> parameters = const [],
+  ]);
+  Future<T> transaction<T>(FutureOr<T> Function(Database tx) action);
+  FutureOr<void> dispose();
+}
+
+/// Platform-specific LibSQL database implementation for Web/JS.
+///
+/// This implementation uses WASM bindings to provide LibSQL functionality
+/// in web browsers.
+class _Database implements Database {
+  final libsql.Database _db;
+  bool get _disposed => !_db.isOpen();
+
+  _Database._(this._db) {
+    _db.affirmOpen();
   }
 
   void _checkNotDisposed() {
     if (_disposed) {
       throw StateError('Database has been disposed');
     }
-  }
-
-  @override
-  bool get autocommit {
-    _checkNotDisposed();
-    // WASM SQLite is always in autocommit mode by default unless in a transaction
-    return true; // Simplified assumption
   }
 
   @override
@@ -82,120 +131,137 @@ class LibsqlDatabase extends CommonDatabase {
   }
 
   @override
-  int getUpdatedRows() {
-    _checkNotDisposed();
-    return _db.changes().toInt();
-  }
-
-  @override
-  int get lastInsertRowId {
-    _checkNotDisposed();
-    return _db.lastInsertRowid().toInt();
-  }
-
-  @override
-  sqlite3.CommonPreparedStatement prepare(
-    String sql, {
-    bool persistent = false,
-    bool vtab = true,
-    bool checkNoTail = false,
-  }) {
-    _checkNotDisposed();
-    final stmt = _db.prepare(sql);
-    return LibsqlPreparedStatement(stmt);
-  }
-
-  @override
-  int get updatedRows => getUpdatedRows();
-
-  T transaction<T>(T Function(LibsqlDatabase tx) action) {
+  Future<T> transaction<T>(FutureOr<T> Function(Database tx) action) async {
     _checkNotDisposed();
     T? ret;
     _db.transaction((db) {
-      ret = action(LibsqlDatabase._(db));
+      ret = action(_Database._(db)) as T;
     });
     return ret as T;
   }
+}
 
-  // Properties that are not yet implemented in WASM or not available
+class DatabaseWorker implements Database {
+  DatabaseWorker._(this._worker);
+
+  static final Logger _localLogger = Logger('Database');
+  static final Logger _remoteLogger = Logger('Database.Worker');
+
+  final LibsqlWorker _worker;
+  StreamSubscription<LogRecord>? _logSubscription;
+  var _nextRequestId = 1;
+
+  static Future<DatabaseWorker> spawn({
+    required String filename,
+    Uri? moduleUri,
+  }) async {
+    final worker = DatabaseWorker._(LibsqlWorker.create());
+    await worker._init(filename: filename, moduleUri: moduleUri);
+    return worker;
+  }
+
+  Future<void> _init({required String filename, Uri? moduleUri}) async {
+    _logSubscription = _worker.logs.listen((record) {
+      final logger = record is WorkerLogRecord && record.local == false
+          ? _remoteLogger
+          : _localLogger;
+      logger.log(record.level, record.message, record.error, record.stackTrace);
+    });
+
+    try {
+      await _worker.spawn().timeout(const Duration(seconds: 10));
+    } on Object {
+      await _worker.close(force: true);
+    }
+
+    final requestId = _nextRequestId++;
+    _worker.add(
+      LibsqlRequest.init(
+        requestId: requestId,
+        filename: filename,
+        moduleUri: moduleUri,
+      ),
+    );
+    await _worker.stream.firstWhere(
+      (response) => response.requestId == requestId,
+    );
+  }
+
+  var _disposed = false;
+
+  void _checkNotDisposed() {
+    if (_disposed) {
+      throw StateError('Database has been disposed');
+    }
+  }
 
   @override
-  sqlite3.VoidPredicate? commitFilter;
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    unawaited(_logSubscription?.cancel());
+    _logSubscription = null;
+    await _worker.close();
+  }
 
   @override
-  Stream<void> get commits => throw UnimplementedError(
-    'Commit notifications not supported in Web implementation',
-  );
-
-  @override
-  sqlite3.DatabaseConfig get config => throw UnimplementedError(
-    'Database config not supported in Web implementation',
-  );
-
-  @override
-  void createAggregateFunction<V>({
-    required String functionName,
-    required sqlite3.AggregateFunction<V> function,
-    sqlite3.AllowedArgumentCount? argumentCount,
-    bool directOnly = true,
-    bool deterministic = false,
-    bool subtype = false,
-  }) {
-    throw UnimplementedError(
-      'Custom aggregate functions not supported in Web implementation',
+  Future<void> execute(
+    String sql, [
+    List<Object?> parameters = const [],
+  ]) async {
+    _checkNotDisposed();
+    final requestId = _nextRequestId++;
+    _worker.add(
+      LibsqlRequest(
+        requestId: requestId,
+        type: LibsqlRequestType.execute,
+        sql: sql,
+        parameters: parameters,
+      ),
+    );
+    await _worker.stream.firstWhere(
+      (response) => response.requestId == requestId,
     );
   }
 
   @override
-  void createCollation({
-    required String name,
-    required int Function(String?, String?) function,
-  }) {
-    throw UnimplementedError(
-      'Custom collations not supported in Web implementation',
+  Future<sqlite3.ResultSet> select(
+    String sql, [
+    List<Object?> parameters = const [],
+  ]) async {
+    _checkNotDisposed();
+    final requestId = _nextRequestId++;
+    _worker.add(
+      LibsqlRequest(
+        requestId: requestId,
+        type: LibsqlRequestType.query,
+        sql: sql,
+        parameters: parameters,
+      ),
+    );
+    final response = await _worker.stream.firstWhere(
+      (response) => response.requestId == requestId,
+    );
+    return sqlite3.ResultSet(
+      response.columnNames.toList(),
+      null,
+      response.rows.map((e) => e.toList()).toList(),
     );
   }
 
   @override
-  void createFunction({
-    required String functionName,
-    required Object? Function(sqlite3.SqliteArguments) function,
-    sqlite3.AllowedArgumentCount? argumentCount,
-    bool directOnly = true,
-    bool deterministic = false,
-    bool subtype = false,
-  }) {
-    throw UnimplementedError(
-      'Custom functions not supported in Web implementation',
-    );
+  Future<T> transaction<T>(
+    FutureOr<T> Function(DatabaseWorker tx) action,
+  ) async {
+    _checkNotDisposed();
+    await execute('BEGIN');
+    try {
+      final result = await action(this);
+      await execute('COMMIT');
+      return result;
+    } catch (e) {
+      await execute('ROLLBACK');
+      rethrow;
+    }
   }
-
-  @override
-  int userVersion = 0;
-
-  @override
-  List<sqlite3.CommonPreparedStatement> prepareMultiple(
-    String sql, {
-    bool persistent = false,
-    bool vtab = true,
-  }) {
-    throw UnimplementedError(
-      'Multiple prepared statements not yet implemented for Web platform',
-    );
-  }
-
-  @override
-  Stream<void> get rollbacks => throw UnimplementedError(
-    'Rollback notifications not supported in Web implementation',
-  );
-
-  @override
-  Stream<sqlite3.SqliteUpdate> get updates => throw UnimplementedError(
-    'Update notifications not supported in Web implementation',
-  );
-
-  @override
-  Stream<sqlite3.SqliteUpdate> get updatesSync => throw UnimplementedError(
-    'Update notifications not supported in Web implementation',
-  );
 }

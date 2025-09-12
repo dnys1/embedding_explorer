@@ -6,8 +6,10 @@ analyzer:
     strict-inference: true
     strict-raw-types: true
   errors:
+    constant_identifier_names: ignore
     file_names: ignore
     library_prefixes: ignore
+    non_constant_identifier_names: ignore
     no_leading_underscores_for_library_prefixes: ignore
 
 linter:

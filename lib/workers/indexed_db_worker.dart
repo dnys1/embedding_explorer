@@ -4,9 +4,10 @@ import 'dart:convert';
 import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
-import '../util/indexed_db.dart';
 import 'package:logging/logging.dart';
 import 'package:worker_bee/worker_bee.dart';
+
+import '../util/indexed_db.dart';
 
 part 'indexed_db_worker.g.dart';
 
@@ -89,7 +90,10 @@ abstract class IndexedDbWorker
     Stream<IndexedDbRequest> listen,
     StreamSink<IndexedDbResponse> respond,
   ) async {
-    final loggerSubscription = Logger.root.onRecord.listen(logSink.sink.add);
+    Logger.root.level = Level.ALL;
+    final loggerSubscription = Logger.root.onRecord.listen(
+      (r) => logSink.sink.add(WorkerLogRecord.from(r, local: false)),
+    );
     try {
       await indexedDB.initialize();
       await for (final request in listen) {

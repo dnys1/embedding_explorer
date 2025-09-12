@@ -1,5 +1,3 @@
-// ignore_for_file: constant_identifier_names
-
 /// WASM interop bindings for LibSQL-wasm.
 ///
 /// Requires that the sqlite3InitModule function has been called and the return
@@ -15,14 +13,26 @@ import 'package:logging/logging.dart';
 
 import 'common.dart';
 
-Future<void> loadModule() async {
+Future<void> loadModule({Uri? moduleUri}) async {
   if (globalContext['libsql'].isDefinedAndNotNull) {
     return;
   }
-  final libsqlUri = Uri.base.resolve('./js/libsql.js').toString();
-  await importModule(libsqlUri.toJS).toDart;
-  final libsqlLoader = globalContext['libsqlLoader'] as _LibsqlLoader;
+
   final logger = Logger('libsql');
+  final libsqlUri = moduleUri ?? Uri.base.resolve('./js/libsql.js');
+  logger.config('Loading LibSQL module from $libsqlUri');
+
+  // Different ways to load the module, depending on how it was included
+  _LibsqlLoader? libsqlLoader;
+  {
+    libsqlLoader =
+        await importModule(libsqlUri.toString().toJS).toDart as _LibsqlLoader?;
+    if (libsqlLoader.isUndefinedOrNull ||
+        libsqlLoader!.getProperty('default'.toJS).isUndefinedOrNull) {
+      libsqlLoader = globalContext['libsqlLoader'] as _LibsqlLoader;
+    }
+  }
+
   globalContext['libsql'] = await libsqlLoader
       .init(
         InitOptions(
@@ -59,6 +69,15 @@ extension type _LibsqlLoader._(JSObject _) implements JSObject {
   /// [1] https://emscripten.org/docs/api_reference/module.html
   @JS('default')
   external JSPromise<JSAny?> init([InitOptions? opts]);
+}
+
+@JS('capi.sqlite3_vfs_find')
+external JSAny? _findVfs(String name);
+
+/// Whether the current browser environment supports the OPFS VFS.
+bool get supportsOpfs {
+  final vfs = _findVfs('opfs');
+  return vfs.isTruthy.toDart;
 }
 
 extension type SqlValue._(JSAny _) implements JSAny {

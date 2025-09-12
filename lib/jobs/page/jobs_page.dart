@@ -272,7 +272,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
 
   Component _buildJobMenuButton(EmbeddingJob job) {
     return IconButton(
-      icon: text('⋮'),
+      icon: FaIcons.solid.menu,
       variant: ButtonVariant.ghost,
       className: 'text-muted-foreground',
     );
@@ -304,7 +304,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
                 div(classes: 'flex justify-between items-center', [
                   CardTitle(children: [text('Create New Embedding Job')]),
                   IconButton(
-                    icon: text('×'),
+                    icon: FaIcons.solid.close,
                     onPressed: _hideCreateJob,
                     className: 'text-muted-foreground',
                   ),

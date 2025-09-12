@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:collection/collection.dart';
 
 import '../../configurations/model/configuration_collection.dart';
@@ -107,6 +109,37 @@ class ModelProviderConfig {
       );
     } catch (e) {
       print('Error parsing ModelProviderConfig from JSON: $e');
+      return null;
+    }
+  }
+
+  /// Create from database result
+  static ModelProviderConfig? fromDatabase(Map<String, Object?> row) {
+    try {
+      return ModelProviderConfig(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String? ?? '',
+        type: ProviderType.values.byName(row['type'] as String),
+        customTemplateId: row['custom_template_id'] as String?,
+        settings: row['settings'] != null
+            ? jsonDecode(row['settings'] as String) as Map<String, dynamic>
+            : <String, dynamic>{},
+        credentials: row['credentials'] != null
+            ? _decodeCredentials(jsonDecode(row['credentials'] as String))
+            : <String, String>{},
+        isActive: (row['is_active'] as int? ?? 1) == 1,
+        persistCredentials: (row['persist_credentials'] as int? ?? 0) == 1,
+        enabledModels: row['enabled_models'] != null
+            ? Set<String>.from(
+                jsonDecode(row['enabled_models'] as String) as List,
+              )
+            : <String>{},
+        createdAt: DateTime.parse(row['created_at'] as String),
+        updatedAt: DateTime.parse(row['updated_at'] as String),
+      );
+    } catch (e) {
+      print('Error parsing ModelProviderConfig from database: $e');
       return null;
     }
   }
