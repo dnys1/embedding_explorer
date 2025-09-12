@@ -4,9 +4,11 @@ import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 import 'package:logging/logging.dart';
+import 'package:sqlite3/common.dart';
 import 'package:worker_bee/worker_bee.dart';
 
 import '../database/database.dart';
+import '../database/transaction.dart';
 
 part 'libsql_worker.g.dart';
 
@@ -14,6 +16,7 @@ class LibsqlRequestType extends EnumClass {
   static const LibsqlRequestType init = _$init;
   static const LibsqlRequestType execute = _$execute;
   static const LibsqlRequestType query = _$query;
+  static const LibsqlRequestType transaction = _$transaction;
 
   const LibsqlRequestType._(super.name);
 
@@ -35,8 +38,18 @@ abstract class LibsqlRequest
     return _$LibsqlRequest._(
       requestId: requestId,
       type: type,
-      sql: sql,
-      parameters: parameters.build(),
+      transaction: Transaction([SqlStatement(sql, parameters)]),
+    );
+  }
+  factory LibsqlRequest.transaction({
+    required int requestId,
+    required LibsqlRequestType type,
+    required Transaction transaction,
+  }) {
+    return _$LibsqlRequest._(
+      requestId: requestId,
+      type: type,
+      transaction: transaction,
     );
   }
 
@@ -50,8 +63,7 @@ abstract class LibsqlRequest
     return _$LibsqlRequest._(
       requestId: requestId,
       type: LibsqlRequestType.init,
-      sql: '',
-      parameters: BuiltList(),
+      transaction: Transaction.empty,
       filename: filename,
       flags: flags,
       vfs: vfs,
@@ -61,8 +73,7 @@ abstract class LibsqlRequest
 
   int get requestId;
   LibsqlRequestType get type;
-  String get sql;
-  BuiltList<Object?> get parameters;
+  Transaction get transaction;
 
   // Init
   Uri? get moduleUri;
@@ -131,6 +142,7 @@ abstract class LibsqlWorker
               // module since the worker's cwd is different.
               moduleUri: request.moduleUri ?? Uri.parse('/js/libsql.js'),
               isWorker: true,
+              verbose: request.flags?.contains('t') ?? false,
             );
             respond.add(
               LibsqlResponse(
@@ -140,7 +152,8 @@ abstract class LibsqlWorker
               ),
             );
           case LibsqlRequestType.execute:
-            await db.execute(request.sql, request.parameters.toList());
+            final query = request.transaction.statements.single;
+            await db.execute(query.sql, query.parameters.toList());
             respond.add(
               LibsqlResponse(
                 requestId: request.requestId,
@@ -149,15 +162,28 @@ abstract class LibsqlWorker
               ),
             );
           case LibsqlRequestType.query:
-            final result = await db.select(
-              request.sql,
-              request.parameters.toList(),
-            );
+            final query = request.transaction.statements.single;
+            final result =
+                await db.select(query.sql, query.parameters.toList())
+                    as ResultSet;
             respond.add(
               LibsqlResponse(
                 requestId: request.requestId,
                 rows: result.rows,
                 columnNames: result.columnNames,
+              ),
+            );
+          case LibsqlRequestType.transaction:
+            await db.transaction((tx) {
+              for (final statement in request.transaction.statements) {
+                tx.execute(statement.sql, statement.parameters.toList());
+              }
+            });
+            respond.add(
+              LibsqlResponse(
+                requestId: request.requestId,
+                rows: const [],
+                columnNames: const [],
               ),
             );
         }

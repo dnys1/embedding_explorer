@@ -9,6 +9,9 @@ part of 'libsql_worker.dart';
 const LibsqlRequestType _$init = const LibsqlRequestType._('init');
 const LibsqlRequestType _$execute = const LibsqlRequestType._('execute');
 const LibsqlRequestType _$query = const LibsqlRequestType._('query');
+const LibsqlRequestType _$transaction = const LibsqlRequestType._(
+  'transaction',
+);
 
 LibsqlRequestType _$valueOf(String name) {
   switch (name) {
@@ -18,13 +21,15 @@ LibsqlRequestType _$valueOf(String name) {
       return _$execute;
     case 'query':
       return _$query;
+    case 'transaction':
+      return _$transaction;
     default:
       throw ArgumentError(name);
   }
 }
 
 final BuiltSet<LibsqlRequestType> _$values = BuiltSet<LibsqlRequestType>(
-  const <LibsqlRequestType>[_$init, _$execute, _$query],
+  const <LibsqlRequestType>[_$init, _$execute, _$query, _$transaction],
 );
 
 Serializers _$_serializers =
@@ -32,6 +37,12 @@ Serializers _$_serializers =
           ..add(LibsqlRequest.serializer)
           ..add(LibsqlRequestType.serializer)
           ..add(LibsqlResponse.serializer)
+          ..add(SqlStatement.serializer)
+          ..add(Transaction.serializer)
+          ..addBuilderFactory(
+            const FullType(BuiltList, const [const FullType(SqlStatement)]),
+            () => ListBuilder<SqlStatement>(),
+          )
           ..addBuilderFactory(
             const FullType(BuiltList, const [const FullType(String)]),
             () => ListBuilder<String>(),
@@ -101,14 +112,10 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
         object.type,
         specifiedType: const FullType(LibsqlRequestType),
       ),
-      'sql',
-      serializers.serialize(object.sql, specifiedType: const FullType(String)),
-      'parameters',
+      'transaction',
       serializers.serialize(
-        object.parameters,
-        specifiedType: const FullType(BuiltList, const [
-          const FullType.nullable(Object),
-        ]),
+        object.transaction,
+        specifiedType: const FullType(Transaction),
       ),
     ];
     Object? value;
@@ -175,23 +182,13 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
                   )!
                   as LibsqlRequestType;
           break;
-        case 'sql':
-          result.sql =
-              serializers.deserialize(
-                    value,
-                    specifiedType: const FullType(String),
-                  )!
-                  as String;
-          break;
-        case 'parameters':
-          result.parameters.replace(
+        case 'transaction':
+          result.transaction.replace(
             serializers.deserialize(
                   value,
-                  specifiedType: const FullType(BuiltList, const [
-                    const FullType.nullable(Object),
-                  ]),
+                  specifiedType: const FullType(Transaction),
                 )!
-                as BuiltList<Object?>,
+                as Transaction,
           );
           break;
         case 'moduleUri':
@@ -327,9 +324,7 @@ class _$LibsqlRequest extends LibsqlRequest {
   @override
   final LibsqlRequestType type;
   @override
-  final String sql;
-  @override
-  final BuiltList<Object?> parameters;
+  final Transaction transaction;
   @override
   final Uri? moduleUri;
   @override
@@ -345,8 +340,7 @@ class _$LibsqlRequest extends LibsqlRequest {
   _$LibsqlRequest._({
     required this.requestId,
     required this.type,
-    required this.sql,
-    required this.parameters,
+    required this.transaction,
     this.moduleUri,
     this.filename,
     this.flags,
@@ -365,8 +359,7 @@ class _$LibsqlRequest extends LibsqlRequest {
     return other is LibsqlRequest &&
         requestId == other.requestId &&
         type == other.type &&
-        sql == other.sql &&
-        parameters == other.parameters &&
+        transaction == other.transaction &&
         moduleUri == other.moduleUri &&
         filename == other.filename &&
         flags == other.flags &&
@@ -378,8 +371,7 @@ class _$LibsqlRequest extends LibsqlRequest {
     var _$hash = 0;
     _$hash = $jc(_$hash, requestId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
-    _$hash = $jc(_$hash, sql.hashCode);
-    _$hash = $jc(_$hash, parameters.hashCode);
+    _$hash = $jc(_$hash, transaction.hashCode);
     _$hash = $jc(_$hash, moduleUri.hashCode);
     _$hash = $jc(_$hash, filename.hashCode);
     _$hash = $jc(_$hash, flags.hashCode);
@@ -393,8 +385,7 @@ class _$LibsqlRequest extends LibsqlRequest {
     return (newBuiltValueToStringHelper(r'LibsqlRequest')
           ..add('requestId', requestId)
           ..add('type', type)
-          ..add('sql', sql)
-          ..add('parameters', parameters)
+          ..add('transaction', transaction)
           ..add('moduleUri', moduleUri)
           ..add('filename', filename)
           ..add('flags', flags)
@@ -415,15 +406,11 @@ class LibsqlRequestBuilder
   LibsqlRequestType? get type => _$this._type;
   set type(LibsqlRequestType? type) => _$this._type = type;
 
-  String? _sql;
-  String? get sql => _$this._sql;
-  set sql(String? sql) => _$this._sql = sql;
-
-  ListBuilder<Object?>? _parameters;
-  ListBuilder<Object?> get parameters =>
-      _$this._parameters ??= ListBuilder<Object?>();
-  set parameters(ListBuilder<Object?>? parameters) =>
-      _$this._parameters = parameters;
+  TransactionBuilder? _transaction;
+  TransactionBuilder get transaction =>
+      _$this._transaction ??= TransactionBuilder();
+  set transaction(TransactionBuilder? transaction) =>
+      _$this._transaction = transaction;
 
   Uri? _moduleUri;
   Uri? get moduleUri => _$this._moduleUri;
@@ -448,8 +435,7 @@ class LibsqlRequestBuilder
     if ($v != null) {
       _requestId = $v.requestId;
       _type = $v.type;
-      _sql = $v.sql;
-      _parameters = $v.parameters.toBuilder();
+      _transaction = $v.transaction.toBuilder();
       _moduleUri = $v.moduleUri;
       _filename = $v.filename;
       _flags = $v.flags;
@@ -488,12 +474,7 @@ class LibsqlRequestBuilder
               r'LibsqlRequest',
               'type',
             ),
-            sql: BuiltValueNullFieldError.checkNotNull(
-              sql,
-              r'LibsqlRequest',
-              'sql',
-            ),
-            parameters: parameters.build(),
+            transaction: transaction.build(),
             moduleUri: moduleUri,
             filename: filename,
             flags: flags,
@@ -502,8 +483,8 @@ class LibsqlRequestBuilder
     } catch (_) {
       late String _$failedField;
       try {
-        _$failedField = 'parameters';
-        parameters.build();
+        _$failedField = 'transaction';
+        transaction.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
           r'LibsqlRequest',

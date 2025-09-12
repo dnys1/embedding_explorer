@@ -3,7 +3,9 @@ library;
 
 import 'dart:convert';
 
+import 'package:embeddings_explorer/configurations/model/embedding_tables.dart';
 import 'package:embeddings_explorer/configurations/service/configuration_service.dart';
+import 'package:embeddings_explorer/configurations/service/migrations/migrations.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_config.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_settings.dart';
 import 'package:embeddings_explorer/jobs/model/embedding_job.dart';
@@ -17,6 +19,8 @@ import '../../common.dart';
 void main() {
   setupTests();
 
+  final expectedVersion = configMigrations.length;
+
   group('ConfigurationService', () {
     late ConfigurationService service;
 
@@ -24,6 +28,7 @@ void main() {
       service = ConfigurationService(
         databasePath: ':memory:',
         libsqlUri: testLibsqlUri,
+        verbose: true,
       );
     });
 
@@ -38,7 +43,10 @@ void main() {
         await service.initialize();
 
         expect(service.isInitialized, isTrue);
-        expect(service.getCurrentVersion(), completion(equals(1)));
+        expect(
+          service.getCurrentVersion(),
+          completion(configMigrations.length),
+        );
       });
 
       test('should throw when accessing database before initialization', () {
@@ -670,8 +678,8 @@ void main() {
           ['raw_test'],
         );
 
-        expect(result.rows, hasLength(1));
-        expect(result.rows.first[1], equals('Raw SQL Test')); // name column
+        expect(result, hasLength(1));
+        expect(result.first['name'], equals('Raw SQL Test'));
       });
 
       test('should handle transactions correctly', () async {
@@ -725,7 +733,7 @@ void main() {
 
       test('should handle migration operations', () async {
         final currentVersion = await service.getCurrentVersion();
-        expect(currentVersion, equals(1));
+        expect(currentVersion, equals(expectedVersion));
 
         // Migration operations should work without error
         await service.migrateUp();
@@ -734,6 +742,382 @@ void main() {
 
         final finalVersion = await service.getCurrentVersion();
         expect(finalVersion, equals(1));
+      });
+    });
+
+    group('Embedding Table Management', () {
+      setUp(() async {
+        await service.initialize();
+      });
+
+      test('should create embedding table', () async {
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+          description: 'Test embedding table',
+        );
+
+        expect(tableId, isNotNull);
+        expect(tableId, startsWith('et_'));
+
+        // Verify table was registered
+        final tables = await service.getEmbeddingTables(jobId: 'job_1');
+        expect(tables, hasLength(1));
+        expect(tables[0].id, equals(tableId));
+        expect(tables[0].jobId, equals('job_1'));
+        expect(tables[0].dataSourceId, equals('ds_1'));
+        expect(tables[0].embeddingTemplateId, equals('template_1'));
+        expect(tables[0].description, equals('Test embedding table'));
+      });
+
+      test('should add vector column to embedding table', () async {
+        // Create a table first
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        // Add a vector column
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'text-embedding-3-small',
+          vectorType: VectorType.float32,
+          dimensions: 1536,
+        );
+
+        // Verify column was registered
+        final columns = await service.getEmbeddingColumns(tableId);
+        expect(columns, hasLength(1));
+        expect(columns[0].tableId, equals(tableId));
+        expect(columns[0].modelProviderId, equals('provider_1'));
+        expect(columns[0].modelName, equals('text-embedding-3-small'));
+        expect(columns[0].vectorType, equals(VectorType.float32));
+        expect(columns[0].dimensions, equals(1536));
+        expect(columns[0].columnName, contains('text_embedding_3_small'));
+      });
+
+      test('should insert embedding data', () async {
+        // Create table and add vector column
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'test-model',
+          vectorType: VectorType.float32,
+          dimensions: 3,
+        );
+
+        // Get column info for embedding data
+        final columns = await service.getEmbeddingColumns(tableId);
+        final columnName = columns[0].columnName;
+
+        // Insert test data
+        final sourceData = {'content': 'Hello world', 'title': 'Test Document'};
+        final embeddings = {
+          columnName: [0.1, 0.2, 0.3],
+        };
+
+        await expectLater(
+          service.insertEmbeddingData(
+            tableId: tableId,
+            recordId: 'record_1',
+            sourceData: sourceData,
+            embeddings: embeddings,
+          ),
+          completes,
+        );
+
+        // Verify data was inserted by querying the actual table
+        // The table name is the same as the tableId
+        final tableName = tableId;
+        final result = await service.database.select(
+          'SELECT * FROM $tableName WHERE id = ?',
+          ['record_1'],
+        );
+
+        expect(result, hasLength(1));
+        final row = result.first;
+        expect(row['id'], equals('record_1'));
+
+        // Verify source data was stored as JSON
+        final storedSourceData = jsonDecode(row['source_data'] as String);
+        expect(storedSourceData['content'], equals('Hello world'));
+        expect(storedSourceData['title'], equals('Test Document'));
+
+        // Verify the vector column exists and has data
+        expect(row[columnName], isNotNull);
+        expect(row['created_at'], isNotNull);
+      });
+
+      test('should create vector index', () async {
+        // Create table and add vector column
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'test-model',
+          vectorType: VectorType.float32,
+          dimensions: 3,
+        );
+
+        final columns = await service.getEmbeddingColumns(tableId);
+        final columnName = columns[0].columnName;
+
+        // Create vector index
+        await expectLater(
+          service.createVectorIndex(
+            tableId: tableId,
+            columnName: columnName,
+            metric: 'cosine',
+            maxNeighbors: 100,
+          ),
+          completes,
+        );
+      });
+
+      test('should search similar vectors', () async {
+        // Create table and add vector column
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'test-model',
+          vectorType: VectorType.float32,
+          dimensions: 3,
+        );
+
+        final columns = await service.getEmbeddingColumns(tableId);
+        final columnName = columns[0].columnName;
+
+        // Insert some test data
+        await service.insertEmbeddingData(
+          tableId: tableId,
+          recordId: 'record_1',
+          sourceData: {'content': 'Hello world'},
+          embeddings: {
+            columnName: [0.1, 0.2, 0.3],
+          },
+        );
+
+        await service.insertEmbeddingData(
+          tableId: tableId,
+          recordId: 'record_2',
+          sourceData: {'content': 'Goodbye world'},
+          embeddings: {
+            columnName: [0.4, 0.5, 0.6],
+          },
+        );
+
+        // Search for similar vectors
+        final results = await service.searchSimilarVectors(
+          tableId: tableId,
+          columnName: columnName,
+          queryVector: [0.1, 0.2, 0.3],
+          vectorType: VectorType.float32,
+          limit: 5,
+        );
+
+        expect(results, isNotEmpty);
+        expect(
+          results[0].id,
+          equals('record_1'),
+        ); // Should match closest vector
+        expect(results[0].sourceData['content'], equals('Hello world'));
+        expect(results[0].distance, isA<double>());
+      });
+
+      test('should get embedding tables with filters', () async {
+        // Create tables for different jobs and data sources
+        final table1 = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+          description: 'Table 1',
+        );
+
+        final table2 = await service.createEmbeddingTable(
+          jobId: 'job_2',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+          description: 'Table 2',
+        );
+
+        final table3 = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_2',
+          embeddingTemplateId: 'template_1',
+          description: 'Table 3',
+        );
+
+        // Test filtering by job ID
+        final job1Tables = await service.getEmbeddingTables(jobId: 'job_1');
+        expect(job1Tables, hasLength(2));
+        expect(job1Tables.map((t) => t.id), containsAll([table1, table3]));
+
+        // Test filtering by data source ID
+        final ds1Tables = await service.getEmbeddingTables(
+          dataSourceId: 'ds_1',
+        );
+        expect(ds1Tables, hasLength(2));
+        expect(ds1Tables.map((t) => t.id), containsAll([table1, table2]));
+
+        // Test filtering by both
+        final filteredTables = await service.getEmbeddingTables(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+        );
+        expect(filteredTables, hasLength(1));
+        expect(filteredTables[0].id, equals(table1));
+
+        // Test getting all tables
+        final allTables = await service.getEmbeddingTables();
+        expect(allTables, hasLength(3));
+      });
+
+      test('should delete embedding table', () async {
+        // Create a table
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        // Add a vector column
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'test-model',
+          vectorType: VectorType.float32,
+          dimensions: 3,
+        );
+
+        // Verify table and column exist
+        final tablesBefore = await service.getEmbeddingTables();
+        final columnsBefore = await service.getEmbeddingColumns(tableId);
+        expect(tablesBefore, hasLength(1));
+        expect(columnsBefore, hasLength(1));
+
+        // Delete the table
+        await service.deleteEmbeddingTable(tableId);
+
+        // Verify table and columns are gone from registry
+        final tablesAfter = await service.getEmbeddingTables();
+        final columnsAfter = await service.getEmbeddingColumns(tableId);
+        expect(tablesAfter, hasLength(0));
+        expect(columnsAfter, hasLength(0));
+      });
+
+      test('should handle errors gracefully', () async {
+        // Test operations on non-existent table
+        await expectLater(
+          service.addVectorColumn(
+            tableId: 'non_existent',
+            modelProviderId: 'provider_1',
+            modelName: 'test-model',
+            vectorType: VectorType.float32,
+            dimensions: 3,
+          ),
+          throwsStateError,
+        );
+
+        await expectLater(
+          service.insertEmbeddingData(
+            tableId: 'non_existent',
+            recordId: 'record_1',
+            sourceData: {'content': 'test'},
+          ),
+          throwsStateError,
+        );
+
+        await expectLater(
+          service.searchSimilarVectors(
+            tableId: 'non_existent',
+            columnName: 'test_column',
+            queryVector: [0.1, 0.2, 0.3],
+            vectorType: VectorType.float32,
+          ),
+          throwsStateError,
+        );
+
+        await expectLater(
+          service.createVectorIndex(
+            tableId: 'non_existent',
+            columnName: 'test_column',
+          ),
+          throwsStateError,
+        );
+      });
+
+      test('should handle multiple vector columns', () async {
+        // Create table
+        final tableId = await service.createEmbeddingTable(
+          jobId: 'job_1',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+        );
+
+        // Add multiple vector columns
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_1',
+          modelName: 'model-a',
+          vectorType: VectorType.float32,
+          dimensions: 3,
+        );
+
+        await service.addVectorColumn(
+          tableId: tableId,
+          modelProviderId: 'provider_2',
+          modelName: 'model-b',
+          vectorType: VectorType.float16,
+          dimensions: 5,
+        );
+
+        // Verify both columns were registered
+        final columns = await service.getEmbeddingColumns(tableId);
+        expect(columns, hasLength(2));
+
+        final columnA = columns.firstWhere((c) => c.modelName == 'model-a');
+        final columnB = columns.firstWhere((c) => c.modelName == 'model-b');
+
+        expect(columnA.vectorType, equals(VectorType.float32));
+        expect(columnA.dimensions, equals(3));
+        expect(columnB.vectorType, equals(VectorType.float16));
+        expect(columnB.dimensions, equals(5));
+
+        // Insert data with embeddings for both columns
+        final embeddings = {
+          columnA.columnName: [0.1, 0.2, 0.3],
+          columnB.columnName: [0.1, 0.2, 0.3, 0.4, 0.5],
+        };
+
+        await expectLater(
+          service.insertEmbeddingData(
+            tableId: tableId,
+            recordId: 'record_1',
+            sourceData: {'content': 'test'},
+            embeddings: embeddings,
+          ),
+          completes,
+        );
       });
     });
 

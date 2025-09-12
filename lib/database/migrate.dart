@@ -52,11 +52,11 @@ class Migrate {
       'SELECT COALESCE(MAX(version), 0) as current_version FROM schema_migrations',
     );
 
-    if (result.rows.isEmpty) {
+    if (result.isEmpty) {
       return 0;
     }
 
-    return result.rows.first[0] as int;
+    return result.first['current_version'] as int;
   }
 
   /// Applies pending migrations to the database up to the specified version.

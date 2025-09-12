@@ -10,6 +10,9 @@ import '../../jobs/model/embedding_job.dart';
 import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/model_provider_config.dart';
 import '../../templates/model/embedding_template_config.dart';
+import '../../util/type_id.dart';
+import '../model/embedding_tables.dart';
+import '../model/vector_search_result.dart';
 import 'migrations/migrations.dart';
 
 /// Service for managing configuration data using SQLite database
@@ -19,6 +22,7 @@ class ConfigurationService with ChangeNotifier {
   Database? _database;
   final Uri? _libsqlUri;
   final Migrate _migrator;
+  final bool _verbose;
   bool _isInitialized = false;
 
   /// Path to the database file
@@ -27,8 +31,10 @@ class ConfigurationService with ChangeNotifier {
   ConfigurationService({
     this.databasePath = 'configurations.db',
     Uri? libsqlUri,
+    bool verbose = false,
   }) : _libsqlUri = libsqlUri,
-       _migrator = Migrate(migrations: configMigrations, logger: _logger);
+       _migrator = Migrate(migrations: configMigrations, logger: _logger),
+       _verbose = verbose;
 
   /// Initialize the database and run migrations
   Future<void> initialize() async {
@@ -38,18 +44,22 @@ class ConfigurationService with ChangeNotifier {
     }
 
     try {
-      _logger.info(
+      _logger.config(
         'Initializing ConfigurationService with database: $databasePath',
       );
 
       // Open the database
-      _database = await Database.open(databasePath, moduleUri: _libsqlUri);
+      _database = await Database.open(
+        databasePath,
+        moduleUri: _libsqlUri,
+        verbose: _verbose,
+      );
 
       // Run migrations to ensure schema is up to date
       await _migrator.up(_database!);
 
       _isInitialized = true;
-      _logger.info('ConfigurationService initialized successfully');
+      _logger.config('ConfigurationService initialized successfully');
 
       notifyListeners();
     } catch (e, stackTrace) {
@@ -113,7 +123,7 @@ class ConfigurationService with ChangeNotifier {
       ],
     );
 
-    _logger.info('Saved data source config: ${config.id}');
+    _logger.fine('Saved data source config: ${config.id}');
   }
 
   /// Get a data source configuration by ID
@@ -123,7 +133,7 @@ class ConfigurationService with ChangeNotifier {
       [id],
     );
 
-    if (result.rows.isEmpty) return null;
+    if (result.isEmpty) return null;
 
     final row = result.first;
     return DataSourceConfig.fromDatabase(row);
@@ -143,7 +153,7 @@ class ConfigurationService with ChangeNotifier {
     await database.execute('DELETE FROM data_source_configs WHERE id = ?', [
       id,
     ]);
-    _logger.info('Deleted data source config: $id');
+    _logger.fine('Deleted data source config: $id');
   }
 
   // Embedding Template Configuration Methods
@@ -173,7 +183,7 @@ class ConfigurationService with ChangeNotifier {
       ],
     );
 
-    _logger.info('Saved embedding template config: ${config.id}');
+    _logger.fine('Saved embedding template config: ${config.id}');
   }
 
   /// Get an embedding template configuration by ID
@@ -183,7 +193,7 @@ class ConfigurationService with ChangeNotifier {
       [id],
     );
 
-    if (result.rows.isEmpty) return null;
+    if (result.isEmpty) return null;
 
     final row = result.first;
     return EmbeddingTemplateConfig.fromDatabase(row);
@@ -216,7 +226,7 @@ class ConfigurationService with ChangeNotifier {
       'DELETE FROM embedding_template_configs WHERE id = ?',
       [id],
     );
-    _logger.info('Deleted embedding template config: $id');
+    _logger.fine('Deleted embedding template config: $id');
   }
 
   // Model Provider Configuration Methods
@@ -247,7 +257,7 @@ class ConfigurationService with ChangeNotifier {
       ],
     );
 
-    _logger.info('Saved model provider config: ${config.id}');
+    _logger.fine('Saved model provider config: ${config.id}');
   }
 
   /// Get a model provider configuration by ID
@@ -257,7 +267,7 @@ class ConfigurationService with ChangeNotifier {
       [id],
     );
 
-    if (result.rows.isEmpty) return null;
+    if (result.isEmpty) return null;
 
     final row = result.first;
     return ModelProviderConfig.fromDatabase(row);
@@ -286,7 +296,7 @@ class ConfigurationService with ChangeNotifier {
     await database.execute('DELETE FROM model_provider_configs WHERE id = ?', [
       id,
     ]);
-    _logger.info('Deleted model provider config: $id');
+    _logger.fine('Deleted model provider config: $id');
   }
 
   // Custom Provider Template Methods
@@ -318,7 +328,7 @@ class ConfigurationService with ChangeNotifier {
       ],
     );
 
-    _logger.info('Saved custom provider template: ${template.id}');
+    _logger.fine('Saved custom provider template: ${template.id}');
   }
 
   /// Get a custom provider template by ID
@@ -328,7 +338,7 @@ class ConfigurationService with ChangeNotifier {
       [id],
     );
 
-    if (result.rows.isEmpty) return null;
+    if (result.isEmpty) return null;
 
     final row = result.first;
     return CustomProviderTemplate.fromDatabase(row);
@@ -349,14 +359,14 @@ class ConfigurationService with ChangeNotifier {
       'DELETE FROM custom_provider_templates WHERE id = ?',
       [id],
     );
-    _logger.info('Deleted custom provider template: $id');
+    _logger.fine('Deleted custom provider template: $id');
   }
 
   // Embedding Job Methods
 
   /// Save an embedding job to the database
   Future<void> saveEmbeddingJob(EmbeddingJob job) async {
-    database.transaction((tx) {
+    await database.transaction((tx) async {
       // Insert or update the main job record
       tx.execute(
         '''
@@ -398,7 +408,7 @@ class ConfigurationService with ChangeNotifier {
       }
     });
 
-    _logger.info('Saved embedding job: ${job.id}');
+    _logger.fine('Saved embedding job: ${job.id}');
   }
 
   /// Get an embedding job by ID
@@ -408,7 +418,7 @@ class ConfigurationService with ChangeNotifier {
       [id],
     );
 
-    if (result.rows.isEmpty) return null;
+    if (result.isEmpty) return null;
 
     final row = result.first;
     return EmbeddingJob.fromDatabase(row);
@@ -436,7 +446,352 @@ class ConfigurationService with ChangeNotifier {
   /// Delete an embedding job
   Future<void> deleteEmbeddingJob(String id) async {
     await database.execute('DELETE FROM embedding_jobs WHERE id = ?', [id]);
-    _logger.info('Deleted embedding job: $id');
+    _logger.fine('Deleted embedding job: $id');
+  }
+
+  // Embedding Table Management Methods
+
+  /// Create a new embedding table with base columns (id, source_data)
+  Future<String> createEmbeddingTable({
+    required String jobId,
+    required String dataSourceId,
+    required String embeddingTemplateId,
+    String? description,
+  }) async {
+    final tableId = typeId('et');
+    final tableName = tableId;
+    final now = DateTime.now().toIso8601String();
+
+    await database.transaction((tx) {
+      // Create the embedding table with base columns
+      tx.execute('''
+        CREATE TABLE $tableName (
+          id TEXT PRIMARY KEY NOT NULL,
+          source_data TEXT NOT NULL, -- JSON representation of original data
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      ''');
+
+      // Register the table
+      tx.execute(
+        '''
+        INSERT INTO embedding_table_registry 
+        (id, table_name, job_id, data_source_id, embedding_template_id, description, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+        [
+          tableId,
+          tableName,
+          jobId,
+          dataSourceId,
+          embeddingTemplateId,
+          description ?? '',
+          now,
+          now,
+        ],
+      );
+    });
+
+    _logger.fine('Created embedding table: $tableName');
+    return tableId;
+  }
+
+  /// Add a vector column to an existing embedding table
+  Future<void> addVectorColumn({
+    required String tableId,
+    required String modelProviderId,
+    required String modelName,
+    required VectorType vectorType,
+    required int dimensions,
+  }) async {
+    final columnId = typeId('col');
+    final columnName =
+        '${modelName.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_embedding';
+    final now = DateTime.now().toIso8601String();
+
+    // Get the table name
+    final tableResult = await database.select(
+      'SELECT table_name FROM embedding_table_registry WHERE id = ?',
+      [tableId],
+    );
+
+    if (tableResult.isEmpty) {
+      throw StateError('Embedding table not found: $tableId');
+    }
+
+    final tableName = tableResult.first['table_name'] as String;
+
+    await database.transaction((tx) async {
+      // Add the vector column to the table
+      tx.execute('''
+        ALTER TABLE $tableName 
+        ADD COLUMN $columnName ${vectorType.sqlType}($dimensions)
+      ''');
+
+      // Register the column
+      tx.execute(
+        '''
+        INSERT INTO embedding_column_registry 
+        (id, table_id, column_name, model_provider_id, model_name, vector_type, dimensions, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+        [
+          columnId,
+          tableId,
+          columnName,
+          modelProviderId,
+          modelName,
+          vectorType.name,
+          dimensions,
+          now,
+        ],
+      );
+    });
+
+    _logger.fine(
+      'Added vector column $columnName to table $tableName (${vectorType.sqlType}($dimensions))',
+    );
+  }
+
+  /// Create a vector index for a specific column in an embedding table
+  Future<void> createVectorIndex({
+    required String tableId,
+    required String columnName,
+    String metric = 'cosine',
+    int? maxNeighbors,
+    VectorType? compressNeighbors,
+  }) async {
+    // Get the table name
+    final tableResult = await database.select(
+      'SELECT table_name FROM embedding_table_registry WHERE id = ?',
+      [tableId],
+    );
+
+    if (tableResult.isEmpty) {
+      throw StateError('Embedding table not found: $tableId');
+    }
+
+    final tableName = tableResult.first['table_name'] as String;
+    final indexName = '${tableName}_${columnName}_idx';
+
+    // Build index settings
+    final settings = <String>[];
+    settings.add("'metric=$metric'");
+    if (maxNeighbors != null) settings.add("'max_neighbors=$maxNeighbors'");
+    if (compressNeighbors != null) {
+      settings.add("'compress_neighbors=${compressNeighbors.name}'");
+    }
+
+    final settingsStr = settings.isNotEmpty ? ', ${settings.join(', ')}' : '';
+
+    await database.execute('''
+      CREATE INDEX $indexName ON $tableName (libsql_vector_idx($columnName$settingsStr))
+    ''');
+
+    _logger.fine('Created vector index $indexName for column $columnName');
+  }
+
+  /// Insert embedding data into a table
+  Future<void> insertEmbeddingData({
+    required String tableId,
+    required String recordId,
+    required Map<String, dynamic> sourceData,
+    Map<String, List<double>>? embeddings,
+  }) async {
+    // Get table info
+    final tableResult = await database.select(
+      'SELECT table_name FROM embedding_table_registry WHERE id = ?',
+      [tableId],
+    );
+
+    if (tableResult.isEmpty) {
+      throw StateError('Embedding table not found: $tableId');
+    }
+
+    final tableName = tableResult.first['table_name'] as String;
+
+    // Get column info for embeddings
+    final columnResult = await database.select(
+      '''
+      SELECT column_name, vector_type 
+      FROM embedding_column_registry 
+      WHERE table_id = ?
+    ''',
+      [tableId],
+    );
+
+    final columns = ['id', 'source_data'];
+    final sqlPlaceholders = ['?', '?'];
+    final values = <Object?>[recordId, jsonEncode(sourceData)];
+
+    // Add embedding columns and values
+    for (final row in columnResult) {
+      final columnName = row['column_name'] as String;
+      final vectorTypeName = row['vector_type'] as String;
+      final vectorType = VectorType.values.byName(vectorTypeName);
+
+      columns.add(columnName);
+
+      // Get embedding for this column
+      final embedding = embeddings?[columnName];
+      if (embedding != null) {
+        // Use the LibSQL vector conversion function directly in SQL
+        sqlPlaceholders.add('${vectorType.conversionFunction}(?)');
+        values.add(jsonEncode(embedding));
+      } else {
+        sqlPlaceholders.add('?');
+        values.add(null);
+      }
+    }
+
+    await database.execute(
+      'INSERT INTO $tableName (${columns.join(', ')}) VALUES (${sqlPlaceholders.join(', ')})',
+      values,
+    );
+  }
+
+  /// Get embedding table registry entries
+  Future<List<EmbeddingTable>> getEmbeddingTables({
+    String? jobId,
+    String? dataSourceId,
+  }) async {
+    final sqlBuffer = StringBuffer('SELECT * FROM embedding_table_registry');
+    final params = <String>[];
+
+    if (jobId != null || dataSourceId != null) {
+      sqlBuffer.write(' WHERE ');
+      final conditions = <String>[];
+      if (jobId != null) {
+        conditions.add('job_id = ?');
+        params.add(jobId);
+      }
+      if (dataSourceId != null) {
+        conditions.add('data_source_id = ?');
+        params.add(dataSourceId);
+      }
+      sqlBuffer.write(conditions.join(' AND '));
+    }
+
+    sqlBuffer.write(' ORDER BY created_at DESC');
+
+    final result = await database.select(sqlBuffer.toString(), params);
+    return result
+        .map((row) => EmbeddingTable.fromDatabase(row))
+        .nonNulls
+        .toList();
+  }
+
+  /// Get embedding column registry entries for a table
+  Future<List<EmbeddingColumn>> getEmbeddingColumns([String? tableId]) async {
+    final sqlBuffer = StringBuffer('SELECT * FROM embedding_column_registry');
+    final params = <String>[];
+
+    if (tableId != null) {
+      sqlBuffer.write(' WHERE table_id = ?');
+      params.add(tableId);
+    }
+
+    sqlBuffer.write(' ORDER BY created_at');
+
+    final result = await database.select(sqlBuffer.toString(), params);
+    return result.map(EmbeddingColumn.fromDatabase).nonNulls.toList();
+  }
+
+  /// Search for similar vectors in an embedding table
+  Future<List<VectorSearchResult>> searchSimilarVectors({
+    required String tableId,
+    required String columnName,
+    required List<double> queryVector,
+    required VectorType vectorType,
+    int limit = 10,
+  }) async {
+    // Get table info
+    final tableResult = await database.select(
+      'SELECT table_name FROM embedding_table_registry WHERE id = ?',
+      [tableId],
+    );
+
+    if (tableResult.isEmpty) {
+      throw StateError('Embedding table not found: $tableId');
+    }
+
+    final tableName = tableResult.first['table_name'] as String;
+    final indexName = '${tableName}_${columnName}_idx';
+
+    // Check if vector index exists
+    final indexResult = await database.select(
+      '''
+      SELECT name FROM sqlite_master 
+      WHERE type = 'index' AND name = ?
+    ''',
+      [indexName],
+    );
+
+    if (indexResult.isNotEmpty) {
+      // Use vector index for efficient search
+      final result = await database.select(
+        '''
+        SELECT t.id, t.source_data, t.created_at,
+               vector_distance_cos(t.$columnName, ${vectorType.conversionFunction}(?)) as distance
+        FROM vector_top_k(?, ${vectorType.conversionFunction}(?), ?) v
+        JOIN $tableName t ON t.rowid = v.id
+        ORDER BY distance ASC
+      ''',
+        [jsonEncode(queryVector), indexName, jsonEncode(queryVector), limit],
+      );
+
+      return result.map(VectorSearchResult.fromDatabase).nonNulls.toList();
+    } else {
+      // Fall back to linear search without index
+      _logger.fine('Vector index $indexName not found, using linear search');
+
+      final result = await database.select(
+        '''
+        SELECT id, source_data, created_at,
+               vector_distance_cos($columnName, ${vectorType.conversionFunction}(?)) as distance
+        FROM $tableName
+        WHERE $columnName IS NOT NULL
+        ORDER BY distance ASC
+        LIMIT ?
+      ''',
+        [jsonEncode(queryVector), limit],
+      );
+
+      return result.map(VectorSearchResult.fromDatabase).nonNulls.toList();
+    }
+  }
+
+  /// Delete an embedding table and all its data
+  Future<void> deleteEmbeddingTable(String tableId) async {
+    // Get table name
+    final tableResult = await database.select(
+      'SELECT table_name FROM embedding_table_registry WHERE id = ?',
+      [tableId],
+    );
+
+    if (tableResult.isEmpty) {
+      _logger.warning('Embedding table not found: $tableId');
+      return;
+    }
+
+    final tableName = tableResult.first['table_name'] as String;
+
+    await database.transaction((tx) {
+      // Drop the actual table
+      tx.execute('DROP TABLE IF EXISTS $tableName');
+
+      // Remove from registry (cascade will handle column registry)
+      tx.execute('DELETE FROM embedding_table_registry WHERE id = ?', [
+        tableId,
+      ]);
+
+      // TODO(dnys1): This shouldn't be needed since CASCADE should handle it
+      tx.execute('DELETE FROM embedding_column_registry WHERE table_id = ?', [
+        tableId,
+      ]);
+    });
+
+    _logger.fine('Deleted embedding table: $tableName');
   }
 
   /// Dispose of the database connection
