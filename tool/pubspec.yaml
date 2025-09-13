@@ -14,9 +14,9 @@ dependencies:
   path: ^1.8.3
   pub_semver: ^2.2.0
   source_gen: '>=3.0.0 <5.0.0'
-  worker_bee: ^0.3.7
+  worker_bee:
+    path: ../third_party/worker_bee
 
 dev_dependencies:
   build_runner: ^2.4.0
-  jaspr_web_compilers: ^4.2.3+1
   lints: ^6.0.0

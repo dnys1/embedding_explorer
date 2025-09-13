@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:jaspr/jaspr.dart';
 import 'package:logging/logging.dart';
-import 'package:web/web.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
@@ -118,17 +117,16 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
             ),
 
           // Model grid
-          if (hasConfiguration) div(classes: 'mt-4', [_buildModelsGrid()]),
+          if (isFullyConfigured) div(classes: 'mt-4', [_buildModelsGrid()]),
         ]),
       ],
     );
   }
 
   Component _buildModelsGrid() {
+    final config = configManager.modelProviders.getByType(provider.type)!;
     return FutureBuilder<Map<String, EmbeddingModel>>(
-      future: provider.listAvailableModels(
-        configManager.modelProviders.getByType(provider.type)!,
-      ),
+      future: provider.listAvailableModels(config),
       builder: (context, snapshot) {
         switch (snapshot.result) {
           case AsyncLoading():
@@ -167,60 +165,39 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                 gridCols(4, 'xl'),
                 'gap-4',
               ].clsx,
-              [for (final model in models.values) _buildModelTile(model)],
+              [
+                for (final model in models.values)
+                  _buildModelTile(model, config),
+              ],
             );
         }
       },
     );
   }
 
-  Component _buildModelTile(EmbeddingModel model) {
-    // Check if this specific model is enabled for this provider type
-    bool isModelEnabled = false;
-    String? providerConfigId;
-
-    if (hasConfiguration) {
-      final config = configManager.modelProviders.getByType(provider.type);
-      if (config != null) {
-        providerConfigId = config.id;
-        isModelEnabled = config.enabledModels.contains(model.id);
-      }
-    }
-
-    // Determine card styling based on configuration state
-    String cardClassName;
-    Map<String, void Function(Event)> events = {};
-
-    if (isFullyConfigured) {
-      cardClassName = isModelEnabled
-          ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
-          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors';
-      if (providerConfigId case final providerConfigId?) {
-        events = {'click': (_) => _toggleModel(model, providerConfigId)};
-      }
-    } else {
-      cardClassName =
-          'border border-gray-200 bg-gray-100 cursor-not-allowed opacity-60';
-    }
-
+  Component _buildModelTile(EmbeddingModel model, ModelProviderConfig config) {
+    final isModelEnabled = config.enabledModels.contains(model.id);
     return Card(
-      className: cardClassName,
+      className: isModelEnabled
+          ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
+          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors',
       children: [
-        div(classes: 'p-4', events: events, [
-          div(classes: 'flex items-center justify-between mb-2', [
-            div(classes: 'flex items-center space-x-2', [
-              h3(classes: 'text-sm font-medium text-foreground', [
-                text(model.name),
+        div(
+          classes: 'p-4',
+          events: {'click': (_) => _toggleModel(model, config.id)},
+          [
+            div(classes: 'flex items-center justify-between mb-2', [
+              div(classes: 'flex items-center space-x-2', [
+                h3(classes: 'text-sm font-medium text-foreground', [
+                  text(model.name),
+                ]),
+                // if (_isModelRecommended(model))
+                //   span(
+                //     classes:
+                //         'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded flex items-center space-x-1',
+                //     [FaIcons.solid.star],
+                //   ),
               ]),
-              // if (_isModelRecommended(model))
-              //   span(
-              //     classes:
-              //         'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded flex items-center space-x-1',
-              //     [FaIcons.solid.star],
-              //   ),
-            ]),
-            // Status indicator based on configuration state
-            if (isFullyConfigured)
               div(
                 classes: isModelEnabled ? 'text-green-500' : 'text-gray-400',
                 [
@@ -230,34 +207,16 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                         : FaIcons.regular.circle,
                   ),
                 ],
-              )
-            else if (isPartiallyConfigured)
-              div(classes: 'text-amber-500', [FaIcon(FaIcons.solid.warning)])
-            else
-              div(classes: 'text-gray-300', [FaIcon(FaIcons.regular.circle)]),
-          ]),
-
-          p(classes: 'text-xs text-muted-foreground mb-2', [
-            text(model.description),
-          ]),
-
-          // Show warning for partially configured providers
-          if (isPartiallyConfigured)
-            p(
-              classes:
-                  'text-xs text-amber-600 mb-2 font-medium flex items-center space-x-1',
-              [
-                FaIcon(FaIcons.solid.warning),
-                text('Add credentials to enable'),
-              ],
-            )
-          else if (!hasConfiguration)
-            p(classes: 'text-xs text-gray-500 mb-2', [
-              text('Configure provider first'),
+              ),
             ]),
 
-          div(classes: 'text-xs text-gray-500', [text('ID: ${model.id}')]),
-        ]),
+            p(classes: 'text-xs text-muted-foreground mb-2', [
+              text(model.description),
+            ]),
+
+            div(classes: 'text-xs text-gray-500', [text('ID: ${model.id}')]),
+          ],
+        ),
       ],
     );
   }

@@ -1,36 +1,8 @@
-import 'dart:js_interop';
-
+import 'package:embeddings_explorer/util/logging.dart';
 import 'package:logging/logging.dart';
-import 'package:web/web.dart';
 
 void setupTests() {
-  Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
-    final buffer = StringBuffer();
-    buffer.write('[${record.loggerName}]: ${record.message}');
-    if (record.error case final error?) {
-      buffer
-        ..writeln()
-        ..write('Error: $error');
-    }
-    if (record.stackTrace case final stackTrace?) {
-      buffer
-        ..writeln()
-        ..write('StackTrace: $stackTrace');
-    }
-    final message = buffer.toString().toJS;
-    print(message);
-    switch (record.level) {
-      case Level.SEVERE || Level.SHOUT:
-        console.error(message);
-      case Level.WARNING:
-        console.warn(message);
-      case Level.CONFIG || Level.INFO:
-        console.info(message);
-      case Level.FINE || Level.FINER || Level.FINEST:
-        console.debug(message);
-    }
-  });
+  configureLogging(level: Level.ALL);
 }
 
 Uri get testLibsqlUri => Uri.parse(

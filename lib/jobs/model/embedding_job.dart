@@ -136,41 +136,31 @@ class EmbeddingJob implements ConfigurationItem {
   }
 
   /// Create from database result
-  static EmbeddingJob? fromDatabase(Map<String, Object?> row) {
-    try {
-      return EmbeddingJob(
-        id: row['id'] as String,
-        name: row['name'] as String,
-        description: row['description'] as String,
-        dataSourceId: row['data_source_id'] as String,
-        embeddingTemplateId: row['embedding_template_id'] as String,
-        modelProviderIds: row['model_provider_ids'] != null
-            ? List<String>.from(
-                jsonDecode(row['model_provider_ids'] as String) as List,
-              )
-            : <String>[],
-        status: JobStatus.values.firstWhere(
-          (e) => e.name == row['status'],
-          orElse: () => JobStatus.pending,
-        ),
-        createdAt: DateTime.parse(row['created_at'] as String),
-        startedAt: row['started_at'] != null
-            ? DateTime.parse(row['started_at'] as String)
-            : null,
-        completedAt: row['completed_at'] != null
-            ? DateTime.parse(row['completed_at'] as String)
-            : null,
-        errorMessage: row['error_message'] as String?,
-        results: row['results'] != null
-            ? jsonDecode(row['results'] as String) as Map<String, dynamic>
-            : null,
-        totalRecords: row['total_records'] as int?,
-        processedRecords: row['processed_records'] as int?,
-      );
-    } catch (e) {
-      print('Error parsing EmbeddingJob from database: $e');
-      return null;
-    }
+  factory EmbeddingJob.fromDatabase(Map<String, Object?> row) {
+    return EmbeddingJob(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      description: row['description'] as String,
+      dataSourceId: row['data_source_id'] as String,
+      embeddingTemplateId: row['embedding_template_id'] as String,
+      modelProviderIds: row['model_provider_ids'] != null
+          ? (jsonDecode(row['model_provider_ids'] as String) as List).cast()
+          : const [],
+      status: JobStatus.values.byName(row['status'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String),
+      startedAt: row['started_at'] != null
+          ? DateTime.parse(row['started_at'] as String)
+          : null,
+      completedAt: row['completed_at'] != null
+          ? DateTime.parse(row['completed_at'] as String)
+          : null,
+      errorMessage: row['error_message'] as String?,
+      results: row['results'] != null
+          ? jsonDecode(row['results'] as String) as Map<String, dynamic>
+          : null,
+      totalRecords: row['total_records'] as int?,
+      processedRecords: row['processed_records'] as int?,
+    );
   }
 
   @override

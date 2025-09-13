@@ -1,0 +1,4 @@
+analyzer:
+  errors:
+    # TODO: Remove when analyzer is updated
+    deprecated_member_use: ignore
