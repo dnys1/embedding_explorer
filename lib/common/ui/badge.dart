@@ -1,11 +1,13 @@
-import '../../util/clsx.dart';
 import 'package:jaspr/jaspr.dart';
+
+import '../../util/clsx.dart';
 
 enum BadgeVariant {
   primary,
   secondary,
   destructive,
-  outline;
+  outline,
+  warning;
 
   String get classes => switch (this) {
     BadgeVariant.primary =>
@@ -14,6 +16,8 @@ enum BadgeVariant {
       'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
     BadgeVariant.destructive =>
       'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
+    BadgeVariant.warning =>
+      'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-200',
     BadgeVariant.outline => 'text-foreground',
   };
 }

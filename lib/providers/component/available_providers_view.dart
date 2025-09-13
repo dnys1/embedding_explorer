@@ -49,7 +49,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
           // Provider header with name and gear switch
           div(classes: 'flex items-center justify-between', [
             div(classes: 'flex items-center space-x-4', [
-              div(classes: 'text-3xl', [provider.icon]),
+              div(classes: 'text-3xl', [FaIcon(provider.icon)]),
               div([
                 h2(classes: 'text-xl font-semibold text-foreground', [
                   text(provider.name),
@@ -71,7 +71,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                 span(
                   classes:
                       'text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1',
-                  [FaIcons.solid.warning, text('Needs Credentials')],
+                  [FaIcon(FaIcons.solid.warning), text('Needs Credentials')],
                 )
               else
                 span(
@@ -94,7 +94,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                       ? component.onEdit()
                       : component.onConfigure(),
                 },
-                [FaIcons.solid.settings],
+                [FaIcon(FaIcons.solid.settings)],
               ),
             ]),
           ]),
@@ -106,7 +106,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
               [
                 div(classes: 'flex items-center space-x-2', [
                   div(classes: 'text-amber-600 text-sm', [
-                    FaIcons.solid.warning,
+                    FaIcon(FaIcons.solid.warning),
                   ]),
                   p(classes: 'text-xs text-amber-800', [
                     text(
@@ -224,15 +224,17 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
               div(
                 classes: isModelEnabled ? 'text-green-500' : 'text-gray-400',
                 [
-                  isModelEnabled
-                      ? FaIcons.solid.success
-                      : FaIcons.regular.circle,
+                  FaIcon(
+                    isModelEnabled
+                        ? FaIcons.solid.success
+                        : FaIcons.regular.circle,
+                  ),
                 ],
               )
             else if (isPartiallyConfigured)
-              div(classes: 'text-amber-500', [FaIcons.solid.warning])
+              div(classes: 'text-amber-500', [FaIcon(FaIcons.solid.warning)])
             else
-              div(classes: 'text-gray-300', [FaIcons.regular.circle]),
+              div(classes: 'text-gray-300', [FaIcon(FaIcons.regular.circle)]),
           ]),
 
           p(classes: 'text-xs text-muted-foreground mb-2', [
@@ -244,7 +246,10 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
             p(
               classes:
                   'text-xs text-amber-600 mb-2 font-medium flex items-center space-x-1',
-              [FaIcons.solid.warning, text('Add credentials to enable')],
+              [
+                FaIcon(FaIcons.solid.warning),
+                text('Add credentials to enable'),
+              ],
             )
           else if (!hasConfiguration)
             p(classes: 'text-xs text-gray-500 mb-2', [

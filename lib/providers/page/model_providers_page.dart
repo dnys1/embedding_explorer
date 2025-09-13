@@ -182,7 +182,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
           className: 'border border-gray-200',
           children: [
             div(classes: 'p-6 text-center', [
-              div(classes: 'text-5xl mb-6', [FaIcons.solid.hammer]),
+              div(classes: 'text-5xl mb-6', [FaIcon(FaIcons.solid.hammer)]),
               h3(classes: 'text-base font-medium text-foreground mb-2', [
                 text('No Custom Providers'),
               ]),
@@ -232,7 +232,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
         div(classes: 'p-4', [
           div(classes: 'flex items-center justify-between mb-3', [
             div(classes: 'flex items-center space-x-3 min-w-0 flex-1', [
-              div(classes: 'text-2xl', [FaIcons.solid.hammer]),
+              div(classes: 'text-2xl', [FaIcon(FaIcons.solid.hammer)]),
               div(classes: 'min-w-0 flex-1', [
                 h3(classes: 'text-base font-semibold text-foreground', [
                   text(template.name),
@@ -267,19 +267,19 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 events: {
                   'click': (_) => _showConfigureCustomProvider(template),
                 },
-                [FaIcons.solid.settings],
+                [FaIcon(FaIcons.solid.settings)],
               ),
               button(
                 classes:
                     'p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
                 events: {'click': (_) => _showEditCustomProvider(template)},
-                [FaIcons.solid.edit],
+                [FaIcon(FaIcons.solid.edit)],
               ),
               button(
                 classes:
                     'p-2 rounded-md bg-red-100 hover:bg-red-200 text-red-600 transition-colors',
                 events: {'click': (_) => _showDeleteCustomProvider(template)},
-                [FaIcons.solid.delete],
+                [FaIcon(FaIcons.solid.delete)],
               ),
             ]),
           ]),
@@ -858,7 +858,13 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 });
               },
             },
-            [_credentialsVisible ? FaIcons.solid.eyeSlash : FaIcons.solid.eye],
+            [
+              FaIcon(
+                _credentialsVisible
+                    ? FaIcons.solid.eyeSlash
+                    : FaIcons.solid.eye,
+              ),
+            ],
           ),
         ]),
       ]),
@@ -907,7 +913,13 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
                 });
               },
             },
-            [_credentialsVisible ? FaIcons.solid.eyeSlash : FaIcons.solid.eye],
+            [
+              FaIcon(
+                _credentialsVisible
+                    ? FaIcons.solid.eyeSlash
+                    : FaIcons.solid.eye,
+              ),
+            ],
           ),
         ]),
       ]),
@@ -1074,7 +1086,7 @@ class _ModelProvidersPageState extends State<ModelProvidersPage>
               'text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200',
           [
             div(classes: 'flex items-center space-x-1', [
-              FaIcons.solid.warning,
+              FaIcon(FaIcons.solid.warning),
               text(
                 'Warning: Credentials will be stored locally in your browser. Only enable this if you trust this device.',
               ),

@@ -9,17 +9,18 @@ import '../../configurations/model/configuration_manager.dart';
 import '../../data_sources/model/data_source.dart';
 import '../../interop/monaco.dart'
     show
-        IMonarchLanguage,
-        IExpandedMonarchLanguageRule,
+        CancellationToken,
+        CompletionContext,
+        CompletionItem,
+        CompletionItemKind,
         CompletionList,
+        Hover,
+        IExpandedMonarchLanguageRule,
+        IMarkdownString,
+        IMonarchLanguage,
         ITextModel,
         Position,
-        CompletionContext,
-        CancellationToken,
-        CompletionItemKind,
-        CompletionItem,
-        IMarkdownString,
-        Hover;
+        Range;
 import '../../util/change_notifier.dart';
 import '../model/embedding_template_config.dart';
 
@@ -254,17 +255,30 @@ final class TemplateEditorModel extends ChangeNotifierX
     final line = model.getLineContent(position.lineNumber);
 
     // Find the word being typed
-    var i = 0;
-    var nb = line.indexOf('{', i);
+    Range? wordRange;
     String? word;
+    var i = 0;
+    var nb = line.indexOf('{');
     while (nb >= 0) {
-      final end = line.indexOf('}', nb + 1);
+      final end = line.indexOf('}', nb);
       if (end < 0) {
         word = line.substring(nb);
+        wordRange = Range(
+          position.lineNumber,
+          nb + 1,
+          position.lineNumber,
+          line.length + 1,
+        );
         break;
       }
       if (position.column >= nb && position.column <= end + 1) {
         word = line.substring(nb, end + 1);
+        wordRange = Range(
+          position.lineNumber,
+          nb + 1,
+          position.lineNumber,
+          end + 1,
+        );
         break;
       }
       i = end + 1;
@@ -285,7 +299,8 @@ final class TemplateEditorModel extends ChangeNotifierX
             kind: CompletionItemKind.Field,
             detail: 'Data field: $field',
             documentation: 'Insert field value for $field',
-            insertText: '{{$field}}'.replaceFirst(word!, ''),
+            insertText: '{{$field}}',
+            range: wordRange,
           ),
         )
         .toList();
@@ -299,6 +314,7 @@ final class TemplateEditorModel extends ChangeNotifierX
     CancellationToken token,
   ) {
     var word = model.getLineContent(position.lineNumber);
+
     // There may be multiple fields in the line, so we need to find the one under the cursor
     var i = 0;
     var nb = word.indexOf('{{', i);

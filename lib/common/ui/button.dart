@@ -1,7 +1,6 @@
 import 'package:jaspr/jaspr.dart';
 
 import '../../util/clsx.dart';
-import 'fa_icon.dart';
 
 enum ButtonVariant {
   primary,
@@ -99,7 +98,7 @@ class IconButton extends StatelessComponent {
     this.disabled = false,
   });
 
-  final FaIcon icon;
+  final Component icon;
   final Component? child;
   final void Function()? onPressed;
   final ButtonVariant variant;

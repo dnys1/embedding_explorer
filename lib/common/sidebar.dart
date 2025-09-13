@@ -126,7 +126,7 @@ class _SidebarState extends State<Sidebar> {
                 classes:
                     'flex items-center space-x-2 text-neutral-400 hover:text-white transition-colors duration-200',
                 [
-                  FaIcons.solid.info,
+                  FaIcon(FaIcons.solid.info),
                   span(classes: 'text-sm', [text('About')]),
                 ],
               ),
@@ -139,7 +139,7 @@ class _SidebarState extends State<Sidebar> {
 
   Component _buildNavItem(
     BuildContext context, {
-    required FaIcon icon,
+    required FaIconData icon,
     required String label,
     required String path,
     required bool isActive,
@@ -155,7 +155,7 @@ class _SidebarState extends State<Sidebar> {
             'text-neutral-300 hover:bg-neutral-700 hover:text-white',
         ].join(' '),
         [
-          icon,
+          FaIcon(icon, className: 'w-5 h-5 flex-shrink-0'),
           span([text(label)]),
         ],
       ),

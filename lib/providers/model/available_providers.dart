@@ -10,7 +10,7 @@ class AvailableProvider {
   final ProviderType type;
   final String name;
   final String description;
-  final FaIcon icon;
+  final FaIconData icon;
   final CredentialType? requiredCredential;
   final Map<String, dynamic> defaultSettings;
   final EmbeddingProvider _provider;
