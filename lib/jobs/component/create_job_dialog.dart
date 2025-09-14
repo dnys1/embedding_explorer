@@ -1,5 +1,4 @@
 import 'package:jaspr/jaspr.dart';
-import 'package:web/web.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
@@ -43,7 +42,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
       createdAt: DateTime.now(),
     );
 
-    configManager.embeddingJobs.add(job);
+    configManager.embeddingJobs.upsert(job);
     component.onClose();
   }
 
@@ -69,13 +68,6 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
     });
   }
 
-  void _onJobNameChanged(Event event) {
-    final value = (event.target as HTMLInputElement).value;
-    setState(() {
-      _jobName = value;
-    });
-  }
-
   void _onJobDescriptionChanged(String value) {
     setState(() {
       _jobDescription = value;
@@ -96,7 +88,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
   Component build(BuildContext context) {
     final dataSources = configManager.dataSourceConfigs.all;
     final templates = configManager.embeddingTemplates.all;
-    final providers = configManager.modelProviders.all;
+    final providers = configManager.embeddingProviderConfigs.all;
 
     return Dialog(
       onClose: component.onClose,
@@ -131,7 +123,8 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
                   id: 'job-name',
                   placeholder: 'Enter a descriptive name for this job',
                   value: _jobName,
-                  onChange: _onJobNameChanged,
+                  onChange: (_, target) =>
+                      setState(() => _jobName = target.value),
                 ),
               ]),
               div(classes: 'space-y-2', [

@@ -88,7 +88,7 @@ class DataSourceRepository with ChangeNotifier {
     };
     _dataSources[config.id] = dataSource;
     scheduleMicrotask(() {
-      unawaited(_configManager.dataSourceConfigs.add(config));
+      unawaited(_configManager.dataSourceConfigs.upsert(config));
     });
     return dataSource;
   }
@@ -116,7 +116,7 @@ class DataSourceRepository with ChangeNotifier {
 
     _dataSources[config.id] = dataSource;
     scheduleMicrotask(() {
-      unawaited(_configManager.dataSourceConfigs.add(config));
+      unawaited(_configManager.dataSourceConfigs.upsert(config));
     });
     return dataSource;
   }

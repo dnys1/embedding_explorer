@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import 'package:analyzer/dart/element/element2.dart';
+import 'package:analyzer/dart/element/element.dart';
 import 'package:build/build.dart';
 import 'package:code_builder/code_builder.dart';
 import 'package:source_gen/source_gen.dart' hide LibraryBuilder;
@@ -17,11 +17,11 @@ class WorkerHiveGenerator extends GeneratorForAnnotation<WorkerHive> {
 
   @override
   Future<String?> generateForAnnotatedElement(
-    Element2 element,
+    Element element,
     ConstantReader annotation,
     BuildStep buildStep,
   ) async {
-    if (element is! LibraryElement2) {
+    if (element is! LibraryElement) {
       throw ArgumentError(
         '@WorkerHive can only be applied to a library declaration.',
       );

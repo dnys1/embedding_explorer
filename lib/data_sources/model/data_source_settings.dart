@@ -78,10 +78,6 @@ class CsvDataSourceSettings extends DataSourceSettings {
 }
 
 enum SqliteDataSourceType {
-  sample(
-    displayName: 'Sample Data',
-    description: 'Use pre-loaded sample movie data for testing and exploration',
-  ),
   import(
     displayName: 'Import Database File',
     description:

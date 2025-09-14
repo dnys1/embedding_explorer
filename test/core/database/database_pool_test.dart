@@ -10,7 +10,7 @@ import 'package:embeddings_explorer/database/database_pool.dart';
 import 'package:sqlite3/common.dart';
 import 'package:test/test.dart';
 
-import '../common.dart';
+import '../../common.dart';
 
 void main() {
   setupTests();

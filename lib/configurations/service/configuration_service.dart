@@ -8,7 +8,7 @@ import '../../database/database.dart';
 import '../../database/migrate.dart';
 import '../../jobs/model/embedding_job.dart';
 import '../../providers/model/custom_provider_template.dart';
-import '../../providers/model/model_provider_config.dart';
+import '../../providers/model/embedding_provider_config.dart';
 import '../../templates/model/embedding_template_config.dart';
 import '../../util/type_id.dart';
 import '../model/embedding_tables.dart';
@@ -216,7 +216,7 @@ class ConfigurationService with ChangeNotifier {
   // Model Provider Configuration Methods
 
   /// Save a model provider configuration to the database
-  Future<void> saveModelProviderConfig(ModelProviderConfig config) async {
+  Future<void> saveModelProviderConfig(EmbeddingProviderConfig config) async {
     final now = DateTime.now().toIso8601String();
 
     await database.transaction((tx) {
@@ -263,7 +263,7 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get a model provider configuration by ID
-  Future<ModelProviderConfig?> getModelProviderConfig(String id) async {
+  Future<EmbeddingProviderConfig?> getModelProviderConfig(String id) async {
     final result = await database.select(
       '''
 SELECT *
@@ -278,11 +278,11 @@ WHERE id = ?
     if (result.isEmpty) return null;
 
     final row = result.first;
-    return ModelProviderConfig.fromDatabase(row);
+    return EmbeddingProviderConfig.fromDatabase(row);
   }
 
   /// Get all model provider configurations
-  Future<List<ModelProviderConfig>> getAllModelProviderConfigs() async {
+  Future<List<EmbeddingProviderConfig>> getAllModelProviderConfigs() async {
     final result = await database.select('''
 SELECT *
 FROM model_provider_configs
@@ -291,7 +291,7 @@ LEFT JOIN model_provider_credentials
 ORDER BY created_at DESC
 ''');
 
-    return result.map(ModelProviderConfig.fromDatabase).toList();
+    return result.map(EmbeddingProviderConfig.fromDatabase).toList();
   }
 
   /// Delete a model provider configuration

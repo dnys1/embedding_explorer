@@ -12,7 +12,7 @@ import 'package:embeddings_explorer/data_sources/model/data_source_settings.dart
 import 'package:embeddings_explorer/database/database.dart';
 import 'package:embeddings_explorer/jobs/model/embedding_job.dart';
 import 'package:embeddings_explorer/providers/model/custom_provider_template.dart';
-import 'package:embeddings_explorer/providers/model/model_provider_config.dart';
+import 'package:embeddings_explorer/providers/model/embedding_provider_config.dart';
 import 'package:embeddings_explorer/templates/model/embedding_template_config.dart';
 import 'package:test/test.dart';
 
@@ -291,11 +291,11 @@ void main() {
         'should save and retrieve model provider config (no persist creds)',
         () async {
           final now = DateTime.now();
-          final config = ModelProviderConfig(
+          final config = EmbeddingProviderConfig(
             id: 'provider_1',
             name: 'Test OpenAI Provider',
             description: 'OpenAI embedding provider',
-            type: ProviderType.openai,
+            type: EmbeddingProviderType.openai,
             customTemplateId: null,
             settings: <String, dynamic>{
               'apiUrl': 'https://api.openai.com/v1',
@@ -314,7 +314,7 @@ void main() {
           final retrieved = await service.getModelProviderConfig('provider_1');
           expect(retrieved, isNotNull);
           expect(retrieved!.name, equals('Test OpenAI Provider'));
-          expect(retrieved.type, equals(ProviderType.openai));
+          expect(retrieved.type, equals(EmbeddingProviderType.openai));
           expect(retrieved.persistCredentials, isFalse);
           expect(retrieved.settings['model'], equals('text-embedding-3-small'));
           expect(retrieved.credential, isNull);
@@ -329,11 +329,11 @@ void main() {
         'should save and retrieve model provider config (persist creds)',
         () async {
           final now = DateTime.now();
-          final config = ModelProviderConfig(
+          final config = EmbeddingProviderConfig(
             id: 'provider_1',
             name: 'Test OpenAI Provider',
             description: 'OpenAI embedding provider',
-            type: ProviderType.openai,
+            type: EmbeddingProviderType.openai,
             customTemplateId: null,
             settings: <String, dynamic>{
               'apiUrl': 'https://api.openai.com/v1',
@@ -352,7 +352,7 @@ void main() {
           final retrieved = await service.getModelProviderConfig('provider_1');
           expect(retrieved, isNotNull);
           expect(retrieved!.name, equals('Test OpenAI Provider'));
-          expect(retrieved.type, equals(ProviderType.openai));
+          expect(retrieved.type, equals(EmbeddingProviderType.openai));
           expect(retrieved.persistCredentials, isFalse);
           expect(retrieved.settings['model'], equals('text-embedding-3-small'));
           expect(
@@ -373,11 +373,11 @@ void main() {
       test('should get active model provider configs only', () async {
         final now = DateTime.now();
 
-        final activeProvider = ModelProviderConfig(
+        final activeProvider = EmbeddingProviderConfig(
           id: 'active_1',
           name: 'Active Provider',
           description: 'Active provider',
-          type: ProviderType.openai,
+          type: EmbeddingProviderType.openai,
           customTemplateId: null,
           settings: <String, dynamic>{},
           credential: null,
@@ -387,11 +387,11 @@ void main() {
           updatedAt: now,
         );
 
-        final inactiveProvider = ModelProviderConfig(
+        final inactiveProvider = EmbeddingProviderConfig(
           id: 'inactive_1',
           name: 'Inactive Provider',
           description: 'Inactive provider',
-          type: ProviderType.gemini,
+          type: EmbeddingProviderType.gemini,
           customTemplateId: null,
           settings: <String, dynamic>{},
           credential: null,
@@ -410,11 +410,11 @@ void main() {
 
       test('should delete model provider config', () async {
         final now = DateTime.now();
-        final config = ModelProviderConfig(
+        final config = EmbeddingProviderConfig(
           id: 'to_delete',
           name: 'To Delete',
           description: 'Provider to delete',
-          type: ProviderType.custom,
+          type: EmbeddingProviderType.custom,
           customTemplateId: null,
           settings: <String, dynamic>{},
           credential: null,

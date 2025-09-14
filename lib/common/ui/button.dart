@@ -46,8 +46,9 @@ class Button extends StatelessComponent {
     this.size = ButtonSize.md,
     this.className,
     this.disabled = false,
-    this.type = 'button',
+    this.type = ButtonType.button,
     this.events,
+    this.title,
   });
 
   final List<Component> children;
@@ -57,7 +58,8 @@ class Button extends StatelessComponent {
   final String? className;
   final Map<String, EventCallback>? events;
   final bool disabled;
-  final String type;
+  final ButtonType type;
+  final String? title;
 
   @override
   Component build(BuildContext context) {
@@ -80,7 +82,11 @@ class Button extends StatelessComponent {
             events?['click']?.call(e);
           },
       },
-      attributes: {'type': type, if (disabled) 'disabled': 'true'},
+      attributes: {
+        'type': type.name,
+        if (disabled) 'disabled': 'true',
+        'title': ?title,
+      },
       children,
     );
   }

@@ -56,7 +56,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
         completedAt: completedAt ?? job.completedAt,
         errorMessage: errorMessage ?? job.errorMessage,
       );
-      await add(updatedJob);
+      await upsert(updatedJob);
     }
   }
 
@@ -72,7 +72,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
         totalRecords: totalRecords ?? job.totalRecords,
         processedRecords: processedRecords ?? job.processedRecords,
       );
-      await add(updatedJob);
+      await upsert(updatedJob);
     }
   }
 
@@ -87,7 +87,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
     final job = getById(jobId);
     if (job != null) {
       final updatedJob = job.copyWith(results: results);
-      await add(updatedJob);
+      await upsert(updatedJob);
     }
   }
 
@@ -136,7 +136,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
   }
 
   @override
-  Future<void> saveItem(String id, EmbeddingJob item) async {
+  Future<void> saveItem(EmbeddingJob item) async {
     await configService.saveEmbeddingJob(item);
   }
 

@@ -6,7 +6,8 @@ import '../../data_sources/service/data_source_repository.dart';
 import '../../database/database_pool.dart';
 import '../../jobs/model/embedding_job_collection.dart';
 import '../../providers/model/custom_provider_template.dart';
-import '../../providers/model/model_provider_config.dart';
+import '../../providers/model/embedding_provider_config.dart';
+import '../../providers/service/embedding_provider_registry.dart';
 import '../../templates/model/embedding_template_config.dart';
 import '../service/configuration_service.dart';
 
@@ -25,7 +26,8 @@ class ConfigurationManager with ChangeNotifier {
   late final embeddingTemplates = EmbeddingTemplateConfigCollection(
     _configService,
   );
-  late final modelProviders = ModelProviderConfigCollection(
+  late final embeddingProviders = EmbeddingProviderRegistry(this);
+  late final embeddingProviderConfigs = EmbeddingProviderConfigCollection(
     _configService,
     CredentialService(_configService.database),
   );
@@ -58,20 +60,23 @@ class ConfigurationManager with ChangeNotifier {
     await Future.wait([
       dataSourceConfigs.loadFromStorage(),
       embeddingTemplates.loadFromStorage(),
-      modelProviders.loadFromStorage(),
+      embeddingProviderConfigs.loadFromStorage(),
       customProviderTemplates.loadFromStorage(),
       embeddingJobs.loadFromStorage(),
     ]);
 
     dataSources = DataSourceRepository(this, _databasePool);
     await dataSources.initialize();
+    await embeddingProviders.initialize();
 
     // Set up change listeners to notify global listeners
     dataSourceConfigs.addListener(notifyListeners);
     embeddingTemplates.addListener(notifyListeners);
-    modelProviders.addListener(notifyListeners);
+    embeddingProviderConfigs.addListener(notifyListeners);
     customProviderTemplates.addListener(notifyListeners);
     embeddingJobs.addListener(notifyListeners);
+    dataSources.addListener(notifyListeners);
+    embeddingProviders.addListener(notifyListeners);
 
     notifyListeners();
   }
@@ -82,9 +87,10 @@ class ConfigurationManager with ChangeNotifier {
       dataSourceConfigs.clear(),
       dataSources.clear(),
       embeddingTemplates.clear(),
-      modelProviders.clear(),
+      embeddingProviderConfigs.clear(),
       customProviderTemplates.clear(),
       embeddingJobs.clear(),
+      embeddingProviders.clear(),
     ]);
 
     notifyListeners();
@@ -95,7 +101,7 @@ class ConfigurationManager with ChangeNotifier {
     return ConfigurationSummary(
       dataSourceCount: dataSourceConfigs.length,
       embeddingTemplateCount: embeddingTemplates.length,
-      modelProviderCount: modelProviders.length,
+      modelProviderCount: embeddingProviderConfigs.length,
       customProviderTemplateCount: customProviderTemplates.length,
       embeddingJobCount: embeddingJobs.length,
       activeJobsCount: embeddingJobs.activeJobs.length,

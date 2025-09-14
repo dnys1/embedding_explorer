@@ -1,7 +1,8 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
-import 'ui/fa_icon.dart';
+import '../util/clsx.dart';
+import 'ui/ui.dart';
 
 class Sidebar extends StatefulComponent {
   const Sidebar({super.key, this.isOpen = false, this.onClose});
@@ -22,8 +23,8 @@ class _SidebarState extends State<Sidebar> {
 
   @override
   Component build(BuildContext context) {
-    final routerState = RouteState.of(context);
-    final currentPath = routerState.location;
+    final routerState = RouteState.maybeOf(context); // maybeOf for testing
+    final currentPath = routerState?.location ?? '/';
 
     return fragment([
       // Mobile overlay when sidebar is open
@@ -45,7 +46,7 @@ class _SidebarState extends State<Sidebar> {
             '-translate-x-full'
           else
             'translate-x-0', // Hidden/visible on smaller screens
-        ].join(' '),
+        ].clsx,
         [
           // Header with mobile toggle
           div(classes: 'p-4 border-b border-neutral-700', [
@@ -53,35 +54,16 @@ class _SidebarState extends State<Sidebar> {
               div(classes: 'flex items-center space-x-2', [
                 img(src: 'images/logo.png', width: 24, height: 24),
                 h2(classes: 'text-lg font-semibold text-white', [
-                  Link(to: '/dashboard', child: text('Embeddings Explorer')),
+                  Link(to: '/dashboard', child: text('Embedding Explorer')),
                 ]),
               ]),
               // Mobile close button
-              button(
-                classes:
-                    'lg:hidden p-1 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800',
-                events: {'click': (_) => _closeSidebar()},
-                [
-                  svg(
-                    classes: 'w-5 h-5',
-                    attributes: {
-                      'fill': 'none',
-                      'stroke': 'currentColor',
-                      'viewBox': '0 0 24 24',
-                    },
-                    [
-                      path(
-                        attributes: {
-                          'stroke-linecap': 'round',
-                          'stroke-linejoin': 'round',
-                          'stroke-width': '2',
-                          'd': 'M6 18L18 6M6 6l12 12',
-                        },
-                        [],
-                      ),
-                    ],
-                  ),
-                ],
+              IconButton(
+                className:
+                    'lg:hidden text-neutral-400 hover:text-white hover:bg-neutral-800',
+                variant: ButtonVariant.ghost,
+                onPressed: _closeSidebar,
+                icon: FaIcon(FaIcons.solid.times, className: 'w-5 h-5'),
               ),
             ]),
           ]),

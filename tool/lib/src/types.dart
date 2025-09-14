@@ -6,7 +6,6 @@ import 'dart:core' as core;
 import 'dart:isolate' as isolate_lib;
 
 import 'package:code_builder/code_builder.dart';
-import 'package:stream_channel/isolate_channel.dart' as isolate_channel;
 import 'package:worker_bee/worker_bee.dart' as worker_bee;
 
 /// Common type references used throughout code generation.
@@ -24,9 +23,6 @@ abstract class DartTypes {
 
   /// `dart:isolate` types.
   static const isolate = _Isolate();
-
-  /// `package:stream_channel` types.
-  static const streamChannel = _StreamChannel();
 
   /// `package:worker_bee` types.
   static const workerBee = _WorkerBee();
@@ -101,16 +97,6 @@ class _Isolate {
 
   /// Creates an [isolate_lib.Isolate] reference.
   Reference get isolate => const Reference('Isolate', _url);
-}
-
-/// `package:stream_channel` types
-class _StreamChannel {
-  const _StreamChannel();
-
-  static const _url = 'package:worker_bee/worker_bee.dart';
-
-  /// Creates an [isolate_channel.IsolateChannel] reference.
-  Reference get isolateChannel => const Reference('IsolateChannel', _url);
 }
 
 /// `package:worker_bee` types

@@ -4,7 +4,7 @@ library;
 import 'package:embeddings_explorer/util/indexed_db.dart' as impl;
 import 'package:test/test.dart';
 
-import '../common.dart';
+import '../../common.dart';
 
 void main() {
   setupTests();

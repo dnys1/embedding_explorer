@@ -12,7 +12,7 @@ import 'package:embeddings_explorer/data_sources/service/data_source_repository.
 import 'package:test/test.dart';
 import 'package:web/web.dart' as web;
 
-import '../common.dart';
+import '../../common.dart';
 
 void main() {
   setupTests();
@@ -122,7 +122,7 @@ void main() {
         updatedAt: DateTime.now().add(Duration(seconds: 1)),
       );
 
-      unawaited(configManager.dataSourceConfigs.add(updatedConfig));
+      unawaited(configManager.dataSourceConfigs.upsert(updatedConfig));
       await nextChange();
 
       final dataSource2 = repository.get('test-csv');

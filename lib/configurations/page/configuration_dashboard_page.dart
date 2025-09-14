@@ -214,7 +214,7 @@ class _DashboardState extends State<Dashboard>
   }
 
   Component _buildModelProvidersSection() {
-    final providers = configManager.modelProviders.all;
+    final providers = configManager.embeddingProviderConfigs.all;
 
     return div(classes: 'bg-white rounded-lg shadow', [
       div(classes: 'px-6 py-4 border-b border-neutral-200', [
@@ -242,7 +242,8 @@ class _DashboardState extends State<Dashboard>
               description: config.description.isNotEmpty
                   ? config.description
                   : 'No description',
-              onDelete: () => configManager.modelProviders.remove(config.id),
+              onDelete: () =>
+                  configManager.embeddingProviderConfigs.remove(config.id),
             ),
           ),
       ]),

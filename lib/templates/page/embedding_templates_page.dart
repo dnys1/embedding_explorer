@@ -301,7 +301,7 @@ final class _CreateEditDialogState extends State<_CreateEditDialog>
         component.template?.id ?? configManager.embeddingTemplates.generateId();
     final template = model.createConfig(templateId);
 
-    configManager.embeddingTemplates.add(template);
+    configManager.embeddingTemplates.upsert(template);
     component.onClose();
   }
 

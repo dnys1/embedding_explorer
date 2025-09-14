@@ -5,18 +5,39 @@ import 'package:aws_common/aws_common.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
-import '../model/model_provider_config.dart';
-import 'embedding_provider.dart';
+import '../model/embedding_provider.dart';
+import '../model/embedding_provider_config.dart';
 
 /// Google Gemini embedding provider implementation
-class GeminiProvider implements EmbeddingProvider {
-  static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta';
+class GeminiProvider implements EmbeddingProviderTemplate {
+  const GeminiProvider();
 
-  static final Logger _logger = Logger('GeminiProvider');
+  @override
+  EmbeddingProviderType get type => EmbeddingProviderType.gemini;
 
-  static const Map<String, EmbeddingModel> _knownModels = {
+  @override
+  String get displayName => 'Google Gemini';
+
+  @override
+  String get description =>
+      'Google Gemini embedding models for text understanding';
+
+  @override
+  FaIconData get icon => FaIcons.brands.google;
+
+  @override
+  Map<String, dynamic> get defaultSettings => const {
+    'model': 'text-embedding-004',
+    'task_type': 'RETRIEVAL_DOCUMENT',
+  };
+
+  @override
+  CredentialType? get requiredCredential => CredentialType.apiKey;
+
+  @override
+  Map<String, EmbeddingModel> get knownModels => const {
     'text-embedding-004': EmbeddingModel(
       id: 'text-embedding-004',
       name: 'Text Embedding 004',
@@ -36,135 +57,38 @@ class GeminiProvider implements EmbeddingProvider {
   };
 
   @override
-  String get id => 'gemini';
-
-  @override
-  String get displayName => 'Google Gemini';
-
-  @override
-  String get description =>
-      'Google Gemini embedding models for text understanding';
-
-  @override
-  CredentialType? get requiredCredential => CredentialType.apiKey;
-
-  @override
-  bool get supportsCustomConfig => false;
-
-  Map<String, EmbeddingModel>? _modelCache;
-
-  @override
-  Future<Map<String, EmbeddingModel>> listAvailableModels(
-    ModelProviderConfig config,
+  Future<ConfiguredEmbeddingProvider> configure(
+    EmbeddingProviderConfig config,
   ) async {
-    if (_modelCache case final cache?) {
-      return cache;
+    final credential = config.credential;
+    if (credential is! ApiKeyCredential || credential.apiKey.isEmpty) {
+      throw ArgumentError('GeminiProvider requires an API key credential');
     }
-    try {
-      return _modelCache = await _fetchAvailableModels(config);
-    } catch (e, st) {
-      if (config.credential != null) {
-        _logger.warning('Failed to fetch OpenAI models', e, st);
-      }
-      return _knownModels;
-    }
+    return _ConfiguredGeminiProvider(config, credential: credential);
   }
+}
+
+final class _ConfiguredGeminiProvider extends GeminiProvider
+    implements ConfiguredEmbeddingProvider {
+  _ConfiguredGeminiProvider(this.config, {required this.credential});
+
+  static const String _baseUrl =
+      'https://generativelanguage.googleapis.com/v1beta';
+
+  static final Logger _logger = Logger('GeminiProvider');
 
   @override
-  ValidationResult validateConfig(ModelProviderConfig config) {
-    final errors = <String>[];
-    final warnings = <String>[];
+  final EmbeddingProviderConfig config;
 
-    // Check API key
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      errors.add('Gemini API key is required');
-    } else if (!apiKey.startsWith('AIza')) {
-      warnings.add('Gemini API key should start with "AIza"');
-    }
-
-    if (errors.isNotEmpty) {
-      return ValidationResult.invalid(errors);
-    } else if (warnings.isNotEmpty) {
-      return ValidationResult.withWarnings(warnings);
-    } else {
-      return ValidationResult.valid();
-    }
-  }
+  final ApiKeyCredential credential;
 
   @override
-  Future<bool> testConnection(ModelProviderConfig config) async {
-    try {
-      _modelCache ??= await _fetchAvailableModels(config);
-      return true;
-    } catch (e, st) {
-      _logger.warning('Gemini connection test failed', e, st);
-      return false;
-    }
-  }
-
-  @override
-  Future<List<List<double>>> generateEmbeddings({
-    required String modelId,
-    required List<String> texts,
-    required ModelProviderConfig config,
-  }) async {
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      throw ArgumentError('API key is required to generate embeddings');
-    }
-
-    // Gemini has a batch limit, so we may need to split large requests
-    const batchSize = 100;
-    final results = <List<double>>[];
-
-    for (int i = 0; i < texts.length; i += batchSize) {
-      final batch = texts.skip(i).take(batchSize).toList();
-
-      final response = await _makeRequest(
-        apiKey: apiKey,
-        modelId: modelId,
-        texts: batch,
-      );
-
-      final embeddings = response['embeddings'] as List;
-      for (final embedding in embeddings) {
-        final values = (embedding['values'] as List).cast<double>();
-        results.add(values);
-      }
-    }
-
-    return results;
-  }
-
-  @override
-  int getEmbeddingDimension(String modelId) {
-    final models = _modelCache ?? _knownModels;
-    return models[modelId]!.dimensions;
-  }
-
-  Future<Map<String, EmbeddingModel>> _fetchAvailableModels(
-    ModelProviderConfig config,
-  ) async {
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      throw ArgumentError('API key is required to fetch models');
-    }
-
+  Future<Map<String, EmbeddingModel>> listAvailableModels() async {
     final url = '$_baseUrl/models';
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
+      'x-goog-api-key': credential.apiKey,
     };
 
     final response = await web.window
@@ -203,6 +127,45 @@ class GeminiProvider implements EmbeddingProvider {
     return Map.fromEntries(models);
   }
 
+  @override
+  Future<bool> testConnection() async {
+    try {
+      await listAvailableModels();
+      return true;
+    } catch (e, st) {
+      _logger.warning('Gemini connection test failed', e, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<List<List<double>>> generateEmbeddings({
+    required String modelId,
+    required List<String> texts,
+  }) async {
+    // Gemini has a batch limit, so we may need to split large requests
+    const batchSize = 100;
+    final results = <List<double>>[];
+
+    for (int i = 0; i < texts.length; i += batchSize) {
+      final batch = texts.skip(i).take(batchSize).toList();
+
+      final response = await _makeRequest(
+        apiKey: credential.apiKey,
+        modelId: modelId,
+        texts: batch,
+      );
+
+      final embeddings = response['embeddings'] as List;
+      for (final embedding in embeddings) {
+        final values = (embedding['values'] as List).cast<double>();
+        results.add(values);
+      }
+    }
+
+    return results;
+  }
+
   EmbeddingModel _mapGeminiModelToEmbeddingModel(
     Map<String, dynamic> apiModel,
   ) {
@@ -210,7 +173,7 @@ class GeminiProvider implements EmbeddingProvider {
     // Extract model ID from full name
     final modelId = modelName.split('/').last;
 
-    if (_knownModels[modelId] case final knownModel?) {
+    if (knownModels[modelId] case final knownModel?) {
       return knownModel;
     }
 

@@ -233,7 +233,7 @@ class CustomProviderTemplateCollection
       embeddingRequestTemplate: embeddingRequestTemplate,
     ).copyWith(id: id);
 
-    await add(template);
+    await upsert(template);
     return id;
   }
 
@@ -262,7 +262,7 @@ class CustomProviderTemplateCollection
       updatedAt: DateTime.now(),
     );
 
-    await add(updated);
+    await upsert(updated);
     return true;
   }
 
@@ -272,7 +272,7 @@ class CustomProviderTemplateCollection
   }
 
   @override
-  Future<void> saveItem(String id, CustomProviderTemplate item) async {
+  Future<void> saveItem(CustomProviderTemplate item) async {
     await configService.saveCustomProviderTemplate(item);
   }
 

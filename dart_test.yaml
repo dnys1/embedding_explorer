@@ -1,0 +1,12 @@
+platforms:
+  - chrome
+
+override_platforms:
+  chrome:
+    settings:
+      headless: true
+
+verbose_trace: false
+js_trace: true
+chain_stack_traces: true
+concurrency: 1

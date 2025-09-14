@@ -7,30 +7,29 @@ import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../../util/async_snapshot.dart';
 import '../../util/clsx.dart';
-import '../model/available_providers.dart';
-import '../model/model_provider_config.dart';
-import '../service/embedding_provider.dart';
+import '../model/embedding_provider.dart';
+import '../model/embedding_provider_config.dart';
 
-class AvailableProviderView extends StatefulComponent {
-  const AvailableProviderView({
+class EmbeddingProviderView extends StatefulComponent {
+  const EmbeddingProviderView({
     required this.provider,
     required this.onConfigure,
     required this.onEdit,
     super.key,
   });
 
-  final AvailableProvider provider;
+  final EmbeddingProvider provider;
   final VoidCallback onConfigure;
   final VoidCallback onEdit;
 
   @override
-  State<AvailableProviderView> createState() => _AvailableProviderViewState();
+  State<EmbeddingProviderView> createState() => _EmbeddingProviderViewState();
 }
 
-class _AvailableProviderViewState extends State<AvailableProviderView>
+class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
     with ConfigurationManagerListener {
-  AvailableProvider get provider => component.provider;
-  ConfigurationState get configState => _getConfigurationState();
+  EmbeddingProvider get provider => component.provider;
+  ConfigurationState get configState => _readConfigurationState();
 
   bool get hasConfiguration => configState.hasConfiguration;
   bool get isPartiallyConfigured => configState.isPartiallyConfigured;
@@ -48,7 +47,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
               div(classes: 'text-3xl', [FaIcon(provider.icon)]),
               div([
                 h2(classes: 'text-xl font-semibold text-foreground', [
-                  text(provider.name),
+                  text(provider.displayName),
                 ]),
                 p(classes: 'text-sm text-muted-foreground', [
                   text(provider.description),
@@ -114,21 +113,18 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
             ),
 
           // Model grid
-          if (isFullyConfigured) div(classes: 'mt-4', [_buildModelsGrid()]),
+          if (isFullyConfigured)
+            div(classes: 'mt-4', [
+              _buildModelsGrid(provider as ConfiguredEmbeddingProvider),
+            ]),
         ]),
       ],
     );
   }
 
-  final Map<String, Future<Map<String, EmbeddingModel>>> _availableModels = {};
-
-  Component _buildModelsGrid() {
-    final config = configManager.modelProviders.getByType(provider.type)!;
-    final future = _availableModels[config.id] ??= provider.listAvailableModels(
-      config,
-    );
+  Component _buildModelsGrid(ConfiguredEmbeddingProvider provider) {
     return FutureBuilder<Map<String, EmbeddingModel>>(
-      future: future,
+      future: configManager.embeddingProviders.listAvailableModels(provider.id),
       builder: (context, snapshot) {
         switch (snapshot.result) {
           case AsyncLoading():
@@ -169,7 +165,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
               ].clsx,
               [
                 for (final model in models.values)
-                  _buildModelTile(model, config),
+                  _buildModelTile(provider, model),
               ],
             );
         }
@@ -177,8 +173,11 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
     );
   }
 
-  Component _buildModelTile(EmbeddingModel model, ModelProviderConfig config) {
-    final isModelEnabled = config.enabledModels.contains(model.id);
+  Component _buildModelTile(
+    ConfiguredEmbeddingProvider provider,
+    EmbeddingModel model,
+  ) {
+    final isModelEnabled = provider.config.enabledModels.contains(model.id);
     return Card(
       className: isModelEnabled
           ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
@@ -186,7 +185,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
       children: [
         div(
           classes: 'p-4',
-          events: {'click': (_) => _toggleModel(model, config.id)},
+          events: {'click': (_) => _toggleModel(model, provider.config.id)},
           [
             div(classes: 'flex items-center justify-between mb-2', [
               div(classes: 'flex items-center space-x-2', [
@@ -224,20 +223,17 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
   }
 
   /// Determine the configuration state for a provider type
-  ConfigurationState _getConfigurationState() {
-    final config = configManager.modelProviders.getByType(provider.type);
+  ConfigurationState _readConfigurationState() {
+    final config = switch (provider) {
+      ConfiguredEmbeddingProvider(:final config) => config,
+      _ => null,
+    };
     if (config == null) {
       return ConfigurationState.notConfigured;
     }
 
     // Check if credentials are required and whether they're persisted
-    final availableProvider = AvailableProviders.all.firstWhere(
-      (p) => p.type == provider.type,
-      orElse: () =>
-          throw StateError('Provider type ${provider.type} not found'),
-    );
-
-    if (availableProvider.requiredCredential case final requiredCred?) {
+    if (provider.requiredCredential case final requiredCred?) {
       // If credentials are required but not persisted, it's partially configured
       if (config.credential?.type != requiredCred) {
         return ConfigurationState.partiallyConfigured;
@@ -249,7 +245,10 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
 
   void _toggleModel(EmbeddingModel model, String providerConfigId) {
     unawaited(
-      configManager.modelProviders.toggleModel(providerConfigId, model.id),
+      configManager.embeddingProviderConfigs.toggleModel(
+        providerConfigId,
+        model.id,
+      ),
     );
   }
 }

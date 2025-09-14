@@ -5,6 +5,7 @@ import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
+import '../../util/clsx.dart';
 import '../../util/element.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
@@ -28,19 +29,19 @@ class DataSourceSelector extends StatefulComponent {
   });
 
   @override
-  State<DataSourceSelector> createState() => _DataSourceSelectorState();
+  State<DataSourceSelector> createState() => DataSourceSelectorState();
 }
 
-class _DataSourceSelectorState extends State<DataSourceSelector>
+class DataSourceSelectorState extends State<DataSourceSelector>
     with ConfigurationManagerListener {
-  late DataSourceType _selectedType;
+  late DataSourceType selectedType;
 
   /// Access to the data source repository
   DataSourceRepository get _repository => configManager.dataSources;
   DataSource? _currentDataSource;
   bool _isLoading = false;
   String? _error;
-  String? _dataSourceName;
+  String _dataSourceName = '';
 
   // CSV configuration
   String _csvDelimiter = ',';
@@ -48,7 +49,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
   web.File? _selectedFile;
 
   // SQLite configuration
-  SqliteDataSourceType _sqliteType = SqliteDataSourceType.sample;
+  SqliteDataSourceType sqliteType = SqliteDataSourceType.import;
   String? _sqliteFilename;
 
   @override
@@ -59,19 +60,52 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
 
   void _loadInitialDataSource() {
     _currentDataSource = component.initialDataSource;
-    switch (component.initialDataSource) {
-      case final CsvDataSource dataSource:
-        _selectedType = DataSourceType.csv;
-        _dataSourceName = dataSource.name;
-        _csvDelimiter = dataSource.csvSettings.delimiter;
-        _csvHasHeader = dataSource.csvSettings.hasHeader;
-      case final SqliteDataSource dataSource:
-        _selectedType = DataSourceType.sqlite;
-        _dataSourceName = dataSource.name;
-        _sqliteType = SqliteDataSourceType.persistent;
-      case null:
-        _selectedType = DataSourceType.csv;
+    _syncStateFromDataSource(_currentDataSource);
+    if (_currentDataSource?.type == DataSourceType.sqlite) {
+      sqliteType = SqliteDataSourceType.persistent;
     }
+  }
+
+  /// Synchronize UI state with the current data source state
+  void _syncStateFromDataSource(DataSource? dataSource) {
+    switch (dataSource) {
+      case CsvDataSource csvDataSource:
+        selectedType = DataSourceType.csv;
+        _dataSourceName = csvDataSource.name;
+        _csvDelimiter = csvDataSource.csvSettings.delimiter;
+        _csvHasHeader = csvDataSource.csvSettings.hasHeader;
+      case final SampleDataSource dataSource:
+        selectedType = DataSourceType.sample;
+        _dataSourceName = dataSource.name;
+      case final SqliteDataSource dataSource:
+        selectedType = DataSourceType.sqlite;
+        _dataSourceName = dataSource.name;
+        _sqliteFilename = dataSource.config.filename;
+      case null:
+        selectedType = DataSourceType.csv;
+    }
+  }
+
+  void _selectType(DataSourceType type) {
+    setState(() {
+      selectedType = type;
+      _currentDataSource = null;
+      _error = null;
+      _selectedFile = null;
+      _dataSourceName = '';
+
+      // Reset type-specific state
+      switch (type) {
+        case DataSourceType.csv:
+          _csvDelimiter = ',';
+          _csvHasHeader = true;
+        case DataSourceType.sqlite:
+          sqliteType = SqliteDataSourceType.import;
+          _sqliteFilename = null;
+        case DataSourceType.sample:
+          _dataSourceName = 'Movies';
+      }
+    });
   }
 
   @override
@@ -106,16 +140,18 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
   }
 
   Component _buildTypeCard(DataSourceType type) {
-    final isSelected = _selectedType == type;
+    final isSelected = selectedType == type;
 
     return div(
+      key: ValueKey(type),
       classes: [
         'relative rounded-lg border-2 p-4 cursor-pointer transition-all duration-200',
+        if (type == DataSourceType.sample) 'md:col-span-2',
         if (isSelected)
           'border-primary-500 bg-primary-50'
         else
           'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50',
-      ].join(' '),
+      ].clsx,
       events: {'click': (_) => _selectType(type)},
       [
         div(classes: 'flex items-start space-x-3', [
@@ -181,10 +217,11 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
                 onChange: (value) => setState(() => _dataSourceName = value),
               ),
             ]),
-            if (_selectedType == DataSourceType.csv)
-              _buildCsvConfiguration()
-            else
-              _buildSqliteConfiguration(),
+            switch (selectedType) {
+              DataSourceType.csv => _buildCsvConfiguration(),
+              DataSourceType.sqlite => _buildSqliteConfiguration(),
+              DataSourceType.sample => div([]),
+            },
           ],
         ),
       ],
@@ -208,23 +245,14 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
         // Delimiter
         div(classes: 'space-y-2', [
           Label(children: [text('Delimiter')]),
-          select(
-            classes:
-                'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-            events: {'change': (event) => _handleDelimiterChange(event)},
-            [
-              option(value: ',', selected: _csvDelimiter == ',', [
-                text('Comma (,)'),
-              ]),
-              option(value: ';', selected: _csvDelimiter == ';', [
-                text('Semicolon (;)'),
-              ]),
-              option(value: '\t', selected: _csvDelimiter == '\t', [
-                text('Tab'),
-              ]),
-              option(value: '|', selected: _csvDelimiter == '|', [
-                text('Pipe (|)'),
-              ]),
+          Select(
+            value: _csvDelimiter,
+            onChange: (value) => setState(() => _csvDelimiter = value),
+            children: [
+              Option(value: ',', children: [text('Comma (,)')]),
+              Option(value: ';', children: [text('Semicolon (;)')]),
+              Option(value: '\t', children: [text('Tab')]),
+              Option(value: '|', children: [text('Pipe (|)')]),
             ],
           ),
         ]),
@@ -251,19 +279,16 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
         Button(
           variant:
               _selectedFile != null &&
-                  (_dataSourceName != null && _dataSourceName!.isNotEmpty) &&
+                  (_dataSourceName.isNotEmpty) &&
                   !_isLoading
               ? ButtonVariant.primary
               : ButtonVariant.secondary,
           className: 'w-full',
           disabled:
-              _selectedFile == null ||
-              _dataSourceName == null ||
-              _dataSourceName!.isEmpty ||
-              _isLoading,
+              _selectedFile == null || _dataSourceName.isEmpty || _isLoading,
           onPressed:
               _selectedFile != null &&
-                  (_dataSourceName != null && _dataSourceName!.isNotEmpty) &&
+                  (_dataSourceName.isNotEmpty) &&
                   !_isLoading
               ? _loadCsvDataSource
               : null,
@@ -288,26 +313,28 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
   }
 
   Component _buildSqliteConfiguration() {
+    final availableOptions = SqliteDataSourceType.values
+        .where(_shouldShowOption)
+        .toList(growable: false);
     return div(classes: 'space-y-6', [
       // Database type
-      div(classes: 'space-y-2', [
-        Label(children: [text('Database Type')]),
-        div(classes: 'space-y-3', [
-          for (final option in SqliteDataSourceType.values.where(
-            _shouldShowOption,
-          ))
-            _buildRadioOption(
-              value: option,
-              title: option.displayName,
-              description: option.description,
-              isSelected: _sqliteType == option,
-              onChanged: (value) => setState(() => _sqliteType = value),
-            ),
+      if (availableOptions.length > 1)
+        div(classes: 'space-y-2', [
+          Label(children: [text('Database Type')]),
+          div(classes: 'space-y-3', [
+            for (final option in availableOptions)
+              _buildRadioOption(
+                value: option,
+                title: option.displayName,
+                description: option.description,
+                isSelected: sqliteType == option,
+                onChanged: (value) => setState(() => sqliteType = value),
+              ),
+          ]),
         ]),
-      ]),
 
       // Configuration based on type
-      if (_sqliteType == SqliteDataSourceType.import)
+      if (sqliteType == SqliteDataSourceType.import)
         FileUpload(
           label: 'Database File',
           accept: '.db,.sqlite,.sqlite3',
@@ -323,7 +350,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
           }),
         ),
 
-      if (_sqliteType == SqliteDataSourceType.persistent)
+      if (sqliteType == SqliteDataSourceType.persistent)
         // Select from existing persistent databases
         div(classes: 'space-y-2', [
           Label(children: [text('Select Database')]),
@@ -345,19 +372,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       // Load button
       div(classes: 'pt-4', [
         Button(
-          variant:
-              _dataSourceName != null &&
-                  _dataSourceName!.isNotEmpty &&
-                  !_isLoading
+          variant: _dataSourceName.isNotEmpty && !_isLoading
               ? ButtonVariant.primary
               : ButtonVariant.secondary,
           className: 'w-full',
-          disabled:
-              _dataSourceName == null || _dataSourceName!.isEmpty || _isLoading,
-          onPressed:
-              _dataSourceName != null &&
-                  _dataSourceName!.isNotEmpty &&
-                  !_isLoading
+          disabled: _dataSourceName.isEmpty || _isLoading,
+          onPressed: _dataSourceName.isNotEmpty && !_isLoading
               ? _loadSqliteDataSource
               : null,
           children: [
@@ -365,11 +385,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
               Skeleton(className: 'h-4 w-4 rounded-full mr-2'),
               text('Loading...'),
             ] else
-              text(
-                _sqliteType == SqliteDataSourceType.sample
-                    ? 'Load Sample Data'
-                    : 'Connect to Database',
-              ),
+              text('Connect to Database'),
           ],
         ),
       ]),
@@ -450,44 +466,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
     ]);
   }
 
-  /// Synchronize UI state with the current data source state
-  void _syncStateFromDataSource(DataSource dataSource) {
-    if (dataSource is SqliteDataSource) {
-      _selectedType = DataSourceType.sqlite;
-
-      // Sync SQLite-specific settings
-      _sqliteFilename = dataSource.config.filename;
-    } else {
-      // Handle other data source types (CSV, etc.)
-      _selectedType = dataSource.type;
-    }
-  }
-
-  void _selectType(DataSourceType type) {
-    setState(() {
-      _selectedType = type;
-      _currentDataSource = null;
-      _error = null;
-      _selectedFile = null;
-
-      // Reset type-specific state
-      if (type == DataSourceType.sqlite) {
-        _sqliteType = SqliteDataSourceType.sample;
-        _sqliteFilename = null;
-      } else if (type == DataSourceType.csv) {
-        _csvDelimiter = ',';
-        _csvHasHeader = true;
-      }
-    });
-  }
-
-  void _handleDelimiterChange(web.Event event) {
-    final select = event.target as web.HTMLSelectElement;
-    setState(() {
-      _csvDelimiter = select.value;
-    });
-  }
-
   Future<void> _scrollToPreview() async {
     final preview = await waitForElement<web.HTMLElement>('data-preview');
     preview.scrollIntoView({'behavior': 'smooth'}.jsify()!);
@@ -503,7 +481,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
 
     try {
       final dataSourceConfig = DataSourceConfig(
-        name: _dataSourceName!,
+        name: _dataSourceName,
         type: DataSourceType.csv,
         filename: _selectedFile!.name,
         settings: CsvDataSourceSettings(
@@ -544,12 +522,12 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
 
     try {
       final config = DataSourceConfig(
-        name: _dataSourceName!,
+        name: _dataSourceName,
         filename: _sqliteFilename ?? _selectedFile!.name,
         type: DataSourceType.sqlite,
         settings: SqliteDataSourceSettings(),
       );
-      final dataSource = _sqliteType == SqliteDataSourceType.import
+      final dataSource = sqliteType == SqliteDataSourceType.import
           ? await _repository.import(config: config, file: _selectedFile!)
           : await _repository.connect(config);
 

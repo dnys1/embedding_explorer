@@ -138,7 +138,7 @@ class EmbeddingTemplateConfigCollection
       metadata: metadata,
     ).copyWith(id: id);
 
-    await add(config);
+    await upsert(config);
     return id;
   }
 
@@ -165,7 +165,7 @@ class EmbeddingTemplateConfigCollection
       updatedAt: DateTime.now(),
     );
 
-    await add(updated);
+    await upsert(updated);
     return true;
   }
 
@@ -196,7 +196,7 @@ class EmbeddingTemplateConfigCollection
   }
 
   @override
-  Future<void> saveItem(String id, EmbeddingTemplateConfig item) async {
+  Future<void> saveItem(EmbeddingTemplateConfig item) async {
     await configService.saveEmbeddingTemplateConfig(item);
   }
 

@@ -67,7 +67,7 @@ class _DataSourcePageState extends State<DataSourcesPage>
       configToSave = configToSave.copyWith(updatedAt: DateTime.now());
     }
 
-    await configManager.dataSourceConfigs.add(configToSave);
+    await configManager.dataSourceConfigs.upsert(configToSave);
     _hideDialog();
   }
 
@@ -252,11 +252,9 @@ class _DataSourcePageState extends State<DataSourcesPage>
                   text(_isEditing ? 'Edit Data Source' : 'Create Data Source'),
                 ],
               ),
-              button(
-                classes:
-                    'text-muted-foreground hover:text-foreground transition-colors text-2xl',
-                events: {'click': (event) => _hideDialog()},
-                [text('×')],
+              IconButton(
+                onPressed: _hideDialog,
+                icon: FaIcon(FaIcons.solid.close),
               ),
             ]),
             DialogDescription(

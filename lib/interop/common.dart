@@ -31,14 +31,11 @@ extension JSBigIntExtensions on JSBigInt {
 
 /// Checks if the current context is a web worker.
 bool get kIsWorker {
-  try {
-    // In a worker context, DedicatedWorkerGlobalScope or SharedWorkerGlobalScope
-    // should be available instead of Window
-    return globalContext['DedicatedWorkerGlobalScope'].isDefinedAndNotNull ||
-        globalContext['SharedWorkerGlobalScope'].isDefinedAndNotNull ||
-        (globalContext['self'].isDefinedAndNotNull &&
-            globalContext['window'].isUndefinedOrNull);
-  } catch (e) {
-    return false;
-  }
+  bool hasGlobal(String name) => globalContext[name].isDefinedAndNotNull;
+
+  // In a worker context, DedicatedWorkerGlobalScope or SharedWorkerGlobalScope
+  // should be available instead of Window
+  return hasGlobal('DedicatedWorkerGlobalScope') ||
+      hasGlobal('SharedWorkerGlobalScope') ||
+      (hasGlobal('self') && !hasGlobal('window'));
 }

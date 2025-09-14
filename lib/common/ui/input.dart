@@ -41,7 +41,7 @@ class Input extends StatelessComponent {
       id: id,
       name: name,
       required: required,
-      onChange: (e) => onChange?.call((e.target as HTMLInputElement).value),
+      onChange: (e, target) => onChange?.call(target.value),
     );
   }
 
@@ -54,7 +54,7 @@ class Input extends StatelessComponent {
   final String? id;
   final String? name;
   final bool required;
-  final void Function(Event event)? onChange;
+  final void Function(Event event, HTMLInputElement target)? onChange;
 
   @override
   Component build(BuildContext context) {
@@ -72,7 +72,9 @@ class Input extends StatelessComponent {
       disabled: disabled,
       name: name,
       value: value,
-      events: {'change': ?onChange},
+      events: {
+        'change': (e) => onChange?.call(e, e.target as HTMLInputElement),
+      },
       attributes: {
         'placeholder': ?placeholder,
         if (readOnly) 'readonly': 'true',

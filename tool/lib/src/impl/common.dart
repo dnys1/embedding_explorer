@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/element2.dart';
 import 'package:code_builder/code_builder.dart';
 
 import '../type_visitor.dart';
@@ -37,17 +36,17 @@ class WorkerImpl {
 abstract class ImplGenerator {
   /// {@macro worker_bee_builder.impl_generator}
   ImplGenerator(this.workerEl, this.requestEl, this.responseEl) {
-    workerName = workerEl.name3!;
+    workerName = workerEl.name!;
     workerImplName = '_\$$workerName';
-    workerType = Reference(workerName, workerEl.library2.uri.toString());
-    _checkCtors(workerEl.constructors2);
+    workerType = Reference(workerName, workerEl.library.uri.toString());
+    _checkCtors(workerEl.constructors);
 
     requestType = requestEl.thisType.accept(symbolVisitor);
     responseType =
         responseEl?.thisType.accept(symbolVisitor) ?? DartTypes.core.void$;
   }
 
-  void _checkCtors(List<ConstructorElement2> ctors) {
+  void _checkCtors(List<ConstructorElement> ctors) {
     var hasUnnamed = false;
     var hasCreate = false;
     for (final ctor in ctors) {
@@ -55,7 +54,7 @@ abstract class ImplGenerator {
         hasUnnamed = true;
         continue;
       }
-      if (ctor.name3 == 'create' && ctor.isFactory) {
+      if (ctor.name == 'create' && ctor.isFactory) {
         hasCreate = true;
         continue;
       }
@@ -74,7 +73,7 @@ abstract class ImplGenerator {
   static const symbolVisitor = SymbolVisitor();
 
   /// The class element of the user-defined worker.
-  final ClassElement2 workerEl;
+  final ClassElement workerEl;
 
   /// The class element of the request type of the worker.
   final ClassElement requestEl;

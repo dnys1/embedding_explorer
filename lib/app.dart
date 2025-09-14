@@ -3,13 +3,14 @@ import 'package:jaspr_router/jaspr_router.dart';
 import 'package:logging/logging.dart';
 
 import 'common/sidebar.dart';
+import 'common/ui/button.dart';
 import 'configurations/model/configuration_manager.dart';
 import 'configurations/page/configuration_dashboard_page.dart';
 import 'data_sources/page/data_sources_page.dart';
 import 'editor_test_page.dart';
 import 'home_page.dart';
 import 'jobs/page/jobs_page.dart';
-import 'providers/page/model_providers_page.dart';
+import 'providers/page/embedding_providers_page.dart';
 import 'templates/page/embedding_templates_page.dart';
 
 class App extends StatefulComponent {
@@ -87,7 +88,7 @@ class _AppState extends State<App> {
               Route(
                 path: '/providers',
                 title: 'Model Providers',
-                builder: (context, state) => const ModelProvidersPage(),
+                builder: (context, state) => const EmbeddingProvidersPage(),
               ),
               Route(
                 path: '/jobs',
@@ -128,34 +129,30 @@ class _AppState extends State<App> {
             classes: 'lg:hidden bg-white border-b border-neutral-200 px-4 py-3',
             [
               div(classes: 'flex items-center justify-between', [
-                button(
-                  classes:
+                IconButton(
+                  className:
                       'p-2 rounded-md text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100',
-                  events: {
-                    'click': (_) =>
-                        setState(() => _isSidebarOpen = !_isSidebarOpen),
-                  },
-                  [
-                    svg(
-                      classes: 'w-6 h-6',
-                      attributes: {
-                        'fill': 'none',
-                        'stroke': 'currentColor',
-                        'viewBox': '0 0 24 24',
-                      },
-                      [
-                        path(
-                          attributes: {
-                            'stroke-linecap': 'round',
-                            'stroke-linejoin': 'round',
-                            'stroke-width': '2',
-                            'd': 'M4 6h16M4 12h16M4 18h16',
-                          },
-                          [],
-                        ),
-                      ],
-                    ),
-                  ],
+                  onPressed: () =>
+                      setState(() => _isSidebarOpen = !_isSidebarOpen),
+                  icon: svg(
+                    classes: 'w-6 h-6',
+                    attributes: {
+                      'fill': 'none',
+                      'stroke': 'currentColor',
+                      'viewBox': '0 0 24 24',
+                    },
+                    [
+                      path(
+                        attributes: {
+                          'stroke-linecap': 'round',
+                          'stroke-linejoin': 'round',
+                          'stroke-width': '2',
+                          'd': 'M4 6h16M4 12h16M4 18h16',
+                        },
+                        [],
+                      ),
+                    ],
+                  ),
                 ),
                 h1(classes: 'text-lg font-semibold text-neutral-900', [
                   text('Embeddings Explorer'),

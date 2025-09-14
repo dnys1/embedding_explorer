@@ -9,6 +9,11 @@ targets:
         enabled: true
 
   $default:
+    sources:
+      exclude:
+        # Jaspr browser tests must be run with dart test. build_web_compilers flags them 
+        # as having dart:io transitive imports.
+        - test/jaspr/**
     builders:
       build_web_compilers:dart2js_archive_extractor:
         enabled: false
@@ -18,6 +23,11 @@ targets:
             - lib/workers/workers.dart
 
   worker:
+    sources:
+      exclude:
+        # Jaspr browser tests must be run with dart test. build_web_compilers flags them 
+        # as having dart:io transitive imports.
+        - test/jaspr/**
     dependencies:
       - $default
     auto_apply_builders: false

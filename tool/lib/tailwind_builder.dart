@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:build/build.dart';
@@ -15,9 +16,6 @@ class TailwindBuilder implements Builder {
   Future<void> build(BuildStep buildStep) async {
     final scratchSpace = await buildStep.fetchResource(scratchSpaceResource);
 
-    final nodeModules = await buildStep
-        .findAssets(Glob('web/node_modules/**'))
-        .toList();
     final tailwindConfig = AssetId(
       buildStep.inputId.package,
       'web/tailwind.config.js',
@@ -25,8 +23,8 @@ class TailwindBuilder implements Builder {
     await buildStep.canRead(tailwindConfig);
     await scratchSpace.ensureAssets({
       buildStep.inputId,
-      ...nodeModules,
       AssetId(buildStep.inputId.package, 'web/package.json'),
+      AssetId(buildStep.inputId.package, 'web/pnpm-lock.yaml'),
       tailwindConfig,
     }, buildStep);
 
@@ -41,29 +39,52 @@ class TailwindBuilder implements Builder {
     await Future.wait(assets.map((a) => buildStep.canRead(a)));
     await scratchSpace.ensureAssets(assets.toSet(), buildStep);
 
-    final args = <String>[
+    final webDir = scratchSpace.tempDir.uri.resolve('web/').toFilePath();
+
+    await _runProcess('pnpm', ['install'], workingDirectory: webDir);
+    await _runProcess('npx', [
+      '@tailwindcss/cli',
       '--input',
       scratchSpace.fileFor(buildStep.inputId).path,
       '--output',
       scratchSpace.fileFor(outputId).path,
-    ];
-    final result = await Process.run('tailwindcss', args);
-
-    if (result.exitCode != 0) {
-      final errorOutput = StringBuffer();
-      errorOutput.writeln('Error running tailwindcss (${result.exitCode}):');
-      if (result.stdout != null && (result.stdout as String).isNotEmpty) {
-        errorOutput.writeln('STDOUT:');
-        errorOutput.writeln(result.stdout);
-      }
-      if (result.stderr != null && (result.stderr as String).isNotEmpty) {
-        errorOutput.writeln('STDERR:');
-        errorOutput.writeln(result.stderr);
-      }
-      throw StateError(errorOutput.toString());
-    }
+    ], workingDirectory: webDir);
 
     await scratchSpace.copyOutput(outputId, buildStep);
+  }
+
+  Future<void> _runProcess(
+    String executable,
+    List<String> args, {
+    String? workingDirectory,
+  }) async {
+    final process = await Process.start(
+      executable,
+      args,
+      workingDirectory: workingDirectory,
+      runInShell: true,
+    );
+
+    final buffer = StringBuffer();
+    final stdoutFuture = process.stdout
+        .transform(utf8.decoder)
+        .forEach(buffer.write);
+    final stderrFuture = process.stderr
+        .transform(utf8.decoder)
+        .forEach(buffer.write);
+
+    final exitCode = await process.exitCode;
+    await stdoutFuture;
+    await stderrFuture;
+
+    if (exitCode != 0) {
+      throw ProcessException(
+        executable,
+        args,
+        'Process exited with code $exitCode:\n$buffer',
+        exitCode,
+      );
+    }
   }
 
   @override

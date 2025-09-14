@@ -1,10 +1,11 @@
+import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
-import '../model/model_provider_config.dart';
+import 'embedding_provider_config.dart';
 
-/// Abstract interface for embedding providers
-abstract class EmbeddingProvider {
-  /// Unique identifier for this provider
-  String get id;
+/// Base interface for embedding providers (both configured and unconfigured)
+abstract interface class EmbeddingProvider {
+  /// Type of this provider
+  EmbeddingProviderType get type;
 
   /// Display name for the provider
   String get displayName;
@@ -12,32 +13,48 @@ abstract class EmbeddingProvider {
   /// Description of the provider
   String get description;
 
+  /// Icon for the provider in the UI
+  FaIconData get icon;
+
+  /// Known models without requiring API calls
+  Map<String, EmbeddingModel> get knownModels;
+
+  /// Default settings for this provider
+  Map<String, dynamic> get defaultSettings;
+
   /// Type of credential required for this provider, or null if none required
   CredentialType? get requiredCredential;
+}
+
+/// An unconfigured embedding provider - represents a provider template that can be configured
+abstract interface class EmbeddingProviderTemplate
+    implements EmbeddingProvider {
+  /// Create a configured instance of this provider with the given configuration
+  Future<ConfiguredEmbeddingProvider> configure(EmbeddingProviderConfig config);
+}
+
+/// A configured embedding provider - has access to configuration and can perform operations
+abstract interface class ConfiguredEmbeddingProvider
+    implements EmbeddingProvider {
+  /// The configuration for this provider instance
+  EmbeddingProviderConfig get config;
 
   /// List of available models for this provider
-  Future<Map<String, EmbeddingModel>> listAvailableModels(
-    ModelProviderConfig config,
-  );
-
-  /// Whether this provider supports custom configuration
-  bool get supportsCustomConfig => false;
-
-  /// Validate the provider configuration
-  ValidationResult validateConfig(ModelProviderConfig config);
+  Future<Map<String, EmbeddingModel>> listAvailableModels();
 
   /// Test the provider connection
-  Future<bool> testConnection(ModelProviderConfig config);
+  Future<bool> testConnection();
 
   /// Generate embeddings for the given texts
   Future<List<List<double>>> generateEmbeddings({
     required String modelId,
     required List<String> texts,
-    required ModelProviderConfig config,
   });
+}
 
-  /// Get the dimension of embeddings produced by this provider
-  int getEmbeddingDimension(String modelId);
+extension ConfiguredEmbeddingProviderImpl on ConfiguredEmbeddingProvider {
+  /// Unique identifier for this provider
+  String get id => config.id;
 }
 
 /// Represents an embedding model offered by a provider

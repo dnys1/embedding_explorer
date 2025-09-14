@@ -5,17 +5,40 @@ import 'package:aws_common/aws_common.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
-import '../model/model_provider_config.dart';
-import 'embedding_provider.dart';
+import '../model/embedding_provider.dart';
+import '../model/embedding_provider_config.dart';
 
 /// OpenAI embedding provider implementation
-class OpenAIProvider implements EmbeddingProvider {
-  static const String _baseUrl = 'https://api.openai.com/v1';
+class OpenAIProvider implements EmbeddingProviderTemplate {
+  const OpenAIProvider();
 
-  static final Logger _logger = Logger('OpenAIProvider');
+  @override
+  EmbeddingProviderType get type => EmbeddingProviderType.openai;
 
-  static const Map<String, EmbeddingModel> _knownModels = {
+  @override
+  String get displayName => 'OpenAI';
+
+  @override
+  String get description =>
+      'OpenAI embedding models including text-embedding-3-small and text-embedding-3-large';
+
+  @override
+  FaIconData get icon => FaIcons.brands.openai;
+
+  @override
+  Map<String, dynamic> get defaultSettings => const {
+    'model': 'text-embedding-3-small',
+    'dimensions': 1536,
+    'encoding_format': 'float',
+  };
+
+  @override
+  CredentialType? get requiredCredential => CredentialType.apiKey;
+
+  @override
+  Map<String, EmbeddingModel> get knownModels => const {
     'text-embedding-3-small': EmbeddingModel(
       id: 'text-embedding-3-small',
       name: 'Text Embedding 3 Small',
@@ -43,132 +66,36 @@ class OpenAIProvider implements EmbeddingProvider {
   };
 
   @override
-  String get id => 'openai';
-
-  @override
-  String get displayName => 'OpenAI';
-
-  @override
-  String get description =>
-      'OpenAI embedding models including text-embedding-3-small and text-embedding-3-large';
-
-  @override
-  CredentialType? get requiredCredential => CredentialType.apiKey;
-
-  @override
-  bool get supportsCustomConfig => false;
-
-  Map<String, EmbeddingModel>? _modelCache;
-
-  @override
-  Future<Map<String, EmbeddingModel>> listAvailableModels(
-    ModelProviderConfig config,
+  Future<ConfiguredEmbeddingProvider> configure(
+    EmbeddingProviderConfig config,
   ) async {
-    if (_modelCache case final cache?) {
-      return cache;
-    }
-    try {
-      return _modelCache = await _fetchAvailableModels(config);
-    } catch (e, st) {
-      if (config.credential != null) {
-        _logger.warning('Failed to fetch OpenAI models', e, st);
-      }
-      return _knownModels;
-    }
-  }
-
-  @override
-  ValidationResult validateConfig(ModelProviderConfig config) {
-    final errors = <String>[];
-    final warnings = <String>[];
-
-    // Check API key
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      errors.add('OpenAI API key is required');
-    } else if (!apiKey.startsWith('sk-')) {
-      warnings.add('OpenAI API key should start with "sk-"');
-    }
-
-    if (errors.isNotEmpty) {
-      return ValidationResult.invalid(errors);
-    } else if (warnings.isNotEmpty) {
-      return ValidationResult.withWarnings(warnings);
-    } else {
-      return ValidationResult.valid();
-    }
-  }
-
-  @override
-  Future<bool> testConnection(ModelProviderConfig config) async {
-    try {
-      _modelCache ??= await _fetchAvailableModels(config);
-      return true;
-    } catch (e, st) {
-      _logger.warning('OpenAI connection test failed', e, st);
-      return false;
-    }
-  }
-
-  @override
-  Future<List<List<double>>> generateEmbeddings({
-    required String modelId,
-    required List<String> texts,
-    required ModelProviderConfig config,
-  }) async {
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      throw ArgumentError('API key is required to generate embeddings');
-    }
-
-    // OpenAI has a batch limit, so we may need to split large requests
-    const batchSize = 100;
-    final results = <List<double>>[];
-
-    for (int i = 0; i < texts.length; i += batchSize) {
-      final batch = texts.skip(i).take(batchSize).toList();
-
-      final response = await _makeRequest(
-        apiKey: apiKey,
-        endpoint: '/embeddings',
-        body: {'model': modelId, 'input': batch, 'encoding_format': 'float'},
+    final credential = config.credential;
+    if (credential is! ApiKeyCredential || credential.apiKey.isEmpty) {
+      throw ArgumentError(
+        'OpenAIProvider requires an ApiKeyCredential for configuration',
       );
-
-      final data = response['data'] as List;
-      for (final item in data) {
-        final embedding = (item['embedding'] as List).cast<double>();
-        results.add(embedding);
-      }
     }
-
-    return results;
+    return _ConfiguredOpenAIProvider(config, credential: credential);
   }
+}
+
+final class _ConfiguredOpenAIProvider extends OpenAIProvider
+    implements ConfiguredEmbeddingProvider {
+  _ConfiguredOpenAIProvider(this.config, {required this.credential});
+
+  static const String _baseUrl = 'https://api.openai.com/v1';
+
+  static final Logger _logger = Logger('OpenAIProvider');
 
   @override
-  int getEmbeddingDimension(String modelId) {
-    final models = _modelCache ?? _knownModels;
-    return models[modelId]!.dimensions;
-  }
+  final EmbeddingProviderConfig config;
 
-  Future<Map<String, EmbeddingModel>> _fetchAvailableModels(
-    ModelProviderConfig config,
-  ) async {
-    final apiKey = switch (config.credential) {
-      ApiKeyCredential(:final apiKey) => apiKey,
-      _ => null,
-    };
-    if (apiKey == null || apiKey.isEmpty) {
-      throw ArgumentError('API key is required to fetch models');
-    }
+  final ApiKeyCredential credential;
 
+  @override
+  Future<Map<String, EmbeddingModel>> listAvailableModels() async {
     final response = await _makeRequest(
-      apiKey: apiKey,
+      apiKey: credential.apiKey,
       endpoint: '/models',
       body: {},
       method: 'GET',
@@ -186,11 +113,50 @@ class OpenAIProvider implements EmbeddingProvider {
     return Map.fromEntries(models);
   }
 
+  @override
+  Future<bool> testConnection() async {
+    try {
+      await listAvailableModels();
+      return true;
+    } catch (e, st) {
+      _logger.warning('OpenAI connection test failed', e, st);
+      return false;
+    }
+  }
+
+  @override
+  Future<List<List<double>>> generateEmbeddings({
+    required String modelId,
+    required List<String> texts,
+  }) async {
+    // OpenAI has a batch limit, so we may need to split large requests
+    const batchSize = 100;
+    final results = <List<double>>[];
+
+    for (int i = 0; i < texts.length; i += batchSize) {
+      final batch = texts.skip(i).take(batchSize).toList();
+
+      final response = await _makeRequest(
+        apiKey: credential.apiKey,
+        endpoint: '/embeddings',
+        body: {'model': modelId, 'input': batch, 'encoding_format': 'float'},
+      );
+
+      final data = response['data'] as List;
+      for (final item in data) {
+        final embedding = (item['embedding'] as List).cast<double>();
+        results.add(embedding);
+      }
+    }
+
+    return results;
+  }
+
   EmbeddingModel _mapOpenAIModelToEmbeddingModel(
     Map<String, dynamic> apiModel,
   ) {
     final modelId = apiModel['id'] as String;
-    if (_knownModels[modelId] case final knownModel?) {
+    if (knownModels[modelId] case final knownModel?) {
       return knownModel;
     }
 

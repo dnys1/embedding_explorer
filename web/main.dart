@@ -16,6 +16,7 @@ void main() {
     },
     onError: (error, stack) {
       // TODO: add Sentry
+      print('Uncaught error: $error\n$stack');
       console.error('Uncaught error: $error\n$stack'.toJS);
     },
   );

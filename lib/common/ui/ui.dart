@@ -11,6 +11,7 @@ export 'dialog.dart';
 export 'dropdown.dart';
 export 'fa_icon.dart';
 export 'file_upload.dart';
+export 'form.dart';
 export 'input.dart';
 export 'label.dart';
 export 'progress.dart';

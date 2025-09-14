@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tailwindcss/utilities";
-@source "../lib/**/*.dart";
+@source "../packages/embeddings_explorer/**/*.dart";
 @config "./tailwind.config.js";
 
 /* 

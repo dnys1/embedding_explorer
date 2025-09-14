@@ -8,7 +8,7 @@ import '../../credentials/model/credential.dart';
 import '../../credentials/service/credential_service.dart';
 
 /// Types of embedding providers
-enum ProviderType { openai, gemini, custom }
+enum EmbeddingProviderType { openai, gemini, custom }
 
 /// Configuration state for providers
 enum ConfigurationState {
@@ -27,12 +27,12 @@ enum ConfigurationState {
 }
 
 /// Configuration for a model provider with metadata
-class ModelProviderConfig implements ConfigurationItem {
+class EmbeddingProviderConfig implements ConfigurationItem {
   @override
   final String id;
   final String name;
   final String description;
-  final ProviderType type; // null for custom providers
+  final EmbeddingProviderType type; // null for custom providers
   final String?
   customTemplateId; // Reference to CustomProviderTemplate for custom providers
   final Map<String, dynamic> settings;
@@ -42,7 +42,7 @@ class ModelProviderConfig implements ConfigurationItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const ModelProviderConfig({
+  const EmbeddingProviderConfig({
     required this.id,
     required this.name,
     required this.description,
@@ -57,11 +57,11 @@ class ModelProviderConfig implements ConfigurationItem {
   });
 
   /// Create a copy with updated fields
-  ModelProviderConfig copyWith({
+  EmbeddingProviderConfig copyWith({
     String? id,
     String? name,
     String? description,
-    ProviderType? type,
+    EmbeddingProviderType? type,
     String? customTemplateId,
     Map<String, dynamic>? settings,
     Credential? credential,
@@ -70,7 +70,7 @@ class ModelProviderConfig implements ConfigurationItem {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return ModelProviderConfig(
+    return EmbeddingProviderConfig(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
@@ -86,12 +86,12 @@ class ModelProviderConfig implements ConfigurationItem {
   }
 
   /// Create from database result
-  static ModelProviderConfig fromDatabase(Map<String, Object?> row) {
-    return ModelProviderConfig(
+  factory EmbeddingProviderConfig.fromDatabase(Map<String, Object?> row) {
+    return EmbeddingProviderConfig(
       id: row['id'] as String,
       name: row['name'] as String,
       description: row['description'] as String? ?? '',
-      type: ProviderType.values.byName(row['type'] as String),
+      type: EmbeddingProviderType.values.byName(row['type'] as String),
       customTemplateId: row['custom_template_id'] as String?,
       settings: row['settings'] != null
           ? jsonDecode(row['settings'] as String) as Map<String, dynamic>
@@ -113,9 +113,9 @@ class ModelProviderConfig implements ConfigurationItem {
   }
 
   /// Create a default configuration for built-in providers
-  static ModelProviderConfig createDefault({
+  factory EmbeddingProviderConfig.createDefault({
     required String name,
-    required ProviderType type,
+    required EmbeddingProviderType type,
     String? description,
     Map<String, dynamic>? settings,
     Credential? credential,
@@ -124,7 +124,7 @@ class ModelProviderConfig implements ConfigurationItem {
     Set<String>? enabledModels,
   }) {
     final now = DateTime.now();
-    return ModelProviderConfig(
+    return EmbeddingProviderConfig(
       id: 'temp_id', // Will be replaced when added to collection
       name: name,
       description: description ?? '',
@@ -140,7 +140,7 @@ class ModelProviderConfig implements ConfigurationItem {
   }
 
   /// Create a default configuration for custom providers
-  static ModelProviderConfig createDefaultCustom({
+  factory EmbeddingProviderConfig.createDefaultCustom({
     required String name,
     required String customTemplateId,
     String? description,
@@ -151,11 +151,11 @@ class ModelProviderConfig implements ConfigurationItem {
     Set<String>? enabledModels,
   }) {
     final now = DateTime.now();
-    return ModelProviderConfig(
+    return EmbeddingProviderConfig(
       id: 'temp_id', // Will be replaced when added to collection
       name: name,
       description: description ?? '',
-      type: ProviderType.custom,
+      type: EmbeddingProviderType.custom,
       customTemplateId: customTemplateId,
       settings: settings ?? {},
       credential: credential,
@@ -175,24 +175,63 @@ class ModelProviderConfig implements ConfigurationItem {
   bool _hasRequiredCredentials() {
     // Built-in provider validation
     switch (type) {
-      case ProviderType.openai:
+      case EmbeddingProviderType.openai:
         return credential is ApiKeyCredential;
-      case ProviderType.gemini:
+      case EmbeddingProviderType.gemini:
         return credential is ApiKeyCredential;
-      case ProviderType.custom:
+      case EmbeddingProviderType.custom:
         return true; // TODO
     }
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is EmbeddingProviderConfig &&
+        other.id == id &&
+        other.name == name &&
+        other.description == description &&
+        other.type == type &&
+        other.customTemplateId == customTemplateId &&
+        const DeepCollectionEquality().equals(other.settings, settings) &&
+        other.credential == credential &&
+        other.persistCredentials == persistCredentials &&
+        const DeepCollectionEquality().equals(
+          other.enabledModels,
+          enabledModels,
+        ) &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    type,
+    customTemplateId,
+    const DeepCollectionEquality().hash(settings),
+    credential,
+    persistCredentials,
+    const DeepCollectionEquality().hash(enabledModels),
+    createdAt,
+    updatedAt,
+  );
 }
 
-/// Collection for managing model provider configurations
-class ModelProviderConfigCollection
-    extends ConfigurationCollection<ModelProviderConfig> {
-  ModelProviderConfigCollection(super.configService, this._credentialService);
+/// Collection for managing embedding provider configurations
+class EmbeddingProviderConfigCollection
+    extends ConfigurationCollection<EmbeddingProviderConfig> {
+  EmbeddingProviderConfigCollection(
+    super.configService,
+    this._credentialService,
+  );
 
   final CredentialService _credentialService;
 
-  CredentialStore _credStore(ModelProviderConfig config) {
+  CredentialStore _credStore(EmbeddingProviderConfig config) {
     return config.persistCredentials
         ? _credentialService.persistent
         : _credentialService.memory;
@@ -207,7 +246,7 @@ class ModelProviderConfigCollection
   /// Add a new model provider configuration for built-in providers
   Future<String> addConfig({
     required String name,
-    required ProviderType type,
+    required EmbeddingProviderType type,
     String? description,
     Map<String, dynamic>? settings,
     Credential? credential,
@@ -216,7 +255,7 @@ class ModelProviderConfigCollection
     Set<String>? enabledModels,
   }) async {
     final id = generateId();
-    final config = ModelProviderConfig.createDefault(
+    final config = EmbeddingProviderConfig.createDefault(
       name: name,
       type: type,
       description: description,
@@ -227,7 +266,7 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    await add(config);
+    await upsert(config);
     return id;
   }
 
@@ -243,7 +282,7 @@ class ModelProviderConfigCollection
     Set<String>? enabledModels,
   }) async {
     final id = generateId();
-    final config = ModelProviderConfig.createDefaultCustom(
+    final config = EmbeddingProviderConfig.createDefaultCustom(
       name: name,
       customTemplateId: customTemplateId,
       description: description,
@@ -254,7 +293,7 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    await add(config);
+    await upsert(config);
     return id;
   }
 
@@ -263,7 +302,7 @@ class ModelProviderConfigCollection
     String id, {
     String? name,
     String? description,
-    ProviderType? type,
+    EmbeddingProviderType? type,
     String? customTemplateId,
     Map<String, dynamic>? settings,
     Credential? credential,
@@ -286,39 +325,43 @@ class ModelProviderConfigCollection
       updatedAt: DateTime.now(),
     );
 
-    await add(updated);
+    await upsert(updated);
     return true;
   }
 
   /// Get configurations by type
-  ModelProviderConfig? getByType(ProviderType type) {
+  EmbeddingProviderConfig? getByType(EmbeddingProviderType type) {
     return all.firstWhereOrNull((config) => config.type == type);
   }
 
   /// Get configurations by custom template
-  ModelProviderConfig? getByCustomTemplate(String templateId) {
+  EmbeddingProviderConfig? getByCustomTemplate(String templateId) {
     return all.firstWhereOrNull(
       (config) => config.customTemplateId == templateId,
     );
   }
 
   /// Get all custom provider configurations
-  List<ModelProviderConfig> getCustomConfigs() {
-    return all.where((config) => config.type == ProviderType.custom).toList();
+  List<EmbeddingProviderConfig> getCustomConfigs() {
+    return all
+        .where((config) => config.type == EmbeddingProviderType.custom)
+        .toList();
   }
 
   /// Get all built-in provider configurations
-  List<ModelProviderConfig> getBuiltInConfigs() {
-    return all.where((config) => config.type != ProviderType.custom).toList();
+  List<EmbeddingProviderConfig> getBuiltInConfigs() {
+    return all
+        .where((config) => config.type != EmbeddingProviderType.custom)
+        .toList();
   }
 
   /// Get only valid configurations
-  List<ModelProviderConfig> getValidConfigs() {
+  List<EmbeddingProviderConfig> getValidConfigs() {
     return all.where((config) => config.isValid).toList();
   }
 
   /// Search configurations by name
-  List<ModelProviderConfig> searchByName(String query) {
+  List<EmbeddingProviderConfig> searchByName(String query) {
     final lowerQuery = query.toLowerCase();
     return all
         .where(
@@ -351,7 +394,7 @@ class ModelProviderConfigCollection
   }
 
   @override
-  Future<void> saveItem(String id, ModelProviderConfig item) async {
+  Future<void> saveItem(EmbeddingProviderConfig item) async {
     await configService.saveModelProviderConfig(item);
     final credStore = _credStore(item);
     final persistent = item.persistCredentials;
@@ -362,7 +405,7 @@ class ModelProviderConfigCollection
   }
 
   @override
-  Future<ModelProviderConfig?> loadItem(String id) async {
+  Future<EmbeddingProviderConfig?> loadItem(String id) async {
     final config = await configService.getModelProviderConfig(id);
     if (config == null) {
       return null;
@@ -377,7 +420,7 @@ class ModelProviderConfigCollection
   }
 
   @override
-  Future<List<ModelProviderConfig>> loadAllItems() async {
+  Future<List<EmbeddingProviderConfig>> loadAllItems() async {
     final configs = await configService.getAllModelProviderConfigs();
     return Future.wait([
       for (final config in configs)
@@ -393,7 +436,7 @@ class ModelProviderConfigCollection
   }
 
   @override
-  Future<void> removeItem(ModelProviderConfig item) async {
+  Future<void> removeItem(EmbeddingProviderConfig item) async {
     await configService.deleteModelProviderConfig(item.id);
     final credStore = _credStore(item);
     await credStore.deleteCredential(item.id);

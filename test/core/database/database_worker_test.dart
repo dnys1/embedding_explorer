@@ -4,7 +4,7 @@ library;
 import 'package:embeddings_explorer/database/database.dart';
 import 'package:test/test.dart';
 
-import '../common.dart';
+import '../../common.dart';
 
 void main() {
   setupTests();

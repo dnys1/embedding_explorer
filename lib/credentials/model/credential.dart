@@ -7,6 +7,8 @@ sealed class Credential {
     };
   }
 
+  factory Credential.apiKey(String apiKey) => ApiKeyCredential(apiKey: apiKey);
+
   CredentialType get type;
   Map<String, Object?> toJson();
 }

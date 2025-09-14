@@ -128,10 +128,7 @@ class DataSourceConfigCollection
   String get tableName => 'data_source_configs';
 
   @override
-  Future<void> saveItem(
-    String id,
-    DataSourceConfig<DataSourceSettings> item,
-  ) async {
+  Future<void> saveItem(DataSourceConfig<DataSourceSettings> item) async {
     await configService.saveDataSourceConfig(item);
   }
 
