@@ -74,7 +74,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       case final SqliteDataSource dataSource:
         _selectedType = DataSourceType.sqlite;
         _dataSourceName = dataSource.name;
-        _sqliteType = dataSource.sqliteSettings.type;
+        _sqliteType = SqliteDataSourceType.persistent;
         _sqliteFilename = dataSource.sqliteSettings.filename;
       case null:
         _selectedType = DataSourceType.csv;
@@ -507,7 +507,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
 
       // Sync SQLite-specific settings
       final settings = dataSource.sqliteSettings;
-      _sqliteType = settings.type;
       _sqliteFilename = settings.filename;
     } else {
       // Handle other data source types (CSV, etc.)
@@ -601,10 +600,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       final config = DataSourceConfig(
         name: _dataSourceName!,
         type: DataSourceType.sqlite,
-        settings: SqliteDataSourceSettings(
-          type: _sqliteType,
-          filename: _sqliteFilename,
-        ),
+        settings: SqliteDataSourceSettings(filename: _sqliteFilename),
       );
       final dataSource = _sqliteType == SqliteDataSourceType.import
           ? await _repository.loadFromFile(config: config, file: _selectedFile!)

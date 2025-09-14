@@ -34,20 +34,23 @@ class DatabasePool {
   int get fileCount => _stats.fileCount;
   String get vfsName => _stats.vfsName;
 
-  final Map<String, IDatabase> _databases = {};
+  final Map<String, DatabaseHandle> _databases = {};
 
   /// Creates a new database pool instance.
   DatabasePool._(this._worker);
 
-  static Future<DatabasePool> create({Uri? libsqlUri, bool? verbose}) async {
+  static Future<DatabasePool> create({
+    Uri? libsqlUri,
+    bool? clearOnInit,
+  }) async {
     final worker = DatabasePoolWorker.create();
     await worker.spawn();
     final pool = DatabasePool._(worker);
-    await pool._init(libsqlUri: libsqlUri, verbose: verbose);
+    await pool._init(libsqlUri: libsqlUri, clearOnInit: clearOnInit);
     return pool;
   }
 
-  Future<void> _init({Uri? libsqlUri, bool? verbose}) async {
+  Future<void> _init({Uri? libsqlUri, bool? clearOnInit}) async {
     _logSubscription = _worker.logs.listen((record) {
       final logger = record is WorkerLogRecord && record.local == false
           ? _remoteLogger
@@ -60,7 +63,7 @@ class DatabasePool {
       DatabasePoolRequest.init(
         requestId: requestId,
         libsqlUri: libsqlUri,
-        verbose: verbose,
+        clearOnInit: clearOnInit,
       ),
     );
 
@@ -109,7 +112,7 @@ class DatabasePool {
   /// Imports binary data as an OPFS database.
   ///
   /// Returns the number of bytes imported. Throws [StateError] if import fails.
-  Future<IDatabase> import({
+  Future<DatabaseHandle> import({
     required String filename,
     required Uint8List data,
   }) async {
@@ -172,8 +175,8 @@ class DatabasePool {
     return deleted;
   }
 
-  /// Opens a database and returns an [IDatabase] instance.
-  Future<IDatabase> open(String filename, {bool verbose = false}) async {
+  /// Opens a database and returns an [DatabaseHandle] instance.
+  Future<DatabaseHandle> open(String filename, {bool verbose = false}) async {
     if (_databases[filename] case final database?) {
       return database;
     }
@@ -230,7 +233,7 @@ class DatabasePool {
   }
 }
 
-class _DatabasePoolDatabase implements IDatabase {
+class _DatabasePoolDatabase implements DatabaseHandle {
   @override
   final String filename;
   final DatabasePool pool;

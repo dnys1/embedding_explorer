@@ -7,68 +7,12 @@ import 'package:worker_bee/worker_bee.dart';
 
 import '../interop/common.dart';
 import '../interop/libsql.dart' as libsql;
-import '../workers/libsql_worker.dart';
+import '../workers/database_worker.dart';
 import 'transaction.dart';
 
 typedef ExecResult = ({int lastInsertRowId, int updatedRows});
 
-abstract class IDatabase implements TransactionExecutor {
-  static final Logger _logger = Logger('LibsqlDatabase');
-
-  /// Creates a LibSQL database from a file path.
-  ///
-  /// On Web platforms, this creates an in-memory database if path is ':memory:',
-  /// otherwise attempts to use the provided path (may not be supported in all environments).
-  /// The WASM module is automatically initialized before creating the database.
-  static Future<IDatabase> open(
-    String path, {
-    Uri? moduleUri,
-    bool verbose = false,
-  }) async {
-    await libsql.loadModule(moduleUri: moduleUri);
-    if (path == ':memory:') {
-      return Database.memory(verbose: verbose);
-    } else if (libsql.supportsOpfs) {
-      return Database.opfs(path, verbose: verbose);
-    } else {
-      if (!kIsWorker) {
-        try {
-          return await IDatabase.worker(
-            path: path,
-            vfsName: 'opfs',
-            moduleUri: moduleUri,
-            verbose: verbose,
-          );
-        } catch (e) {
-          _logger.warning('Failed to spawn worker', e);
-        }
-      }
-      return Database.local(path, verbose: verbose);
-    }
-  }
-
-  /// Creates a LibSQL database accessed via a worker.
-  ///
-  /// This is useful for accessing persistent databases in environments that
-  /// support OPFS, as the OPFS VFS requires worker context.
-  ///
-  /// The [moduleUri] can be provided to specify the location of the WASM module
-  /// to be used by the worker.
-  static Future<IDatabase> worker({
-    required String path,
-    required String vfsName,
-    Uri? moduleUri,
-    bool verbose = false,
-  }) {
-    _logger.config('Initializing LibSQL worker for $path');
-    return DatabaseWorker.spawn(
-      filename: path,
-      vfsName: vfsName,
-      moduleUri: moduleUri,
-      verbose: verbose,
-    );
-  }
-
+abstract class DatabaseHandle implements TransactionExecutor {
   String get filename;
 
   @override
@@ -92,15 +36,61 @@ abstract interface class TransactionExecutor {
 ///
 /// This implementation uses WASM bindings to provide LibSQL functionality
 /// in web browsers.
-class Database implements IDatabase {
-  final libsql.Database _db;
-  bool get _disposed => !_db.isOpen();
+class Database implements DatabaseHandle {
+  static final Logger _logger = Logger('Database');
 
-  Database(this._db) {
-    _db.affirmOpen();
+  /// Creates a LibSQL database from a file path.
+  ///
+  /// On Web platforms, this creates an in-memory database if path is ':memory:',
+  /// otherwise attempts to use the provided path (may not be supported in all environments).
+  /// The WASM module is automatically initialized before creating the database.
+  static Future<DatabaseHandle> open(
+    String path, {
+    Uri? libsqlUri,
+    bool verbose = false,
+  }) async {
+    await libsql.loadModule(moduleUri: libsqlUri);
+    if (path == ':memory:') {
+      return Database.memory(verbose: verbose);
+    } else if (libsql.supportsOpfs) {
+      return Database.opfs(path, verbose: verbose);
+    } else {
+      if (!kIsWorker) {
+        try {
+          return await Database.worker(
+            filename: path,
+            libsqlUri: libsqlUri,
+            verbose: verbose,
+          );
+        } catch (e) {
+          _logger.warning('Failed to spawn worker', e);
+        }
+      }
+      return Database.local(path, verbose: verbose);
+    }
   }
 
-  static final Logger _logger = Logger('Database');
+  /// Creates a LibSQL database accessed via a worker.
+  ///
+  /// This is useful for accessing persistent databases in environments that
+  /// support OPFS, as the OPFS VFS requires worker context.
+  ///
+  /// The [libsqlUri] can be provided to specify the location of the WASM module
+  /// to be used by the worker.
+  static Future<DatabaseHandle> worker({
+    required String filename,
+    String? vfsName,
+    Uri? libsqlUri,
+    bool verbose = false,
+  }) {
+    _logger.config('Initializing database worker for $filename');
+    return DatabaseWorkerHandle._spawn(
+      filename: filename,
+      vfsName: vfsName,
+      libsqlUri: libsqlUri,
+      verbose: verbose,
+    );
+  }
 
   /// Creates an in-memory LibSQL database.
   ///
@@ -135,6 +125,13 @@ class Database implements IDatabase {
     return Database(
       libsql.Database(filename: path, flags: verbose ? 'ct' : 'c'),
     );
+  }
+
+  final libsql.Database _db;
+  bool get _disposed => !_db.isOpen();
+
+  Database(this._db) {
+    _db.affirmOpen();
   }
 
   void _checkNotDisposed() {
@@ -210,29 +207,29 @@ class Database implements IDatabase {
   int get totalChanges => _db.changes(true);
 }
 
-class DatabaseWorker implements IDatabase {
-  DatabaseWorker._(this._worker, this.filename);
+class DatabaseWorkerHandle implements DatabaseHandle {
+  DatabaseWorkerHandle._(this._worker, this.filename);
 
   static final Logger _localLogger = Logger('Database');
   static final Logger _remoteLogger = Logger('Database.Worker');
 
-  final LibsqlWorker _worker;
+  final DatabaseWorker _worker;
   @override
   final String filename;
   StreamSubscription<LogRecord>? _logSubscription;
   var _nextRequestId = 1;
 
-  static Future<DatabaseWorker> spawn({
+  static Future<DatabaseWorkerHandle> _spawn({
     required String filename,
-    required String vfsName,
-    Uri? moduleUri,
+    String? vfsName,
+    Uri? libsqlUri,
     bool verbose = false,
   }) async {
-    final worker = DatabaseWorker._(LibsqlWorker.create(), filename);
+    final worker = DatabaseWorkerHandle._(DatabaseWorker.create(), filename);
     await worker._init(
       filename: filename,
       vfsName: vfsName,
-      moduleUri: moduleUri,
+      libsqlUri: libsqlUri,
       verbose: verbose,
     );
     return worker;
@@ -240,8 +237,8 @@ class DatabaseWorker implements IDatabase {
 
   Future<void> _init({
     required String filename,
-    required String vfsName,
-    Uri? moduleUri,
+    String? vfsName,
+    Uri? libsqlUri,
     bool verbose = false,
   }) async {
     _logSubscription = _worker.logs.listen((record) {
@@ -259,10 +256,10 @@ class DatabaseWorker implements IDatabase {
 
     final requestId = _nextRequestId++;
     _worker.add(
-      LibsqlRequest.init(
+      DatabaseRequest.init(
         requestId: requestId,
         filename: filename,
-        moduleUri: moduleUri,
+        libsqlUri: libsqlUri,
         vfs: vfsName,
       ),
     );
@@ -297,9 +294,9 @@ class DatabaseWorker implements IDatabase {
     _checkNotDisposed();
     final requestId = _nextRequestId++;
     _worker.add(
-      LibsqlRequest(
+      DatabaseRequest(
         requestId: requestId,
-        type: LibsqlRequestType.execute,
+        type: DatabaseRequestType.execute,
         sql: sql,
         parameters: parameters,
       ),
@@ -322,9 +319,9 @@ class DatabaseWorker implements IDatabase {
     _checkNotDisposed();
     final requestId = _nextRequestId++;
     _worker.add(
-      LibsqlRequest(
+      DatabaseRequest(
         requestId: requestId,
-        type: LibsqlRequestType.query,
+        type: DatabaseRequestType.query,
         sql: sql,
         parameters: parameters,
       ),
@@ -347,9 +344,9 @@ class DatabaseWorker implements IDatabase {
     action(builder);
     final requestId = _nextRequestId++;
     _worker.add(
-      LibsqlRequest.transaction(
+      DatabaseRequest.transaction(
         requestId: requestId,
-        type: LibsqlRequestType.transaction,
+        type: DatabaseRequestType.transaction,
         transaction: builder.build(),
       ),
     );

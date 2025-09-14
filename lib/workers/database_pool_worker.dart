@@ -6,13 +6,13 @@ import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqlite3/common.dart' show ResultSet;
+import 'package:sqlite3/common.dart' show ResultSet, SqliteException;
 import 'package:worker_bee/worker_bee.dart';
 
 import '../database/database.dart';
 import '../database/transaction.dart';
 import '../interop/libsql.dart' as libsql;
-import 'libsql_worker.dart';
+import 'database_worker.dart';
 
 part 'database_pool_worker.g.dart';
 
@@ -46,6 +46,7 @@ abstract class DatabasePoolRequest
 
   // For init operations
   Uri? get libsqlUri;
+  bool? get clearOnInit;
 
   // For database-specific operations
   String? get databaseName;
@@ -54,19 +55,16 @@ abstract class DatabasePoolRequest
   // For import operations
   Uint8List? get importData;
 
-  // For open operations
-  bool? get verbose;
-
   factory DatabasePoolRequest.init({
     required int requestId,
     Uri? libsqlUri,
-    bool? verbose,
+    bool? clearOnInit,
   }) {
     return _$DatabasePoolRequest._(
       requestId: requestId,
       type: DatabasePoolRequestType.init,
       libsqlUri: libsqlUri,
-      verbose: verbose,
+      clearOnInit: clearOnInit,
     );
   }
 
@@ -114,7 +112,6 @@ abstract class DatabasePoolRequest
       requestId: requestId,
       type: DatabasePoolRequestType.openDatabase,
       databaseName: databaseName,
-      verbose: verbose,
     );
   }
 
@@ -174,7 +171,7 @@ abstract class DatabasePoolResponse
   int get requestId;
   DatabasePoolStats get stats;
   DatabasePoolResultSet? get resultSet;
-  DatabasePoolError? get error;
+  DatabaseError? get error;
 
   factory DatabasePoolResponse.success({
     required int requestId,
@@ -191,13 +188,15 @@ abstract class DatabasePoolResponse
   factory DatabasePoolResponse.failure({
     required int requestId,
     required Object error,
+    int? errorCode,
     required StackTrace stackTrace,
     required DatabasePoolStats stats,
   }) {
     return _$DatabasePoolResponse._(
       requestId: requestId,
-      error: DatabasePoolError(
+      error: DatabaseError(
         message: error.toString(),
+        code: errorCode,
         stackTrace: stackTrace,
       ),
       stats: stats,
@@ -206,7 +205,10 @@ abstract class DatabasePoolResponse
 
   DatabasePoolResultSet unwrap() {
     if (error case final error?) {
-      Error.throwWithStackTrace(StateError(error.message), error.stackTrace);
+      Error.throwWithStackTrace(
+        SqliteException(error.code ?? -1, error.error),
+        error.stackTrace,
+      );
     }
     return resultSet!;
   }
@@ -258,14 +260,14 @@ abstract class DatabasePoolResultSet
   Uint8List? get exportData;
 
   // For database operations
-  LibsqlResultSet? get resultSet;
+  DatabaseResultSet? get resultSet;
 
   // For import/delete operations (success indicator)
   bool? get success;
 
   factory DatabasePoolResultSet({
     Uint8List? exportData,
-    LibsqlResultSet? resultSet,
+    DatabaseResultSet? resultSet,
     bool? success,
   }) {
     return _$DatabasePoolResultSet._(
@@ -283,28 +285,6 @@ abstract class DatabasePoolResultSet
 
   static Serializer<DatabasePoolResultSet> get serializer =>
       _$databasePoolResultSetSerializer;
-}
-
-abstract class DatabasePoolError
-    implements Built<DatabasePoolError, DatabasePoolErrorBuilder> {
-  String get message;
-  StackTrace get stackTrace;
-
-  factory DatabasePoolError({
-    required String message,
-    required StackTrace stackTrace,
-  }) {
-    return _$DatabasePoolError._(message: message, stackTrace: stackTrace);
-  }
-
-  DatabasePoolError._();
-
-  factory DatabasePoolError.build([
-    void Function(DatabasePoolErrorBuilder) updates,
-  ]) = _$DatabasePoolError;
-
-  static Serializer<DatabasePoolError> get serializer =>
-      _$databasePoolErrorSerializer;
 }
 
 @WorkerBee('lib/workers/workers.dart')
@@ -345,6 +325,7 @@ abstract class DatabasePoolWorker
           DatabasePoolResponse.failure(
             requestId: requestId,
             error: e,
+            errorCode: e is SqliteException ? e.extendedResultCode : null,
             stackTrace: st,
             stats: sahPool.stats,
           ),
@@ -368,7 +349,9 @@ abstract class DatabasePoolWorker
               // module since the worker's cwd is different.
               moduleUri: request.libsqlUri ?? Uri.parse('/js/libsql.js'),
             );
-            sahPool = await libsql.getSAHPoolUtil();
+            sahPool = await libsql.getSAHPoolUtil(
+              clearOnInit: request.clearOnInit,
+            );
             respond.add(
               DatabasePoolResponse.success(
                 requestId: request.requestId,
@@ -379,7 +362,7 @@ abstract class DatabasePoolWorker
 
           case DatabasePoolRequestType.exportDatabase:
             await runWithErrorHandling(request.requestId, () async {
-              final data = await sahPool.exportFile(filename!);
+              final data = sahPool.exportFile(filename!);
               return DatabasePoolResultSet(exportData: data);
             });
 
@@ -431,7 +414,7 @@ abstract class DatabasePoolWorker
               final query = request.transaction!.statements.single;
               final result = db.execute(query.sql, query.parameters.toList());
               return DatabasePoolResultSet(
-                resultSet: LibsqlResultSet(
+                resultSet: DatabaseResultSet(
                   columnNames: const [],
                   rows: const [],
                   lastInsertRowId: result.lastInsertRowId,
@@ -449,7 +432,7 @@ abstract class DatabasePoolWorker
               final result =
                   db.select(query.sql, query.parameters.toList()) as ResultSet;
               return DatabasePoolResultSet(
-                resultSet: LibsqlResultSet(
+                resultSet: DatabaseResultSet(
                   columnNames: result.columnNames,
                   rows: result.rows,
                   lastInsertRowId: -1,
@@ -470,7 +453,7 @@ abstract class DatabasePoolWorker
                 }
               });
               return DatabasePoolResultSet(
-                resultSet: LibsqlResultSet(
+                resultSet: DatabaseResultSet(
                   columnNames: const [],
                   rows: const [],
                   lastInsertRowId: db.lastInsertRowId,
@@ -492,7 +475,6 @@ abstract class DatabasePoolWorker
   DatabasePoolResponse,
   DatabasePoolRequestType,
   DatabasePoolResultSet,
-  DatabasePoolError,
 ])
 final Serializers _serializers = _$_serializers;
 

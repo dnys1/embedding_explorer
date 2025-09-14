@@ -109,7 +109,8 @@ enum DataSourceType {
   sqlite(
     'SQLite Database',
     'Upload SQLite database files or create in-memory databases',
-  );
+  ),
+  sample('Sample Data', 'Use built-in sample datasets for testing');
 
   const DataSourceType(this.displayName, this.description);
 

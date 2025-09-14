@@ -1,19 +1,19 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'libsql_worker.dart';
+part of 'database_worker.dart';
 
 // **************************************************************************
 // BuiltValueGenerator
 // **************************************************************************
 
-const LibsqlRequestType _$init = const LibsqlRequestType._('init');
-const LibsqlRequestType _$execute = const LibsqlRequestType._('execute');
-const LibsqlRequestType _$query = const LibsqlRequestType._('query');
-const LibsqlRequestType _$transaction = const LibsqlRequestType._(
+const DatabaseRequestType _$init = const DatabaseRequestType._('init');
+const DatabaseRequestType _$execute = const DatabaseRequestType._('execute');
+const DatabaseRequestType _$query = const DatabaseRequestType._('query');
+const DatabaseRequestType _$transaction = const DatabaseRequestType._(
   'transaction',
 );
 
-LibsqlRequestType _$valueOf(String name) {
+DatabaseRequestType _$valueOf(String name) {
   switch (name) {
     case 'init':
       return _$init;
@@ -28,17 +28,17 @@ LibsqlRequestType _$valueOf(String name) {
   }
 }
 
-final BuiltSet<LibsqlRequestType> _$values = BuiltSet<LibsqlRequestType>(
-  const <LibsqlRequestType>[_$init, _$execute, _$query, _$transaction],
+final BuiltSet<DatabaseRequestType> _$values = BuiltSet<DatabaseRequestType>(
+  const <DatabaseRequestType>[_$init, _$execute, _$query, _$transaction],
 );
 
 Serializers _$_serializers =
     (Serializers().toBuilder()
-          ..add(LibsqlError.serializer)
-          ..add(LibsqlRequest.serializer)
-          ..add(LibsqlRequestType.serializer)
-          ..add(LibsqlResponse.serializer)
-          ..add(LibsqlResultSet.serializer)
+          ..add(DatabaseError.serializer)
+          ..add(DatabaseRequest.serializer)
+          ..add(DatabaseRequestType.serializer)
+          ..add(DatabaseResponse.serializer)
+          ..add(DatabaseResultSet.serializer)
           ..add(SqlStatement.serializer)
           ..add(Transaction.serializer)
           ..addBuilderFactory(
@@ -62,48 +62,50 @@ Serializers _$_serializers =
             () => ListBuilder<Object?>(),
           ))
         .build();
-Serializer<LibsqlRequestType> _$libsqlRequestTypeSerializer =
-    _$LibsqlRequestTypeSerializer();
-Serializer<LibsqlRequest> _$libsqlRequestSerializer =
-    _$LibsqlRequestSerializer();
-Serializer<LibsqlResponse> _$libsqlResponseSerializer =
-    _$LibsqlResponseSerializer();
-Serializer<LibsqlResultSet> _$libsqlResultSetSerializer =
-    _$LibsqlResultSetSerializer();
-Serializer<LibsqlError> _$libsqlErrorSerializer = _$LibsqlErrorSerializer();
+Serializer<DatabaseRequestType> _$databaseRequestTypeSerializer =
+    _$DatabaseRequestTypeSerializer();
+Serializer<DatabaseRequest> _$databaseRequestSerializer =
+    _$DatabaseRequestSerializer();
+Serializer<DatabaseResponse> _$databaseResponseSerializer =
+    _$DatabaseResponseSerializer();
+Serializer<DatabaseResultSet> _$databaseResultSetSerializer =
+    _$DatabaseResultSetSerializer();
+Serializer<DatabaseError> _$databaseErrorSerializer =
+    _$DatabaseErrorSerializer();
 
-class _$LibsqlRequestTypeSerializer
-    implements PrimitiveSerializer<LibsqlRequestType> {
+class _$DatabaseRequestTypeSerializer
+    implements PrimitiveSerializer<DatabaseRequestType> {
   @override
-  final Iterable<Type> types = const <Type>[LibsqlRequestType];
+  final Iterable<Type> types = const <Type>[DatabaseRequestType];
   @override
-  final String wireName = 'LibsqlRequestType';
+  final String wireName = 'DatabaseRequestType';
 
   @override
   Object serialize(
     Serializers serializers,
-    LibsqlRequestType object, {
+    DatabaseRequestType object, {
     FullType specifiedType = FullType.unspecified,
   }) => object.name;
 
   @override
-  LibsqlRequestType deserialize(
+  DatabaseRequestType deserialize(
     Serializers serializers,
     Object serialized, {
     FullType specifiedType = FullType.unspecified,
-  }) => LibsqlRequestType.valueOf(serialized as String);
+  }) => DatabaseRequestType.valueOf(serialized as String);
 }
 
-class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
+class _$DatabaseRequestSerializer
+    implements StructuredSerializer<DatabaseRequest> {
   @override
-  final Iterable<Type> types = const [LibsqlRequest, _$LibsqlRequest];
+  final Iterable<Type> types = const [DatabaseRequest, _$DatabaseRequest];
   @override
-  final String wireName = 'LibsqlRequest';
+  final String wireName = 'DatabaseRequest';
 
   @override
   Iterable<Object?> serialize(
     Serializers serializers,
-    LibsqlRequest object, {
+    DatabaseRequest object, {
     FullType specifiedType = FullType.unspecified,
   }) {
     final result = <Object?>[
@@ -115,7 +117,7 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
       'type',
       serializers.serialize(
         object.type,
-        specifiedType: const FullType(LibsqlRequestType),
+        specifiedType: const FullType(DatabaseRequestType),
       ),
       'transaction',
       serializers.serialize(
@@ -124,10 +126,10 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
       ),
     ];
     Object? value;
-    value = object.moduleUri;
+    value = object.libsqlUri;
     if (value != null) {
       result
-        ..add('moduleUri')
+        ..add('libsqlUri')
         ..add(serializers.serialize(value, specifiedType: const FullType(Uri)));
     }
     value = object.filename;
@@ -150,12 +152,12 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
   }
 
   @override
-  LibsqlRequest deserialize(
+  DatabaseRequest deserialize(
     Serializers serializers,
     Iterable<Object?> serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = LibsqlRequestBuilder();
+    final result = DatabaseRequestBuilder();
 
     final iterator = serialized.iterator;
     while (iterator.moveNext()) {
@@ -175,9 +177,9 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
           result.type =
               serializers.deserialize(
                     value,
-                    specifiedType: const FullType(LibsqlRequestType),
+                    specifiedType: const FullType(DatabaseRequestType),
                   )!
-                  as LibsqlRequestType;
+                  as DatabaseRequestType;
           break;
         case 'transaction':
           result.transaction.replace(
@@ -188,8 +190,8 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
                 as Transaction,
           );
           break;
-        case 'moduleUri':
-          result.moduleUri =
+        case 'libsqlUri':
+          result.libsqlUri =
               serializers.deserialize(value, specifiedType: const FullType(Uri))
                   as Uri?;
           break;
@@ -216,17 +218,17 @@ class _$LibsqlRequestSerializer implements StructuredSerializer<LibsqlRequest> {
   }
 }
 
-class _$LibsqlResponseSerializer
-    implements StructuredSerializer<LibsqlResponse> {
+class _$DatabaseResponseSerializer
+    implements StructuredSerializer<DatabaseResponse> {
   @override
-  final Iterable<Type> types = const [LibsqlResponse, _$LibsqlResponse];
+  final Iterable<Type> types = const [DatabaseResponse, _$DatabaseResponse];
   @override
-  final String wireName = 'LibsqlResponse';
+  final String wireName = 'DatabaseResponse';
 
   @override
   Iterable<Object?> serialize(
     Serializers serializers,
-    LibsqlResponse object, {
+    DatabaseResponse object, {
     FullType specifiedType = FullType.unspecified,
   }) {
     final result = <Object?>[
@@ -244,7 +246,7 @@ class _$LibsqlResponseSerializer
         ..add(
           serializers.serialize(
             value,
-            specifiedType: const FullType(LibsqlResultSet),
+            specifiedType: const FullType(DatabaseResultSet),
           ),
         );
     }
@@ -255,7 +257,7 @@ class _$LibsqlResponseSerializer
         ..add(
           serializers.serialize(
             value,
-            specifiedType: const FullType(LibsqlError),
+            specifiedType: const FullType(DatabaseError),
           ),
         );
     }
@@ -263,12 +265,12 @@ class _$LibsqlResponseSerializer
   }
 
   @override
-  LibsqlResponse deserialize(
+  DatabaseResponse deserialize(
     Serializers serializers,
     Iterable<Object?> serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = LibsqlResponseBuilder();
+    final result = DatabaseResponseBuilder();
 
     final iterator = serialized.iterator;
     while (iterator.moveNext()) {
@@ -288,18 +290,18 @@ class _$LibsqlResponseSerializer
           result.resultSet.replace(
             serializers.deserialize(
                   value,
-                  specifiedType: const FullType(LibsqlResultSet),
+                  specifiedType: const FullType(DatabaseResultSet),
                 )!
-                as LibsqlResultSet,
+                as DatabaseResultSet,
           );
           break;
         case 'error':
           result.error.replace(
             serializers.deserialize(
                   value,
-                  specifiedType: const FullType(LibsqlError),
+                  specifiedType: const FullType(DatabaseError),
                 )!
-                as LibsqlError,
+                as DatabaseError,
           );
           break;
       }
@@ -309,17 +311,17 @@ class _$LibsqlResponseSerializer
   }
 }
 
-class _$LibsqlResultSetSerializer
-    implements StructuredSerializer<LibsqlResultSet> {
+class _$DatabaseResultSetSerializer
+    implements StructuredSerializer<DatabaseResultSet> {
   @override
-  final Iterable<Type> types = const [LibsqlResultSet, _$LibsqlResultSet];
+  final Iterable<Type> types = const [DatabaseResultSet, _$DatabaseResultSet];
   @override
-  final String wireName = 'LibsqlResultSet';
+  final String wireName = 'DatabaseResultSet';
 
   @override
   Iterable<Object?> serialize(
     Serializers serializers,
-    LibsqlResultSet object, {
+    DatabaseResultSet object, {
     FullType specifiedType = FullType.unspecified,
   }) {
     final result = <Object?>[
@@ -353,12 +355,12 @@ class _$LibsqlResultSetSerializer
   }
 
   @override
-  LibsqlResultSet deserialize(
+  DatabaseResultSet deserialize(
     Serializers serializers,
     Iterable<Object?> serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = LibsqlResultSetBuilder();
+    final result = DatabaseResultSetBuilder();
 
     final iterator = serialized.iterator;
     while (iterator.moveNext()) {
@@ -413,16 +415,16 @@ class _$LibsqlResultSetSerializer
   }
 }
 
-class _$LibsqlErrorSerializer implements StructuredSerializer<LibsqlError> {
+class _$DatabaseErrorSerializer implements StructuredSerializer<DatabaseError> {
   @override
-  final Iterable<Type> types = const [LibsqlError, _$LibsqlError];
+  final Iterable<Type> types = const [DatabaseError, _$DatabaseError];
   @override
-  final String wireName = 'LibsqlError';
+  final String wireName = 'DatabaseError';
 
   @override
   Iterable<Object?> serialize(
     Serializers serializers,
-    LibsqlError object, {
+    DatabaseError object, {
     FullType specifiedType = FullType.unspecified,
   }) {
     final result = <Object?>[
@@ -448,12 +450,12 @@ class _$LibsqlErrorSerializer implements StructuredSerializer<LibsqlError> {
   }
 
   @override
-  LibsqlError deserialize(
+  DatabaseError deserialize(
     Serializers serializers,
     Iterable<Object?> serialized, {
     FullType specifiedType = FullType.unspecified,
   }) {
-    final result = LibsqlErrorBuilder();
+    final result = DatabaseErrorBuilder();
 
     final iterator = serialized.iterator;
     while (iterator.moveNext()) {
@@ -489,46 +491,46 @@ class _$LibsqlErrorSerializer implements StructuredSerializer<LibsqlError> {
   }
 }
 
-class _$LibsqlRequest extends LibsqlRequest {
+class _$DatabaseRequest extends DatabaseRequest {
   @override
   final int requestId;
   @override
-  final LibsqlRequestType type;
+  final DatabaseRequestType type;
   @override
   final Transaction transaction;
   @override
-  final Uri? moduleUri;
+  final Uri? libsqlUri;
   @override
   final String? filename;
   @override
   final String? vfsName;
 
-  factory _$LibsqlRequest([void Function(LibsqlRequestBuilder)? updates]) =>
-      (LibsqlRequestBuilder()..update(updates))._build();
+  factory _$DatabaseRequest([void Function(DatabaseRequestBuilder)? updates]) =>
+      (DatabaseRequestBuilder()..update(updates))._build();
 
-  _$LibsqlRequest._({
+  _$DatabaseRequest._({
     required this.requestId,
     required this.type,
     required this.transaction,
-    this.moduleUri,
+    this.libsqlUri,
     this.filename,
     this.vfsName,
   }) : super._();
   @override
-  LibsqlRequest rebuild(void Function(LibsqlRequestBuilder) updates) =>
+  DatabaseRequest rebuild(void Function(DatabaseRequestBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  LibsqlRequestBuilder toBuilder() => LibsqlRequestBuilder()..replace(this);
+  DatabaseRequestBuilder toBuilder() => DatabaseRequestBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is LibsqlRequest &&
+    return other is DatabaseRequest &&
         requestId == other.requestId &&
         type == other.type &&
         transaction == other.transaction &&
-        moduleUri == other.moduleUri &&
+        libsqlUri == other.libsqlUri &&
         filename == other.filename &&
         vfsName == other.vfsName;
   }
@@ -539,7 +541,7 @@ class _$LibsqlRequest extends LibsqlRequest {
     _$hash = $jc(_$hash, requestId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, transaction.hashCode);
-    _$hash = $jc(_$hash, moduleUri.hashCode);
+    _$hash = $jc(_$hash, libsqlUri.hashCode);
     _$hash = $jc(_$hash, filename.hashCode);
     _$hash = $jc(_$hash, vfsName.hashCode);
     _$hash = $jf(_$hash);
@@ -548,28 +550,28 @@ class _$LibsqlRequest extends LibsqlRequest {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'LibsqlRequest')
+    return (newBuiltValueToStringHelper(r'DatabaseRequest')
           ..add('requestId', requestId)
           ..add('type', type)
           ..add('transaction', transaction)
-          ..add('moduleUri', moduleUri)
+          ..add('libsqlUri', libsqlUri)
           ..add('filename', filename)
           ..add('vfsName', vfsName))
         .toString();
   }
 }
 
-class LibsqlRequestBuilder
-    implements Builder<LibsqlRequest, LibsqlRequestBuilder> {
-  _$LibsqlRequest? _$v;
+class DatabaseRequestBuilder
+    implements Builder<DatabaseRequest, DatabaseRequestBuilder> {
+  _$DatabaseRequest? _$v;
 
   int? _requestId;
   int? get requestId => _$this._requestId;
   set requestId(int? requestId) => _$this._requestId = requestId;
 
-  LibsqlRequestType? _type;
-  LibsqlRequestType? get type => _$this._type;
-  set type(LibsqlRequestType? type) => _$this._type = type;
+  DatabaseRequestType? _type;
+  DatabaseRequestType? get type => _$this._type;
+  set type(DatabaseRequestType? type) => _$this._type = type;
 
   TransactionBuilder? _transaction;
   TransactionBuilder get transaction =>
@@ -577,9 +579,9 @@ class LibsqlRequestBuilder
   set transaction(TransactionBuilder? transaction) =>
       _$this._transaction = transaction;
 
-  Uri? _moduleUri;
-  Uri? get moduleUri => _$this._moduleUri;
-  set moduleUri(Uri? moduleUri) => _$this._moduleUri = moduleUri;
+  Uri? _libsqlUri;
+  Uri? get libsqlUri => _$this._libsqlUri;
+  set libsqlUri(Uri? libsqlUri) => _$this._libsqlUri = libsqlUri;
 
   String? _filename;
   String? get filename => _$this._filename;
@@ -589,15 +591,15 @@ class LibsqlRequestBuilder
   String? get vfsName => _$this._vfsName;
   set vfsName(String? vfsName) => _$this._vfsName = vfsName;
 
-  LibsqlRequestBuilder();
+  DatabaseRequestBuilder();
 
-  LibsqlRequestBuilder get _$this {
+  DatabaseRequestBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _requestId = $v.requestId;
       _type = $v.type;
       _transaction = $v.transaction.toBuilder();
-      _moduleUri = $v.moduleUri;
+      _libsqlUri = $v.libsqlUri;
       _filename = $v.filename;
       _vfsName = $v.vfsName;
       _$v = null;
@@ -606,36 +608,36 @@ class LibsqlRequestBuilder
   }
 
   @override
-  void replace(LibsqlRequest other) {
-    _$v = other as _$LibsqlRequest;
+  void replace(DatabaseRequest other) {
+    _$v = other as _$DatabaseRequest;
   }
 
   @override
-  void update(void Function(LibsqlRequestBuilder)? updates) {
+  void update(void Function(DatabaseRequestBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  LibsqlRequest build() => _build();
+  DatabaseRequest build() => _build();
 
-  _$LibsqlRequest _build() {
-    _$LibsqlRequest _$result;
+  _$DatabaseRequest _build() {
+    _$DatabaseRequest _$result;
     try {
       _$result =
           _$v ??
-          _$LibsqlRequest._(
+          _$DatabaseRequest._(
             requestId: BuiltValueNullFieldError.checkNotNull(
               requestId,
-              r'LibsqlRequest',
+              r'DatabaseRequest',
               'requestId',
             ),
             type: BuiltValueNullFieldError.checkNotNull(
               type,
-              r'LibsqlRequest',
+              r'DatabaseRequest',
               'type',
             ),
             transaction: transaction.build(),
-            moduleUri: moduleUri,
+            libsqlUri: libsqlUri,
             filename: filename,
             vfsName: vfsName,
           );
@@ -646,7 +648,7 @@ class LibsqlRequestBuilder
         transaction.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
-          r'LibsqlRequest',
+          r'DatabaseRequest',
           _$failedField,
           e.toString(),
         );
@@ -658,30 +660,32 @@ class LibsqlRequestBuilder
   }
 }
 
-class _$LibsqlResponse extends LibsqlResponse {
+class _$DatabaseResponse extends DatabaseResponse {
   @override
   final int requestId;
   @override
-  final LibsqlResultSet? resultSet;
+  final DatabaseResultSet? resultSet;
   @override
-  final LibsqlError? error;
+  final DatabaseError? error;
 
-  factory _$LibsqlResponse([void Function(LibsqlResponseBuilder)? updates]) =>
-      (LibsqlResponseBuilder()..update(updates))._build();
+  factory _$DatabaseResponse([
+    void Function(DatabaseResponseBuilder)? updates,
+  ]) => (DatabaseResponseBuilder()..update(updates))._build();
 
-  _$LibsqlResponse._({required this.requestId, this.resultSet, this.error})
+  _$DatabaseResponse._({required this.requestId, this.resultSet, this.error})
     : super._();
   @override
-  LibsqlResponse rebuild(void Function(LibsqlResponseBuilder) updates) =>
+  DatabaseResponse rebuild(void Function(DatabaseResponseBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  LibsqlResponseBuilder toBuilder() => LibsqlResponseBuilder()..replace(this);
+  DatabaseResponseBuilder toBuilder() =>
+      DatabaseResponseBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is LibsqlResponse &&
+    return other is DatabaseResponse &&
         requestId == other.requestId &&
         resultSet == other.resultSet &&
         error == other.error;
@@ -699,7 +703,7 @@ class _$LibsqlResponse extends LibsqlResponse {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'LibsqlResponse')
+    return (newBuiltValueToStringHelper(r'DatabaseResponse')
           ..add('requestId', requestId)
           ..add('resultSet', resultSet)
           ..add('error', error))
@@ -707,27 +711,27 @@ class _$LibsqlResponse extends LibsqlResponse {
   }
 }
 
-class LibsqlResponseBuilder
-    implements Builder<LibsqlResponse, LibsqlResponseBuilder> {
-  _$LibsqlResponse? _$v;
+class DatabaseResponseBuilder
+    implements Builder<DatabaseResponse, DatabaseResponseBuilder> {
+  _$DatabaseResponse? _$v;
 
   int? _requestId;
   int? get requestId => _$this._requestId;
   set requestId(int? requestId) => _$this._requestId = requestId;
 
-  LibsqlResultSetBuilder? _resultSet;
-  LibsqlResultSetBuilder get resultSet =>
-      _$this._resultSet ??= LibsqlResultSetBuilder();
-  set resultSet(LibsqlResultSetBuilder? resultSet) =>
+  DatabaseResultSetBuilder? _resultSet;
+  DatabaseResultSetBuilder get resultSet =>
+      _$this._resultSet ??= DatabaseResultSetBuilder();
+  set resultSet(DatabaseResultSetBuilder? resultSet) =>
       _$this._resultSet = resultSet;
 
-  LibsqlErrorBuilder? _error;
-  LibsqlErrorBuilder get error => _$this._error ??= LibsqlErrorBuilder();
-  set error(LibsqlErrorBuilder? error) => _$this._error = error;
+  DatabaseErrorBuilder? _error;
+  DatabaseErrorBuilder get error => _$this._error ??= DatabaseErrorBuilder();
+  set error(DatabaseErrorBuilder? error) => _$this._error = error;
 
-  LibsqlResponseBuilder();
+  DatabaseResponseBuilder();
 
-  LibsqlResponseBuilder get _$this {
+  DatabaseResponseBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _requestId = $v.requestId;
@@ -739,27 +743,27 @@ class LibsqlResponseBuilder
   }
 
   @override
-  void replace(LibsqlResponse other) {
-    _$v = other as _$LibsqlResponse;
+  void replace(DatabaseResponse other) {
+    _$v = other as _$DatabaseResponse;
   }
 
   @override
-  void update(void Function(LibsqlResponseBuilder)? updates) {
+  void update(void Function(DatabaseResponseBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  LibsqlResponse build() => _build();
+  DatabaseResponse build() => _build();
 
-  _$LibsqlResponse _build() {
-    _$LibsqlResponse _$result;
+  _$DatabaseResponse _build() {
+    _$DatabaseResponse _$result;
     try {
       _$result =
           _$v ??
-          _$LibsqlResponse._(
+          _$DatabaseResponse._(
             requestId: BuiltValueNullFieldError.checkNotNull(
               requestId,
-              r'LibsqlResponse',
+              r'DatabaseResponse',
               'requestId',
             ),
             resultSet: _resultSet?.build(),
@@ -774,7 +778,7 @@ class LibsqlResponseBuilder
         _error?.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
-          r'LibsqlResponse',
+          r'DatabaseResponse',
           _$failedField,
           e.toString(),
         );
@@ -786,7 +790,7 @@ class LibsqlResponseBuilder
   }
 }
 
-class _$LibsqlResultSet extends LibsqlResultSet {
+class _$DatabaseResultSet extends DatabaseResultSet {
   @override
   final BuiltList<String> columnNames;
   @override
@@ -796,26 +800,28 @@ class _$LibsqlResultSet extends LibsqlResultSet {
   @override
   final BuiltList<BuiltList<Object?>> rows;
 
-  factory _$LibsqlResultSet([void Function(LibsqlResultSetBuilder)? updates]) =>
-      (LibsqlResultSetBuilder()..update(updates))._build();
+  factory _$DatabaseResultSet([
+    void Function(DatabaseResultSetBuilder)? updates,
+  ]) => (DatabaseResultSetBuilder()..update(updates))._build();
 
-  _$LibsqlResultSet._({
+  _$DatabaseResultSet._({
     required this.columnNames,
     required this.lastInsertRowId,
     required this.updatedRows,
     required this.rows,
   }) : super._();
   @override
-  LibsqlResultSet rebuild(void Function(LibsqlResultSetBuilder) updates) =>
+  DatabaseResultSet rebuild(void Function(DatabaseResultSetBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  LibsqlResultSetBuilder toBuilder() => LibsqlResultSetBuilder()..replace(this);
+  DatabaseResultSetBuilder toBuilder() =>
+      DatabaseResultSetBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is LibsqlResultSet &&
+    return other is DatabaseResultSet &&
         columnNames == other.columnNames &&
         lastInsertRowId == other.lastInsertRowId &&
         updatedRows == other.updatedRows &&
@@ -835,7 +841,7 @@ class _$LibsqlResultSet extends LibsqlResultSet {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'LibsqlResultSet')
+    return (newBuiltValueToStringHelper(r'DatabaseResultSet')
           ..add('columnNames', columnNames)
           ..add('lastInsertRowId', lastInsertRowId)
           ..add('updatedRows', updatedRows)
@@ -844,9 +850,9 @@ class _$LibsqlResultSet extends LibsqlResultSet {
   }
 }
 
-class LibsqlResultSetBuilder
-    implements Builder<LibsqlResultSet, LibsqlResultSetBuilder> {
-  _$LibsqlResultSet? _$v;
+class DatabaseResultSetBuilder
+    implements Builder<DatabaseResultSet, DatabaseResultSetBuilder> {
+  _$DatabaseResultSet? _$v;
 
   ListBuilder<String>? _columnNames;
   ListBuilder<String> get columnNames =>
@@ -868,9 +874,9 @@ class LibsqlResultSetBuilder
       _$this._rows ??= ListBuilder<BuiltList<Object?>>();
   set rows(ListBuilder<BuiltList<Object?>>? rows) => _$this._rows = rows;
 
-  LibsqlResultSetBuilder();
+  DatabaseResultSetBuilder();
 
-  LibsqlResultSetBuilder get _$this {
+  DatabaseResultSetBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _columnNames = $v.columnNames.toBuilder();
@@ -883,33 +889,33 @@ class LibsqlResultSetBuilder
   }
 
   @override
-  void replace(LibsqlResultSet other) {
-    _$v = other as _$LibsqlResultSet;
+  void replace(DatabaseResultSet other) {
+    _$v = other as _$DatabaseResultSet;
   }
 
   @override
-  void update(void Function(LibsqlResultSetBuilder)? updates) {
+  void update(void Function(DatabaseResultSetBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  LibsqlResultSet build() => _build();
+  DatabaseResultSet build() => _build();
 
-  _$LibsqlResultSet _build() {
-    _$LibsqlResultSet _$result;
+  _$DatabaseResultSet _build() {
+    _$DatabaseResultSet _$result;
     try {
       _$result =
           _$v ??
-          _$LibsqlResultSet._(
+          _$DatabaseResultSet._(
             columnNames: columnNames.build(),
             lastInsertRowId: BuiltValueNullFieldError.checkNotNull(
               lastInsertRowId,
-              r'LibsqlResultSet',
+              r'DatabaseResultSet',
               'lastInsertRowId',
             ),
             updatedRows: BuiltValueNullFieldError.checkNotNull(
               updatedRows,
-              r'LibsqlResultSet',
+              r'DatabaseResultSet',
               'updatedRows',
             ),
             rows: rows.build(),
@@ -924,7 +930,7 @@ class LibsqlResultSetBuilder
         rows.build();
       } catch (e) {
         throw BuiltValueNestedFieldError(
-          r'LibsqlResultSet',
+          r'DatabaseResultSet',
           _$failedField,
           e.toString(),
         );
@@ -936,7 +942,7 @@ class LibsqlResultSetBuilder
   }
 }
 
-class _$LibsqlError extends LibsqlError {
+class _$DatabaseError extends DatabaseError {
   @override
   final String error;
   @override
@@ -944,22 +950,22 @@ class _$LibsqlError extends LibsqlError {
   @override
   final StackTrace stackTrace;
 
-  factory _$LibsqlError([void Function(LibsqlErrorBuilder)? updates]) =>
-      (LibsqlErrorBuilder()..update(updates))._build();
+  factory _$DatabaseError([void Function(DatabaseErrorBuilder)? updates]) =>
+      (DatabaseErrorBuilder()..update(updates))._build();
 
-  _$LibsqlError._({required this.error, this.code, required this.stackTrace})
+  _$DatabaseError._({required this.error, this.code, required this.stackTrace})
     : super._();
   @override
-  LibsqlError rebuild(void Function(LibsqlErrorBuilder) updates) =>
+  DatabaseError rebuild(void Function(DatabaseErrorBuilder) updates) =>
       (toBuilder()..update(updates)).build();
 
   @override
-  LibsqlErrorBuilder toBuilder() => LibsqlErrorBuilder()..replace(this);
+  DatabaseErrorBuilder toBuilder() => DatabaseErrorBuilder()..replace(this);
 
   @override
   bool operator ==(Object other) {
     if (identical(other, this)) return true;
-    return other is LibsqlError &&
+    return other is DatabaseError &&
         error == other.error &&
         code == other.code &&
         stackTrace == other.stackTrace;
@@ -977,7 +983,7 @@ class _$LibsqlError extends LibsqlError {
 
   @override
   String toString() {
-    return (newBuiltValueToStringHelper(r'LibsqlError')
+    return (newBuiltValueToStringHelper(r'DatabaseError')
           ..add('error', error)
           ..add('code', code)
           ..add('stackTrace', stackTrace))
@@ -985,8 +991,9 @@ class _$LibsqlError extends LibsqlError {
   }
 }
 
-class LibsqlErrorBuilder implements Builder<LibsqlError, LibsqlErrorBuilder> {
-  _$LibsqlError? _$v;
+class DatabaseErrorBuilder
+    implements Builder<DatabaseError, DatabaseErrorBuilder> {
+  _$DatabaseError? _$v;
 
   String? _error;
   String? get error => _$this._error;
@@ -1000,9 +1007,9 @@ class LibsqlErrorBuilder implements Builder<LibsqlError, LibsqlErrorBuilder> {
   StackTrace? get stackTrace => _$this._stackTrace;
   set stackTrace(StackTrace? stackTrace) => _$this._stackTrace = stackTrace;
 
-  LibsqlErrorBuilder();
+  DatabaseErrorBuilder();
 
-  LibsqlErrorBuilder get _$this {
+  DatabaseErrorBuilder get _$this {
     final $v = _$v;
     if ($v != null) {
       _error = $v.error;
@@ -1014,31 +1021,31 @@ class LibsqlErrorBuilder implements Builder<LibsqlError, LibsqlErrorBuilder> {
   }
 
   @override
-  void replace(LibsqlError other) {
-    _$v = other as _$LibsqlError;
+  void replace(DatabaseError other) {
+    _$v = other as _$DatabaseError;
   }
 
   @override
-  void update(void Function(LibsqlErrorBuilder)? updates) {
+  void update(void Function(DatabaseErrorBuilder)? updates) {
     if (updates != null) updates(this);
   }
 
   @override
-  LibsqlError build() => _build();
+  DatabaseError build() => _build();
 
-  _$LibsqlError _build() {
+  _$DatabaseError _build() {
     final _$result =
         _$v ??
-        _$LibsqlError._(
+        _$DatabaseError._(
           error: BuiltValueNullFieldError.checkNotNull(
             error,
-            r'LibsqlError',
+            r'DatabaseError',
             'error',
           ),
           code: code,
           stackTrace: BuiltValueNullFieldError.checkNotNull(
             stackTrace,
-            r'LibsqlError',
+            r'DatabaseError',
             'stackTrace',
           ),
         );
@@ -1053,10 +1060,10 @@ class LibsqlErrorBuilder implements Builder<LibsqlError, LibsqlErrorBuilder> {
 // WorkerBeeGenerator
 // **************************************************************************
 
-/// The JS implementation of [LibsqlWorker].
-class _$LibsqlWorker extends LibsqlWorker {
+/// The JS implementation of [DatabaseWorker].
+class _$DatabaseWorker extends DatabaseWorker {
   @override
-  String get name => 'LibsqlWorker';
+  String get name => 'DatabaseWorker';
 
   @override
   String get jsEntrypoint {

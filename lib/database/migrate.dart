@@ -33,7 +33,7 @@ class Migrate {
 
   /// Ensures the migrations table exists in the database.
   /// Creates a table to track which migrations have been applied.
-  Future<void> _ensureMigrationsTable(IDatabase database) async {
+  Future<void> _ensureMigrationsTable(DatabaseHandle database) async {
     database.execute('''
         CREATE TABLE IF NOT EXISTS schema_migrations (
           version INTEGER PRIMARY KEY,
@@ -45,7 +45,7 @@ class Migrate {
   /// Gets the current database schema version by finding the highest
   /// version number in the migrations table.
   /// Returns 0 if no migrations have been applied yet.
-  Future<int> getCurrentVersion(IDatabase database) async {
+  Future<int> getCurrentVersion(DatabaseHandle database) async {
     await _ensureMigrationsTable(database);
 
     final result = await database.select(
@@ -66,7 +66,7 @@ class Migrate {
   /// If [to] is specified, only migrations up to that version will be applied.
   /// If [to] is null, all pending migrations will be applied.
   /// If [to] is less than the current version, no migrations will be applied.
-  Future<void> up(IDatabase database, {int? to}) async {
+  Future<void> up(DatabaseHandle database, {int? to}) async {
     final currentVersion = await getCurrentVersion(database);
 
     // Determine the target version
@@ -131,7 +131,7 @@ class Migrate {
   /// If [to] is specified, migrations will be rolled back to that version.
   /// If [to] is null, only the most recent migration will be rolled back.
   /// If [to] is greater than or equal to the current version, no rollbacks will be performed.
-  Future<void> down(IDatabase database, {int? to}) async {
+  Future<void> down(DatabaseHandle database, {int? to}) async {
     final currentVersion = await getCurrentVersion(database);
 
     if (currentVersion == 0) {

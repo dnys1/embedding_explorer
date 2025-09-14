@@ -3,7 +3,7 @@ import 'dart:js_interop';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart';
 
-void configureLogging({required Level level}) {
+void configureLogging({required Level level, bool isTest = false}) {
   Logger.root.level = level;
   Logger.root.onRecord.listen((record) {
     final buffer = StringBuffer();
@@ -19,7 +19,10 @@ void configureLogging({required Level level}) {
         ..write(stackTrace);
     }
     final message = buffer.toString().toJS;
-    // print(message);
+    if (isTest) {
+      // Print to console in tests so that logs show in CLI output.
+      print(message);
+    }
     switch (record.level) {
       case Level.SEVERE || Level.SHOUT:
         console.error(message);

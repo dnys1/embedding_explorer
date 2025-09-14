@@ -166,18 +166,6 @@ class CsvDataSource extends DataSource {
     return result;
   }
 
-  @override
-  List<String> validate() {
-    final errors = <String>[];
-
-    final delimiter = csvSettings.delimiter;
-    if (delimiter.isEmpty) {
-      errors.add('Delimiter is required');
-    }
-
-    return errors;
-  }
-
   /// Convert raw CSV rows to list of maps with proper field names
   List<Map<String, dynamic>> _convertRowsToMaps(Iterable<List<dynamic>> rows) {
     _logger.finest(

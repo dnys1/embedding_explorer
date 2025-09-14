@@ -25,11 +25,13 @@ void main() {
 
   group('ConfigurationService', () {
     late ConfigurationService service;
-    late IDatabase database;
+    late Database database;
+
+    setUpAll(loadLibsql);
 
     setUp(() async {
       service = ConfigurationService();
-      database = await IDatabase.open(':memory:', moduleUri: testLibsqlUri);
+      database = Database.memory();
       await service.initialize(database: database);
     });
 

@@ -80,6 +80,9 @@ class DataSourceRepository with ChangeNotifier {
         config: config,
         file: file,
       ),
+      DataSourceType.sample => throw UnsupportedError(
+        'Loading sample data source from file is not supported',
+      ),
     };
     _dataSources[config.id] = dataSource;
     unawaited(_configManager.dataSourceConfigs.add(config));
@@ -98,6 +101,10 @@ class DataSourceRepository with ChangeNotifier {
         dbPool: _databasePool,
         config: config,
       ),
+      DataSourceType.sample => SampleDataSource.connect(
+        dbPool: _databasePool,
+        config: config,
+      ),
     };
 
     _dataSources[config.id] = dataSource;
@@ -111,10 +118,7 @@ class DataSourceRepository with ChangeNotifier {
     try {
       await dataSource?.dispose();
       if (dataSource case SqliteDataSource(
-        sqliteSettings: SqliteDataSourceSettings(
-          filename: final filename?,
-          persistent: true,
-        ),
+        sqliteSettings: SqliteDataSourceSettings(filename: final filename?),
       )) {
         await _databasePool.delete(filename);
       }

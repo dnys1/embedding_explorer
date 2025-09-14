@@ -11,99 +11,101 @@ import '../database/database.dart';
 import '../database/transaction.dart';
 import '../interop/libsql.dart' as libsql;
 
-part 'libsql_worker.g.dart';
+part 'database_worker.g.dart';
 
-class LibsqlRequestType extends EnumClass {
-  static const LibsqlRequestType init = _$init;
-  static const LibsqlRequestType execute = _$execute;
-  static const LibsqlRequestType query = _$query;
-  static const LibsqlRequestType transaction = _$transaction;
+class DatabaseRequestType extends EnumClass {
+  static const DatabaseRequestType init = _$init;
+  static const DatabaseRequestType execute = _$execute;
+  static const DatabaseRequestType query = _$query;
+  static const DatabaseRequestType transaction = _$transaction;
 
-  const LibsqlRequestType._(super.name);
+  const DatabaseRequestType._(super.name);
 
-  static BuiltSet<LibsqlRequestType> get values => _$values;
-  static LibsqlRequestType valueOf(String name) => _$valueOf(name);
+  static BuiltSet<DatabaseRequestType> get values => _$values;
+  static DatabaseRequestType valueOf(String name) => _$valueOf(name);
 
-  static Serializer<LibsqlRequestType> get serializer =>
-      _$libsqlRequestTypeSerializer;
+  static Serializer<DatabaseRequestType> get serializer =>
+      _$databaseRequestTypeSerializer;
 }
 
-abstract class LibsqlRequest
-    implements Built<LibsqlRequest, LibsqlRequestBuilder> {
-  factory LibsqlRequest({
+abstract class DatabaseRequest
+    implements Built<DatabaseRequest, DatabaseRequestBuilder> {
+  factory DatabaseRequest({
     required int requestId,
-    required LibsqlRequestType type,
+    required DatabaseRequestType type,
     required String sql,
     required List<Object?> parameters,
   }) {
-    return _$LibsqlRequest._(
+    return _$DatabaseRequest._(
       requestId: requestId,
       type: type,
       transaction: Transaction([SqlStatement(sql, parameters)]),
     );
   }
-  factory LibsqlRequest.transaction({
+  factory DatabaseRequest.transaction({
     required int requestId,
-    required LibsqlRequestType type,
+    required DatabaseRequestType type,
     required Transaction transaction,
   }) {
-    return _$LibsqlRequest._(
+    return _$DatabaseRequest._(
       requestId: requestId,
       type: type,
       transaction: transaction,
     );
   }
 
-  factory LibsqlRequest.init({
+  factory DatabaseRequest.init({
     required int requestId,
     required String filename,
-    required String vfs,
-    Uri? moduleUri,
+    String? vfs,
+    Uri? libsqlUri,
   }) {
-    return _$LibsqlRequest._(
+    return _$DatabaseRequest._(
       requestId: requestId,
-      type: LibsqlRequestType.init,
+      type: DatabaseRequestType.init,
       transaction: Transaction.empty,
       filename: filename,
-      moduleUri: moduleUri,
+      libsqlUri: libsqlUri,
       vfsName: vfs,
     );
   }
 
   int get requestId;
-  LibsqlRequestType get type;
+  DatabaseRequestType get type;
   Transaction get transaction;
 
   // Init
-  Uri? get moduleUri;
+  Uri? get libsqlUri;
   String? get filename;
   String? get vfsName;
 
-  LibsqlRequest._();
-  factory LibsqlRequest.build([void Function(LibsqlRequestBuilder) updates]) =
-      _$LibsqlRequest;
+  DatabaseRequest._();
+  factory DatabaseRequest.build([
+    void Function(DatabaseRequestBuilder) updates,
+  ]) = _$DatabaseRequest;
 
-  static Serializer<LibsqlRequest> get serializer => _$libsqlRequestSerializer;
+  static Serializer<DatabaseRequest> get serializer =>
+      _$databaseRequestSerializer;
 }
 
-abstract class LibsqlResponse
-    implements Built<LibsqlResponse, LibsqlResponseBuilder> {
-  factory LibsqlResponse.success({
+abstract class DatabaseResponse
+    implements Built<DatabaseResponse, DatabaseResponseBuilder> {
+  factory DatabaseResponse.success({
     required int requestId,
-    required LibsqlResultSet resultSet,
+    required DatabaseResultSet resultSet,
   }) {
-    return _$LibsqlResponse._(requestId: requestId, resultSet: resultSet);
+    return _$DatabaseResponse._(requestId: requestId, resultSet: resultSet);
   }
 
-  factory LibsqlResponse.failure({
+  factory DatabaseResponse.failure({
     required int requestId,
     required Object error,
     int? errorCode,
     required StackTrace stackTrace,
   }) {
-    return _$LibsqlResponse._(
+    return _$DatabaseResponse._(
       requestId: requestId,
-      error: LibsqlError(
+      error: DatabaseError(
         message: error.toString(),
         code: errorCode,
         stackTrace: stackTrace,
@@ -112,10 +114,10 @@ abstract class LibsqlResponse
   }
 
   int get requestId;
-  LibsqlResultSet? get resultSet;
-  LibsqlError? get error;
+  DatabaseResultSet? get resultSet;
+  DatabaseError? get error;
 
-  LibsqlResultSet unwrap() {
+  DatabaseResultSet unwrap() {
     if (error case final error?) {
       Error.throwWithStackTrace(
         SqliteException(error.code ?? -1, error.error),
@@ -125,24 +127,25 @@ abstract class LibsqlResponse
     return resultSet!;
   }
 
-  LibsqlResponse._();
+  DatabaseResponse._();
 
-  factory LibsqlResponse.build([void Function(LibsqlResponseBuilder) updates]) =
-      _$LibsqlResponse;
+  factory DatabaseResponse.build([
+    void Function(DatabaseResponseBuilder) updates,
+  ]) = _$DatabaseResponse;
 
-  static Serializer<LibsqlResponse> get serializer =>
-      _$libsqlResponseSerializer;
+  static Serializer<DatabaseResponse> get serializer =>
+      _$databaseResponseSerializer;
 }
 
-abstract class LibsqlResultSet
-    implements Built<LibsqlResultSet, LibsqlResultSetBuilder> {
-  factory LibsqlResultSet({
+abstract class DatabaseResultSet
+    implements Built<DatabaseResultSet, DatabaseResultSetBuilder> {
+  factory DatabaseResultSet({
     required List<String> columnNames,
     required List<List<Object?>> rows,
     required int lastInsertRowId,
     required int updatedRows,
   }) {
-    return _$LibsqlResultSet._(
+    return _$DatabaseResultSet._(
       columnNames: columnNames.build(),
       lastInsertRowId: lastInsertRowId,
       updatedRows: updatedRows,
@@ -150,7 +153,7 @@ abstract class LibsqlResultSet
     );
   }
 
-  static final LibsqlResultSet empty = LibsqlResultSet(
+  static final DatabaseResultSet empty = DatabaseResultSet(
     columnNames: const [],
     rows: const [],
     lastInsertRowId: 0,
@@ -162,48 +165,53 @@ abstract class LibsqlResultSet
   int get updatedRows;
   BuiltList<BuiltList<Object?>> get rows;
 
-  LibsqlResultSet._();
+  DatabaseResultSet._();
 
-  factory LibsqlResultSet.build([
-    void Function(LibsqlResultSetBuilder) updates,
-  ]) = _$LibsqlResultSet;
+  factory DatabaseResultSet.build([
+    void Function(DatabaseResultSetBuilder) updates,
+  ]) = _$DatabaseResultSet;
 
-  static Serializer<LibsqlResultSet> get serializer =>
-      _$libsqlResultSetSerializer;
+  static Serializer<DatabaseResultSet> get serializer =>
+      _$databaseResultSetSerializer;
 }
 
-abstract class LibsqlError implements Built<LibsqlError, LibsqlErrorBuilder> {
-  factory LibsqlError({
+abstract class DatabaseError
+    implements Built<DatabaseError, DatabaseErrorBuilder> {
+  factory DatabaseError({
     required String message,
     int? code,
     required StackTrace stackTrace,
   }) {
-    return _$LibsqlError._(error: message, code: code, stackTrace: stackTrace);
+    return _$DatabaseError._(
+      error: message,
+      code: code,
+      stackTrace: stackTrace,
+    );
   }
 
   String get error;
   int? get code;
   StackTrace get stackTrace;
 
-  LibsqlError._();
+  DatabaseError._();
 
-  factory LibsqlError.build([void Function(LibsqlErrorBuilder) updates]) =
-      _$LibsqlError;
+  factory DatabaseError.build([void Function(DatabaseErrorBuilder) updates]) =
+      _$DatabaseError;
 
-  static Serializer<LibsqlError> get serializer => _$libsqlErrorSerializer;
+  static Serializer<DatabaseError> get serializer => _$databaseErrorSerializer;
 }
 
 @WorkerBee('lib/workers/workers.dart')
-abstract class LibsqlWorker
-    extends WorkerBeeBase<LibsqlRequest, LibsqlResponse> {
-  LibsqlWorker() : super(serializers: _serializers);
+abstract class DatabaseWorker
+    extends WorkerBeeBase<DatabaseRequest, DatabaseResponse> {
+  DatabaseWorker() : super(serializers: _serializers);
 
-  factory LibsqlWorker.create() = _$LibsqlWorker;
+  factory DatabaseWorker.create() = _$DatabaseWorker;
 
   @override
-  Future<LibsqlResponse?> run(
-    Stream<LibsqlRequest> listen,
-    StreamSink<LibsqlResponse> respond,
+  Future<DatabaseResponse?> run(
+    Stream<DatabaseRequest> listen,
+    StreamSink<DatabaseResponse> respond,
   ) async {
     Logger.root.level = Level.ALL;
     final loggerSubscription = Logger.root.onRecord.listen(
@@ -212,16 +220,16 @@ abstract class LibsqlWorker
 
     Future<void> runWithErrorHandling(
       int requestId,
-      Future<LibsqlResultSet> Function() action,
+      Future<DatabaseResultSet> Function() action,
     ) async {
       try {
         final result = await action();
         respond.add(
-          LibsqlResponse.success(requestId: requestId, resultSet: result),
+          DatabaseResponse.success(requestId: requestId, resultSet: result),
         );
       } catch (e, st) {
         respond.add(
-          LibsqlResponse.failure(
+          DatabaseResponse.failure(
             requestId: requestId,
             error: e,
             errorCode: e is SqliteException ? e.extendedResultCode : null,
@@ -235,11 +243,11 @@ abstract class LibsqlWorker
       late final Database db;
       await for (final request in listen) {
         switch (request.type) {
-          case LibsqlRequestType.init:
+          case DatabaseRequestType.init:
             await libsql.loadModule(
               // In debug mode, we need to pass the absolute path to the LibSQL
               // module since the worker's cwd is different.
-              moduleUri: request.moduleUri ?? Uri.parse('/js/libsql.js'),
+              moduleUri: request.libsqlUri ?? Uri.parse('/js/libsql.js'),
             );
             db = Database(
               libsql.Database(
@@ -249,35 +257,35 @@ abstract class LibsqlWorker
               ),
             );
             respond.add(
-              LibsqlResponse.success(
+              DatabaseResponse.success(
                 requestId: request.requestId,
-                resultSet: LibsqlResultSet.empty,
+                resultSet: DatabaseResultSet.empty,
               ),
             );
-          case LibsqlRequestType.execute:
+          case DatabaseRequestType.execute:
             await runWithErrorHandling(request.requestId, () async {
               final query = request.transaction.statements.single;
               final result = db.execute(query.sql, query.parameters.toList());
-              return LibsqlResultSet(
+              return DatabaseResultSet(
                 columnNames: const [],
                 rows: const [],
                 lastInsertRowId: result.lastInsertRowId,
                 updatedRows: result.updatedRows,
               );
             });
-          case LibsqlRequestType.query:
+          case DatabaseRequestType.query:
             await runWithErrorHandling(request.requestId, () async {
               final query = request.transaction.statements.single;
               final result =
                   db.select(query.sql, query.parameters.toList()) as ResultSet;
-              return LibsqlResultSet(
+              return DatabaseResultSet(
                 columnNames: result.columnNames,
                 rows: result.rows,
                 lastInsertRowId: -1,
                 updatedRows: -1,
               );
             });
-          case LibsqlRequestType.transaction:
+          case DatabaseRequestType.transaction:
             await runWithErrorHandling(request.requestId, () async {
               final changesBefore = db.totalChanges;
               db.transaction((tx) {
@@ -285,7 +293,7 @@ abstract class LibsqlWorker
                   tx.execute(statement.sql, statement.parameters.toList());
                 }
               });
-              return LibsqlResultSet(
+              return DatabaseResultSet(
                 columnNames: const [],
                 rows: const [],
                 lastInsertRowId: db.lastInsertRowId,
@@ -301,5 +309,5 @@ abstract class LibsqlWorker
   }
 }
 
-@SerializersFor([LibsqlRequest, LibsqlResponse, LibsqlRequestType])
+@SerializersFor([DatabaseRequest, DatabaseResponse, DatabaseRequestType])
 final Serializers _serializers = _$_serializers;

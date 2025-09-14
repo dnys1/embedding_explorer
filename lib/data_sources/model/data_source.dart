@@ -56,11 +56,6 @@ abstract class DataSource<Settings extends DataSourceSettings> {
   /// Returns a list of maps where each map represents a row
   Future<List<Map<String, dynamic>>> getAllData({int offset = 0, int? limit});
 
-  /// Validate the data source configuration
-  ///
-  /// Returns a list of validation errors, empty if valid
-  List<String> validate();
-
   Future<void> dispose();
 }
 

@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:logging/logging.dart';
 import 'package:sqlparser/sqlparser.dart';
 import 'package:web/web.dart' as web;
@@ -10,6 +8,8 @@ import '../../util/file.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
 import '../model/data_source_settings.dart';
+
+part 'sample_data_source.dart';
 
 /// Extension to add utility methods to SqlEngine
 extension SqlEngineExtensions on SqlEngine {
@@ -33,7 +33,7 @@ extension SqlEngineExtensions on SqlEngine {
 /// This class provides access to SQLite databases using LibSQL WASM,
 /// supporting both in-memory databases and file-based databases.
 class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
-  IDatabase? _database;
+  DatabaseHandle? _database;
   final Map<String, DataSourceFieldType> _fieldTypes = {};
   List<String> _tableNames = [];
   SqlEngine? _sqlEngine;
@@ -44,7 +44,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
   static final Logger _logger = Logger('SqliteDataSource');
 
   /// Create a SQLite data source from configuration (private constructor)
-  SqliteDataSource._(super.config, {required IDatabase database})
+  SqliteDataSource._(super.config, {required DatabaseHandle database})
     : _database = database;
 
   /// Imports a SQLite database from a file into the database pool and creates
@@ -64,12 +64,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
       filename: filename,
       data: await file.readAsBytes(),
     );
-    final dataSource = SqliteDataSource._(
-      config.copyWith(
-        settings: settings.copyWith(type: SqliteDataSourceType.persistent),
-      ),
-      database: database,
-    );
+    final dataSource = SqliteDataSource._(config, database: database);
     await dataSource._initialize();
     return dataSource;
   }
@@ -84,28 +79,15 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
     final settings = config.settings as SqliteDataSourceSettings;
     final filename = settings.filename;
-    switch (settings.type) {
-      case SqliteDataSourceType.sample:
-        final db = await dbPool.open(filename ?? 'sample.db');
-        final dataSource = SqliteDataSource._(config, database: db);
-        await dataSource._createSampleSchema();
-        await dataSource._initialize();
-        return dataSource;
-      case SqliteDataSourceType.import:
-        throw ArgumentError(
-          'Import type requires a file to load the database. '
-          'Use loadFromFile() instead.',
-        );
-      case SqliteDataSourceType.persistent:
-        assert(settings.persistent);
-        if (filename == null || filename.isEmpty) {
-          throw ArgumentError('Filename is required for persistent type');
-        }
-        final db = await dbPool.open(filename);
-        final dataSource = SqliteDataSource._(config, database: db);
-        await dataSource._initialize();
-        return dataSource;
+    if (filename == null || filename.isEmpty) {
+      throw ArgumentError(
+        'Filename is required to connect to a SQLite database',
+      );
     }
+    final db = await dbPool.open(filename);
+    final dataSource = SqliteDataSource._(config, database: db);
+    await dataSource._initialize();
+    return dataSource;
   }
 
   /// Get typed SQLite settings
@@ -279,55 +261,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     return rows;
   }
 
-  @override
-  List<String> validate() {
-    final errors = <String>[];
-
-    final dbType = sqliteSettings.type;
-    switch (dbType) {
-      case SqliteDataSourceType.import:
-        final persistent = sqliteSettings.persistent;
-        if (persistent &&
-            (sqliteSettings.filename == null ||
-                sqliteSettings.filename!.isEmpty)) {
-          errors.add('Persistent name is required when persistence is enabled');
-        }
-      case SqliteDataSourceType.persistent:
-        if (sqliteSettings.filename == null ||
-            sqliteSettings.filename!.isEmpty) {
-          errors.add('Filename is required for persistent type');
-        }
-      case SqliteDataSourceType.sample:
-        // No validation needed for sample data
-        break;
-    }
-
-    // Validate SQL query using proper SQL parser
-    if (_sqlQuery.isEmpty) {
-      errors.add('SQL query is required');
-    } else {
-      try {
-        // Use sqlparser to validate the query
-        final engine = SqlEngine();
-        final result = engine.analyze(_sqlQuery);
-
-        // Check for parsing errors
-        if (result.errors.isNotEmpty) {
-          errors.addAll(result.errors.map((e) => 'SQL Error: ${e.message}'));
-        }
-
-        // Ensure it's a SELECT statement
-        if (result.root is! SelectStatement) {
-          errors.add('Only SELECT queries are allowed for data sources');
-        }
-      } catch (e) {
-        errors.add('Invalid SQL query: ${e.toString()}');
-      }
-    }
-
-    return errors;
-  }
-
   /// Execute a custom SQL query (for advanced users)
   Future<List<Map<String, dynamic>>> executeQuery(
     String sql, {
@@ -408,22 +341,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
   /// Infer field types for the configured SQL query
   Future<void> _inferFieldTypes(String query) async {
-    _logger.finest(
-      'Inferring field types for SQL query: ${query.length} chars',
-    );
-
-    // First try to use SQL parser for column analysis
-    switch (sqliteSettings.type) {
-      case SqliteDataSourceType.sample:
-        await _inferFieldTypesFromSample(query);
-      case SqliteDataSourceType.import:
-      case SqliteDataSourceType.persistent:
-        _inferFieldTypesFromParser(query);
-    }
-  }
-
-  /// Infer field types using SQL parser analysis
-  void _inferFieldTypesFromParser(String query) {
     _logger.finest('Analyzing SQL query with parser for field types');
 
     final result = _sqlEngine!.analyze(query);
@@ -478,70 +395,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     }
   }
 
-  /// Infer field types by sampling data from the configured query
-  Future<void> _inferFieldTypesFromSample(String query) async {
-    try {
-      _logger.finest(
-        'Inferring field types from sample data for query: ${query.length} chars',
-      );
-
-      // Execute the query with a small limit to get sample data
-      String sampleQuery = query;
-      if (!sampleQuery.toUpperCase().contains('LIMIT')) {
-        sampleQuery = '$sampleQuery LIMIT 10';
-      }
-
-      final result = await _database!.select(sampleQuery);
-
-      if (result.isNotEmpty) {
-        _fieldTypes.clear();
-        final firstRow = result.first;
-
-        for (final entry in firstRow.entries) {
-          final fieldName = entry.key;
-          final fieldType = _inferTypeFromValue(entry.value);
-          _fieldTypes[fieldName] = fieldType;
-          _logger.finest(
-            'Field "$fieldName": inferred type ${fieldType.name} from sample value',
-          );
-        }
-
-        _logger.finest(
-          'Inferred ${_fieldTypes.length} field types from sample data',
-        );
-      }
-    } catch (e) {
-      _logger.warning('Failed to infer field types from sample data: $e');
-    }
-  }
-
-  /// Infer data type from a sample value
-  DataSourceFieldType _inferTypeFromValue(Object? value) {
-    if (value == null) return DataSourceFieldType.text;
-
-    if (value is int) return DataSourceFieldType.integer;
-    if (value is double) return DataSourceFieldType.real;
-    if (value is bool) return DataSourceFieldType.boolean;
-    if (value is Uint8List) return DataSourceFieldType.blob;
-
-    if (value is String) {
-      // Try to parse as different types
-      if (int.tryParse(value) != null) return DataSourceFieldType.integer;
-      if (double.tryParse(value) != null) return DataSourceFieldType.real;
-      if (['true', 'false'].contains(value.toLowerCase())) {
-        return DataSourceFieldType.boolean;
-      }
-      if (DateTime.tryParse(value) != null) {
-        if (value.contains(' ') || value.contains('T')) {
-          return DataSourceFieldType.datetime;
-        }
-        return DataSourceFieldType.date;
-      }
-    }
-
-    return DataSourceFieldType.text;
-  }
-
   /// Convert a database row to the expected format
   Map<String, dynamic> _convertRow(Map<String, Object?> row) {
     final converted = <String, dynamic>{};
@@ -590,178 +443,5 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     }
 
     return value;
-  }
-
-  /// Create sample schema with demo data for testing purposes
-  Future<void> _createSampleSchema() async {
-    _logger.finest('Creating sample schema with demo data');
-
-    try {
-      // Create a sample movies table with various data types
-      await _database!.execute('''
-        CREATE TABLE movies (
-          id INTEGER PRIMARY KEY,
-          title TEXT NOT NULL,
-          release_year INTEGER,
-          rating REAL,
-          is_favorite BOOLEAN DEFAULT FALSE,
-          release_date DATE,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          description TEXT,
-          revenue INTEGER
-        )
-        ''');
-
-      // Insert sample data with proper parameter binding
-      final sampleMovies = [
-        {
-          'id': 1,
-          'title': 'The Shawshank Redemption',
-          'release_year': 1994,
-          'rating': 9.3,
-          'is_favorite': 1,
-          'release_date': '1994-09-23',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',
-          'revenue': 16000000,
-        },
-        {
-          'id': 2,
-          'title': 'The Godfather',
-          'release_year': 1972,
-          'rating': 9.2,
-          'is_favorite': 1,
-          'release_date': '1972-03-24',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.',
-          'revenue': 246120974,
-        },
-        {
-          'id': 3,
-          'title': 'The Dark Knight',
-          'release_year': 2008,
-          'rating': 9.0,
-          'is_favorite': 1,
-          'release_date': '2008-07-18',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests.',
-          'revenue': 1004558444,
-        },
-        {
-          'id': 4,
-          'title': 'Pulp Fiction',
-          'release_year': 1994,
-          'rating': 8.9,
-          'is_favorite': 0,
-          'release_date': '1994-10-14',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'The lives of two mob hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption.',
-          'revenue': 214179088,
-        },
-        {
-          'id': 5,
-          'title': 'Schindler\'s List',
-          'release_year': 1993,
-          'rating': 8.9,
-          'is_favorite': 1,
-          'release_date': '1993-12-15',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'In German-occupied Poland during World War II, industrialist Oskar Schindler gradually becomes concerned for his Jewish workforce.',
-          'revenue': 322161405,
-        },
-        {
-          'id': 6,
-          'title': 'Inception',
-          'release_year': 2010,
-          'rating': 8.8,
-          'is_favorite': 0,
-          'release_date': '2010-07-16',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea.',
-          'revenue': 836836967,
-        },
-        {
-          'id': 7,
-          'title': 'Fight Club',
-          'release_year': 1999,
-          'rating': 8.8,
-          'is_favorite': 0,
-          'release_date': '1999-10-15',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'An insomniac office worker and a devil-may-care soap maker form an underground fight club.',
-          'revenue': 100853753,
-        },
-        {
-          'id': 8,
-          'title': 'Forrest Gump',
-          'release_year': 1994,
-          'rating': 8.8,
-          'is_favorite': 1,
-          'release_date': '1994-07-06',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'The presidencies of Kennedy and Johnson, the Vietnam War, and other historical events unfold from the perspective of an Alabama man.',
-          'revenue': 677387716,
-        },
-        {
-          'id': 9,
-          'title': 'The Matrix',
-          'release_year': 1999,
-          'rating': 8.7,
-          'is_favorite': 1,
-          'release_date': '1999-03-31',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'When a beautiful stranger leads computer hacker Neo to a forbidding underworld, he discovers the shocking truth.',
-          'revenue': 467222824,
-        },
-        {
-          'id': 10,
-          'title': 'Goodfellas',
-          'release_year': 1990,
-          'rating': 8.7,
-          'is_favorite': 0,
-          'release_date': '1990-09-21',
-          'created_at': '2024-01-01 12:00:00',
-          'description':
-              'The story of Henry Hill and his life in the mob, covering his relationship with his wife Karen Hill and his mob partners.',
-          'revenue': 46836394,
-        },
-      ];
-
-      for (final movie in sampleMovies) {
-        await _database!.execute(
-          'INSERT INTO movies (id, title, release_year, rating, is_favorite, release_date, created_at, description, revenue) '
-          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            movie['id'],
-            movie['title'],
-            movie['release_year'],
-            movie['rating'],
-            movie['is_favorite'],
-            movie['release_date'],
-            movie['created_at'],
-            movie['description'],
-            movie['revenue'],
-          ],
-        );
-      }
-
-      _logger.info('Sample schema created with ${sampleMovies.length} movies');
-    } catch (e) {
-      _logger.severe('Failed to create sample schema', e);
-      throw DataSourceException(
-        'Failed to create sample schema: ${e.toString()}',
-        sourceType: type,
-        cause: e,
-      );
-    }
   }
 }

@@ -20,6 +20,8 @@ abstract class DataSourceSettings {
         return CsvDataSourceSettings.fromJson(json);
       case DataSourceType.sqlite:
         return SqliteDataSourceSettings.fromJson(json);
+      case DataSourceType.sample:
+        return SqliteDataSourceSettings.fromJson(json);
     }
   }
 }
@@ -132,59 +134,34 @@ enum SqliteDataSourceType {
 
 /// Settings for SQLite data sources
 class SqliteDataSourceSettings extends DataSourceSettings {
-  /// Type of SQLite data source ('sample', 'upload', 'persistent')
-  final SqliteDataSourceType type;
-
-  /// Whether to use persistent storage
-  bool get persistent => type != SqliteDataSourceType.sample;
-
   /// Name for persistent storage (if persistent is true)
   final String? filename;
 
-  const SqliteDataSourceSettings({
-    this.type = SqliteDataSourceType.sample,
-    this.filename,
-  }) : assert(
-         type == SqliteDataSourceType.sample || filename != null,
-         'Filename must be provided for import or persistent types',
-       );
+  const SqliteDataSourceSettings({this.filename});
 
   @override
   Map<String, dynamic> toJson() {
-    return {'type': type.name, 'persistent': persistent, 'filename': ?filename};
+    return {'filename': ?filename};
   }
 
   factory SqliteDataSourceSettings.fromJson(Map<String, dynamic> json) {
-    return SqliteDataSourceSettings(
-      type: SqliteDataSourceType.values.byName(json['type'] as String),
-      filename: json['filename'] as String?,
-    );
+    return SqliteDataSourceSettings(filename: json['filename'] as String?);
   }
 
-  SqliteDataSourceSettings copyWith({
-    SqliteDataSourceType? type,
-    bool? persistent,
-    String? filename,
-  }) {
-    return SqliteDataSourceSettings(
-      type: type ?? this.type,
-      filename: filename ?? this.filename,
-    );
+  SqliteDataSourceSettings copyWith({String? filename}) {
+    return SqliteDataSourceSettings(filename: filename ?? this.filename);
   }
 
   @override
-  String toString() =>
-      'SqliteDataSourceSettings(type: $type, persistent: $persistent, filename: $filename)';
+  String toString() => 'SqliteDataSourceSettings(filename: $filename)';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SqliteDataSourceSettings &&
           runtimeType == other.runtimeType &&
-          type == other.type &&
-          persistent == other.persistent &&
           filename == other.filename;
 
   @override
-  int get hashCode => Object.hash(type, persistent, filename);
+  int get hashCode => filename.hashCode;
 }

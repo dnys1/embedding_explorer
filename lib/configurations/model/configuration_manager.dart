@@ -39,11 +39,8 @@ class ConfigurationManager with ChangeNotifier {
   late DataSourceRepository dataSources;
 
   /// Initialize all collections and load from storage
-  Future<void> initialize({Uri? libsqlUri, bool verbose = false}) async {
-    _databasePool = await DatabasePool.create(
-      libsqlUri: libsqlUri,
-      verbose: verbose,
-    );
+  Future<void> initialize({Uri? libsqlUri}) async {
+    _databasePool = await DatabasePool.create(libsqlUri: libsqlUri);
     final configurationDb = await _databasePool.open('configurations.db');
 
     // Initialize the configuration service first

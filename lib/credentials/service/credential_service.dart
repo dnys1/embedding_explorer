@@ -8,7 +8,7 @@ import '../model/credential.dart';
 final class CredentialService {
   CredentialService(this._db);
 
-  final IDatabase _db;
+  final DatabaseHandle _db;
 
   final CredentialStore memory = InMemoryCredentialStore();
   late final CredentialStore persistent = DatabaseCredentialStore(_db);
@@ -50,7 +50,7 @@ final class InMemoryCredentialStore implements CredentialStore {
 final class DatabaseCredentialStore implements CredentialStore {
   DatabaseCredentialStore(this._db);
 
-  final IDatabase _db;
+  final DatabaseHandle _db;
 
   static final Logger _logger = Logger('DatabaseCredentialStore');
 

@@ -19,7 +19,7 @@ import 'migrations/migrations.dart';
 class ConfigurationService with ChangeNotifier {
   static final Logger _logger = Logger('ConfigurationService');
 
-  late final IDatabase _database;
+  late final DatabaseHandle _database;
   final Migrate _migrator;
   bool _isInitialized = false;
 
@@ -27,7 +27,7 @@ class ConfigurationService with ChangeNotifier {
     : _migrator = Migrate(migrations: configMigrations, logger: _logger);
 
   /// Initialize the database and run migrations
-  Future<void> initialize({required IDatabase database}) async {
+  Future<void> initialize({required DatabaseHandle database}) async {
     if (_isInitialized) {
       _logger.warning('ConfigurationService already initialized');
       return;
@@ -56,7 +56,7 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get the database instance
-  IDatabase get database {
+  DatabaseHandle get database {
     if (!_isInitialized) {
       throw StateError(
         'ConfigurationService not initialized. Call initialize() first.',

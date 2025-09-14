@@ -1064,7 +1064,7 @@ extension type SAHPoolUtil._(JSObject _) implements JSObject {
   }
 
   @JS('exportFile')
-  external JSPromise<JSUint8Array> _exportFile(String filename);
+  external JSUint8Array _exportFile(String filename);
 
   /// Synchronously reads the contents of the given file into a [JSUint8Array] and
   /// returns it.
@@ -1074,9 +1074,8 @@ extension type SAHPoolUtil._(JSObject _) implements JSObject {
   /// is, it's not from this VFS). The reason for that is that this VFS manages
   /// name-to-file mappings in a roundabout way in order to maintain its list of
   /// SAHs.
-  Future<Uint8List> exportFile(String filename) async {
-    final jsResult = await _exportFile(filename).toDart;
-    return jsResult.toDart;
+  Uint8List exportFile(String filename) {
+    return _exportFile(filename).toDart;
   }
 
   @JS('reserveMinimumCapacity')
@@ -1207,7 +1206,7 @@ extension type OpfsSAHPoolDatabase._(JSObject _) implements Database {}
 
 /// Install the OPFS SAH Pool VFS and return the utility object
 @JS('installOpfsSAHPoolVfs')
-external JSPromise<SAHPoolUtil> installOpfsSAHPoolVfs([
+external JSPromise<SAHPoolUtil> _installOpfsSAHPoolVfs([
   SAHPoolOptions? options,
 ]);
 
@@ -1215,7 +1214,11 @@ external JSPromise<SAHPoolUtil> installOpfsSAHPoolVfs([
 SAHPoolUtil? _globalSAHPool;
 
 /// Get or initialize the global SAH Pool utility
-Future<SAHPoolUtil> getSAHPoolUtil({SAHPoolOptions? options}) async {
+Future<SAHPoolUtil> getSAHPoolUtil({
+  String name = 'default',
+  bool? clearOnInit,
+  int initialCapacity = 6,
+}) async {
   if (_globalSAHPool case final globalSAHPool?) {
     return globalSAHPool;
   }
@@ -1223,8 +1226,12 @@ Future<SAHPoolUtil> getSAHPoolUtil({SAHPoolOptions? options}) async {
   final Logger logger = Logger('SAHPool');
   logger.info('Initializing SAH Pool VFS...');
 
-  final globalSAHPool = await installOpfsSAHPoolVfs(
-    options ?? SAHPoolOptions(name: 'default', clearOnInit: true),
+  final globalSAHPool = await _installOpfsSAHPoolVfs(
+    SAHPoolOptions(
+      name: name,
+      clearOnInit: clearOnInit ?? false,
+      initialCapacity: initialCapacity,
+    ),
   ).toDart;
 
   logger.info(

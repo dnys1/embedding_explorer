@@ -75,13 +75,13 @@ final BuiltSet<DatabasePoolRequestType> _$values =
 
 Serializers _$_serializers =
     (Serializers().toBuilder()
-          ..add(DatabasePoolError.serializer)
+          ..add(DatabaseError.serializer)
           ..add(DatabasePoolRequest.serializer)
           ..add(DatabasePoolRequestType.serializer)
           ..add(DatabasePoolResponse.serializer)
           ..add(DatabasePoolResultSet.serializer)
           ..add(DatabasePoolStats.serializer)
-          ..add(LibsqlResultSet.serializer)
+          ..add(DatabaseResultSet.serializer)
           ..add(SqlStatement.serializer)
           ..add(Transaction.serializer)
           ..addBuilderFactory(
@@ -119,8 +119,6 @@ Serializer<DatabasePoolStats> _$databasePoolStatsSerializer =
     _$DatabasePoolStatsSerializer();
 Serializer<DatabasePoolResultSet> _$databasePoolResultSetSerializer =
     _$DatabasePoolResultSetSerializer();
-Serializer<DatabasePoolError> _$databasePoolErrorSerializer =
-    _$DatabasePoolErrorSerializer();
 
 class _$DatabasePoolRequestTypeSerializer
     implements PrimitiveSerializer<DatabasePoolRequestType> {
@@ -179,6 +177,14 @@ class _$DatabasePoolRequestSerializer
         ..add('libsqlUri')
         ..add(serializers.serialize(value, specifiedType: const FullType(Uri)));
     }
+    value = object.clearOnInit;
+    if (value != null) {
+      result
+        ..add('clearOnInit')
+        ..add(
+          serializers.serialize(value, specifiedType: const FullType(bool)),
+        );
+    }
     value = object.databaseName;
     if (value != null) {
       result
@@ -207,14 +213,6 @@ class _$DatabasePoolRequestSerializer
             value,
             specifiedType: const FullType(Uint8List),
           ),
-        );
-    }
-    value = object.verbose;
-    if (value != null) {
-      result
-        ..add('verbose')
-        ..add(
-          serializers.serialize(value, specifiedType: const FullType(bool)),
         );
     }
     return result;
@@ -255,6 +253,14 @@ class _$DatabasePoolRequestSerializer
               serializers.deserialize(value, specifiedType: const FullType(Uri))
                   as Uri?;
           break;
+        case 'clearOnInit':
+          result.clearOnInit =
+              serializers.deserialize(
+                    value,
+                    specifiedType: const FullType(bool),
+                  )
+                  as bool?;
+          break;
         case 'databaseName':
           result.databaseName =
               serializers.deserialize(
@@ -279,14 +285,6 @@ class _$DatabasePoolRequestSerializer
                     specifiedType: const FullType(Uint8List),
                   )
                   as Uint8List?;
-          break;
-        case 'verbose':
-          result.verbose =
-              serializers.deserialize(
-                    value,
-                    specifiedType: const FullType(bool),
-                  )
-                  as bool?;
           break;
       }
     }
@@ -342,7 +340,7 @@ class _$DatabasePoolResponseSerializer
         ..add(
           serializers.serialize(
             value,
-            specifiedType: const FullType(DatabasePoolError),
+            specifiedType: const FullType(DatabaseError),
           ),
         );
     }
@@ -393,9 +391,9 @@ class _$DatabasePoolResponseSerializer
           result.error.replace(
             serializers.deserialize(
                   value,
-                  specifiedType: const FullType(DatabasePoolError),
+                  specifiedType: const FullType(DatabaseError),
                 )!
-                as DatabasePoolError,
+                as DatabaseError,
           );
           break;
       }
@@ -538,7 +536,7 @@ class _$DatabasePoolResultSetSerializer
         ..add(
           serializers.serialize(
             value,
-            specifiedType: const FullType(LibsqlResultSet),
+            specifiedType: const FullType(DatabaseResultSet),
           ),
         );
     }
@@ -579,9 +577,9 @@ class _$DatabasePoolResultSetSerializer
           result.resultSet.replace(
             serializers.deserialize(
                   value,
-                  specifiedType: const FullType(LibsqlResultSet),
+                  specifiedType: const FullType(DatabaseResultSet),
                 )!
-                as LibsqlResultSet,
+                as DatabaseResultSet,
           );
           break;
         case 'success':
@@ -599,72 +597,6 @@ class _$DatabasePoolResultSetSerializer
   }
 }
 
-class _$DatabasePoolErrorSerializer
-    implements StructuredSerializer<DatabasePoolError> {
-  @override
-  final Iterable<Type> types = const [DatabasePoolError, _$DatabasePoolError];
-  @override
-  final String wireName = 'DatabasePoolError';
-
-  @override
-  Iterable<Object?> serialize(
-    Serializers serializers,
-    DatabasePoolError object, {
-    FullType specifiedType = FullType.unspecified,
-  }) {
-    final result = <Object?>[
-      'message',
-      serializers.serialize(
-        object.message,
-        specifiedType: const FullType(String),
-      ),
-      'stackTrace',
-      serializers.serialize(
-        object.stackTrace,
-        specifiedType: const FullType(StackTrace),
-      ),
-    ];
-
-    return result;
-  }
-
-  @override
-  DatabasePoolError deserialize(
-    Serializers serializers,
-    Iterable<Object?> serialized, {
-    FullType specifiedType = FullType.unspecified,
-  }) {
-    final result = DatabasePoolErrorBuilder();
-
-    final iterator = serialized.iterator;
-    while (iterator.moveNext()) {
-      final key = iterator.current! as String;
-      iterator.moveNext();
-      final Object? value = iterator.current;
-      switch (key) {
-        case 'message':
-          result.message =
-              serializers.deserialize(
-                    value,
-                    specifiedType: const FullType(String),
-                  )!
-                  as String;
-          break;
-        case 'stackTrace':
-          result.stackTrace =
-              serializers.deserialize(
-                    value,
-                    specifiedType: const FullType(StackTrace),
-                  )!
-                  as StackTrace;
-          break;
-      }
-    }
-
-    return result.build();
-  }
-}
-
 class _$DatabasePoolRequest extends DatabasePoolRequest {
   @override
   final int requestId;
@@ -673,13 +605,13 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
   @override
   final Uri? libsqlUri;
   @override
+  final bool? clearOnInit;
+  @override
   final String? databaseName;
   @override
   final Transaction? transaction;
   @override
   final Uint8List? importData;
-  @override
-  final bool? verbose;
 
   factory _$DatabasePoolRequest([
     void Function(DatabasePoolRequestBuilder)? updates,
@@ -689,10 +621,10 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
     required this.requestId,
     required this.type,
     this.libsqlUri,
+    this.clearOnInit,
     this.databaseName,
     this.transaction,
     this.importData,
-    this.verbose,
   }) : super._();
   @override
   DatabasePoolRequest rebuild(
@@ -710,10 +642,10 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
         requestId == other.requestId &&
         type == other.type &&
         libsqlUri == other.libsqlUri &&
+        clearOnInit == other.clearOnInit &&
         databaseName == other.databaseName &&
         transaction == other.transaction &&
-        importData == other.importData &&
-        verbose == other.verbose;
+        importData == other.importData;
   }
 
   @override
@@ -722,10 +654,10 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
     _$hash = $jc(_$hash, requestId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, libsqlUri.hashCode);
+    _$hash = $jc(_$hash, clearOnInit.hashCode);
     _$hash = $jc(_$hash, databaseName.hashCode);
     _$hash = $jc(_$hash, transaction.hashCode);
     _$hash = $jc(_$hash, importData.hashCode);
-    _$hash = $jc(_$hash, verbose.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
   }
@@ -736,10 +668,10 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
           ..add('requestId', requestId)
           ..add('type', type)
           ..add('libsqlUri', libsqlUri)
+          ..add('clearOnInit', clearOnInit)
           ..add('databaseName', databaseName)
           ..add('transaction', transaction)
-          ..add('importData', importData)
-          ..add('verbose', verbose))
+          ..add('importData', importData))
         .toString();
   }
 }
@@ -760,6 +692,10 @@ class DatabasePoolRequestBuilder
   Uri? get libsqlUri => _$this._libsqlUri;
   set libsqlUri(Uri? libsqlUri) => _$this._libsqlUri = libsqlUri;
 
+  bool? _clearOnInit;
+  bool? get clearOnInit => _$this._clearOnInit;
+  set clearOnInit(bool? clearOnInit) => _$this._clearOnInit = clearOnInit;
+
   String? _databaseName;
   String? get databaseName => _$this._databaseName;
   set databaseName(String? databaseName) => _$this._databaseName = databaseName;
@@ -774,10 +710,6 @@ class DatabasePoolRequestBuilder
   Uint8List? get importData => _$this._importData;
   set importData(Uint8List? importData) => _$this._importData = importData;
 
-  bool? _verbose;
-  bool? get verbose => _$this._verbose;
-  set verbose(bool? verbose) => _$this._verbose = verbose;
-
   DatabasePoolRequestBuilder();
 
   DatabasePoolRequestBuilder get _$this {
@@ -786,10 +718,10 @@ class DatabasePoolRequestBuilder
       _requestId = $v.requestId;
       _type = $v.type;
       _libsqlUri = $v.libsqlUri;
+      _clearOnInit = $v.clearOnInit;
       _databaseName = $v.databaseName;
       _transaction = $v.transaction?.toBuilder();
       _importData = $v.importData;
-      _verbose = $v.verbose;
       _$v = null;
     }
     return this;
@@ -825,10 +757,10 @@ class DatabasePoolRequestBuilder
               'type',
             ),
             libsqlUri: libsqlUri,
+            clearOnInit: clearOnInit,
             databaseName: databaseName,
             transaction: _transaction?.build(),
             importData: importData,
-            verbose: verbose,
           );
     } catch (_) {
       late String _$failedField;
@@ -857,7 +789,7 @@ class _$DatabasePoolResponse extends DatabasePoolResponse {
   @override
   final DatabasePoolResultSet? resultSet;
   @override
-  final DatabasePoolError? error;
+  final DatabaseError? error;
 
   factory _$DatabasePoolResponse([
     void Function(DatabasePoolResponseBuilder)? updates,
@@ -929,10 +861,9 @@ class DatabasePoolResponseBuilder
   set resultSet(DatabasePoolResultSetBuilder? resultSet) =>
       _$this._resultSet = resultSet;
 
-  DatabasePoolErrorBuilder? _error;
-  DatabasePoolErrorBuilder get error =>
-      _$this._error ??= DatabasePoolErrorBuilder();
-  set error(DatabasePoolErrorBuilder? error) => _$this._error = error;
+  DatabaseErrorBuilder? _error;
+  DatabaseErrorBuilder get error => _$this._error ??= DatabaseErrorBuilder();
+  set error(DatabaseErrorBuilder? error) => _$this._error = error;
 
   DatabasePoolResponseBuilder();
 
@@ -1155,7 +1086,7 @@ class _$DatabasePoolResultSet extends DatabasePoolResultSet {
   @override
   final Uint8List? exportData;
   @override
-  final LibsqlResultSet? resultSet;
+  final DatabaseResultSet? resultSet;
   @override
   final bool? success;
 
@@ -1211,10 +1142,10 @@ class DatabasePoolResultSetBuilder
   Uint8List? get exportData => _$this._exportData;
   set exportData(Uint8List? exportData) => _$this._exportData = exportData;
 
-  LibsqlResultSetBuilder? _resultSet;
-  LibsqlResultSetBuilder get resultSet =>
-      _$this._resultSet ??= LibsqlResultSetBuilder();
-  set resultSet(LibsqlResultSetBuilder? resultSet) =>
+  DatabaseResultSetBuilder? _resultSet;
+  DatabaseResultSetBuilder get resultSet =>
+      _$this._resultSet ??= DatabaseResultSetBuilder();
+  set resultSet(DatabaseResultSetBuilder? resultSet) =>
       _$this._resultSet = resultSet;
 
   bool? _success;
@@ -1271,109 +1202,6 @@ class DatabasePoolResultSetBuilder
       }
       rethrow;
     }
-    replace(_$result);
-    return _$result;
-  }
-}
-
-class _$DatabasePoolError extends DatabasePoolError {
-  @override
-  final String message;
-  @override
-  final StackTrace stackTrace;
-
-  factory _$DatabasePoolError([
-    void Function(DatabasePoolErrorBuilder)? updates,
-  ]) => (DatabasePoolErrorBuilder()..update(updates))._build();
-
-  _$DatabasePoolError._({required this.message, required this.stackTrace})
-    : super._();
-  @override
-  DatabasePoolError rebuild(void Function(DatabasePoolErrorBuilder) updates) =>
-      (toBuilder()..update(updates)).build();
-
-  @override
-  DatabasePoolErrorBuilder toBuilder() =>
-      DatabasePoolErrorBuilder()..replace(this);
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(other, this)) return true;
-    return other is DatabasePoolError &&
-        message == other.message &&
-        stackTrace == other.stackTrace;
-  }
-
-  @override
-  int get hashCode {
-    var _$hash = 0;
-    _$hash = $jc(_$hash, message.hashCode);
-    _$hash = $jc(_$hash, stackTrace.hashCode);
-    _$hash = $jf(_$hash);
-    return _$hash;
-  }
-
-  @override
-  String toString() {
-    return (newBuiltValueToStringHelper(r'DatabasePoolError')
-          ..add('message', message)
-          ..add('stackTrace', stackTrace))
-        .toString();
-  }
-}
-
-class DatabasePoolErrorBuilder
-    implements Builder<DatabasePoolError, DatabasePoolErrorBuilder> {
-  _$DatabasePoolError? _$v;
-
-  String? _message;
-  String? get message => _$this._message;
-  set message(String? message) => _$this._message = message;
-
-  StackTrace? _stackTrace;
-  StackTrace? get stackTrace => _$this._stackTrace;
-  set stackTrace(StackTrace? stackTrace) => _$this._stackTrace = stackTrace;
-
-  DatabasePoolErrorBuilder();
-
-  DatabasePoolErrorBuilder get _$this {
-    final $v = _$v;
-    if ($v != null) {
-      _message = $v.message;
-      _stackTrace = $v.stackTrace;
-      _$v = null;
-    }
-    return this;
-  }
-
-  @override
-  void replace(DatabasePoolError other) {
-    _$v = other as _$DatabasePoolError;
-  }
-
-  @override
-  void update(void Function(DatabasePoolErrorBuilder)? updates) {
-    if (updates != null) updates(this);
-  }
-
-  @override
-  DatabasePoolError build() => _build();
-
-  _$DatabasePoolError _build() {
-    final _$result =
-        _$v ??
-        _$DatabasePoolError._(
-          message: BuiltValueNullFieldError.checkNotNull(
-            message,
-            r'DatabasePoolError',
-            'message',
-          ),
-          stackTrace: BuiltValueNullFieldError.checkNotNull(
-            stackTrace,
-            r'DatabasePoolError',
-            'stackTrace',
-          ),
-        );
     replace(_$result);
     return _$result;
   }
