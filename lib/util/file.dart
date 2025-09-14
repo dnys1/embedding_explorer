@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:web/web.dart';
 
-extension FileFutures on File {
+extension BlobFutures on Blob {
   Future<Uint8List> readAsBytes() {
     final reader = FileReader();
     final completer = Completer<Uint8List>();

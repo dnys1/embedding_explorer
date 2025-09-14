@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js_interop';
 
 import 'package:csv/csv.dart';
 import 'package:logging/logging.dart';
@@ -33,12 +34,11 @@ class CsvDataSource extends DataSource {
 
   static Future<CsvDataSource> loadFromFile({
     required DataSourceConfig config,
-    required web.File file,
+    required web.Blob file,
   }) async {
     assert(config.type == DataSourceType.csv);
-    assert(config.settings is CsvDataSourceSettings);
 
-    final csvSettings = config.settings as CsvDataSourceSettings;
+    final opfs = await web.window.navigator.storage.getDirectory().toDart;
     try {
       _logger.info('Connecting to CSV data source: ${config.name}');
 
@@ -53,62 +53,25 @@ class CsvDataSource extends DataSource {
         );
       }
 
-      final delimiter = csvSettings.delimiter;
-      final hasHeader = csvSettings.hasHeader;
+      _logger.finest('Persisting to OPFS');
+      final fileHandle = await opfs
+          .getFileHandle(
+            config.filename,
+            web.FileSystemGetFileOptions(create: true),
+          )
+          .toDart;
+      final writable = await fileHandle.createWritable().toDart;
+      await writable.write(content.toJS).toDart;
+      await writable.close().toDart;
+      _logger.finest('CSV content persisted to OPFS as ${config.filename}');
 
-      _logger.finest(
-        'Parsing CSV with delimiter: "$delimiter", hasHeader: $hasHeader',
-      );
-
-      // Parse CSV content
-      final csvData = const CsvToListConverter().convert(
-        content.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
-        eol: '\n',
-        fieldDelimiter: delimiter,
-        shouldParseNumbers: false, // Keep as strings for type inference
-      );
-
-      if (csvData.isEmpty) {
-        _logger.warning('CSV file is empty for data source: ${config.name}');
-        throw DataSourceException('CSV file is empty', sourceType: config.type);
-      }
-
-      List<List<dynamic>> rawData = csvData;
-      _logger.finest('Parsed ${csvData.length} rows from CSV content');
-      _logger.finest('First 3 raw rows: ${csvData.take(3).toList()}');
-
-      // Extract headers
-      final List<String> headers;
-      if (hasHeader && csvData.isNotEmpty) {
-        headers = csvData.first.map((e) => e?.toString() ?? '').toList();
-        rawData = csvData.skip(1).toList();
-        _logger.finest('Extracted headers: ${headers.join(', ')}');
-      } else {
-        // Generate column names if no header
-        final columnCount = csvData.first.length;
-        headers = List.generate(columnCount, (i) => 'Column${i + 1}');
-        _logger.finest('Generated headers: ${headers.join(', ')}');
-      }
-
-      // Infer field types
-      _logger.finest('Starting type inference for ${headers.length} columns');
-      final fieldTypes = _inferFieldTypes(rawData: rawData, headers: headers);
-
-      _logger.info(
-        'Successfully connected to CSV data source: ${config.name} '
-        '(${rawData.length} rows, ${headers.length} columns)',
-      );
-      return CsvDataSource._(
-        config,
-        rawData: rawData,
-        headers: headers,
-        fieldTypes: fieldTypes,
-      );
+      return await _load(content, config: config);
     } catch (e) {
       _logger.severe('Failed to connect to CSV data source: ${config.name}', e);
+      opfs.removeEntry(config.filename).toDart.ignore();
       if (e is DataSourceException) rethrow;
       throw DataSourceException(
-        'Failed to parse CSV: ${e.toString()}',
+        'Failed to load CSV: ${e.toString()}',
         sourceType: config.type,
         cause: e,
       );
@@ -118,8 +81,94 @@ class CsvDataSource extends DataSource {
   static Future<CsvDataSource> connect({
     required DataSourceConfig config,
   }) async {
-    throw UnimplementedError(
-      'Connect method is not implemented for CSV data source',
+    assert(config.type == DataSourceType.csv);
+
+    try {
+      _logger.info('Connecting to CSV data source: ${config.name}');
+
+      final opfs = await web.window.navigator.storage.getDirectory().toDart;
+      final fileHandle = await opfs
+          .getFileHandle(
+            config.filename,
+            web.FileSystemGetFileOptions(create: true),
+          )
+          .toDart;
+      final file = await fileHandle.getFile().toDart;
+      final content = await file.readAsString();
+
+      _logger.finest(
+        'Read CSV content from OPFS: ${config.filename}, length=${content.length}',
+      );
+
+      return await _load(content, config: config);
+    } catch (e) {
+      _logger.severe('Failed to connect to CSV data source: ${config.name}', e);
+
+      if (e is DataSourceException) rethrow;
+      throw DataSourceException(
+        'Failed to load CSV: ${e.toString()}',
+        sourceType: config.type,
+        cause: e,
+      );
+    }
+  }
+
+  static Future<CsvDataSource> _load(
+    String content, {
+    required DataSourceConfig config,
+  }) async {
+    assert(config.settings is CsvDataSourceSettings);
+    final settings = config.settings as CsvDataSourceSettings;
+    final delimiter = settings.delimiter;
+    final hasHeader = settings.hasHeader;
+
+    _logger.finest(
+      'Parsing CSV with delimiter: "$delimiter", hasHeader: $hasHeader',
+    );
+
+    // Parse CSV content
+    final csvData = const CsvToListConverter().convert(
+      content.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
+      eol: '\n',
+      fieldDelimiter: delimiter,
+      shouldParseNumbers: false, // Keep as strings for type inference
+    );
+
+    if (csvData.isEmpty) {
+      _logger.warning('CSV file is empty for data source: ${config.name}');
+      throw DataSourceException('CSV file is empty', sourceType: config.type);
+    }
+
+    List<List<dynamic>> rawData = csvData;
+    _logger.finest('Parsed ${csvData.length} rows from CSV content');
+    _logger.finest('First 3 raw rows: ${csvData.take(3).toList()}');
+
+    // Extract headers
+    final List<String> headers;
+    if (hasHeader && csvData.isNotEmpty) {
+      headers = csvData.first.map((e) => e?.toString() ?? '').toList();
+      rawData = csvData.skip(1).toList();
+      _logger.finest('Extracted headers: ${headers.join(', ')}');
+    } else {
+      // Generate column names if no header
+      final columnCount = csvData.first.length;
+      headers = List.generate(columnCount, (i) => 'Column${i + 1}');
+      _logger.finest('Generated headers: ${headers.join(', ')}');
+    }
+
+    // Infer field types
+    _logger.finest('Starting type inference for ${headers.length} columns');
+    final fieldTypes = _inferFieldTypes(rawData: rawData, headers: headers);
+
+    _logger.info(
+      'Successfully connected to CSV data source: ${config.name} '
+      '(${rawData.length} rows, ${headers.length} columns)',
+    );
+    return CsvDataSource._(
+      config,
+      rawData: rawData,
+      headers: headers,
+      fieldTypes: fieldTypes,
     );
   }
 

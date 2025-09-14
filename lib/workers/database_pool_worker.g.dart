@@ -177,6 +177,14 @@ class _$DatabasePoolRequestSerializer
         ..add('libsqlUri')
         ..add(serializers.serialize(value, specifiedType: const FullType(Uri)));
     }
+    value = object.name;
+    if (value != null) {
+      result
+        ..add('name')
+        ..add(
+          serializers.serialize(value, specifiedType: const FullType(String)),
+        );
+    }
     value = object.clearOnInit;
     if (value != null) {
       result
@@ -252,6 +260,14 @@ class _$DatabasePoolRequestSerializer
           result.libsqlUri =
               serializers.deserialize(value, specifiedType: const FullType(Uri))
                   as Uri?;
+          break;
+        case 'name':
+          result.name =
+              serializers.deserialize(
+                    value,
+                    specifiedType: const FullType(String),
+                  )
+                  as String?;
           break;
         case 'clearOnInit':
           result.clearOnInit =
@@ -605,6 +621,8 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
   @override
   final Uri? libsqlUri;
   @override
+  final String? name;
+  @override
   final bool? clearOnInit;
   @override
   final String? databaseName;
@@ -621,6 +639,7 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
     required this.requestId,
     required this.type,
     this.libsqlUri,
+    this.name,
     this.clearOnInit,
     this.databaseName,
     this.transaction,
@@ -642,6 +661,7 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
         requestId == other.requestId &&
         type == other.type &&
         libsqlUri == other.libsqlUri &&
+        name == other.name &&
         clearOnInit == other.clearOnInit &&
         databaseName == other.databaseName &&
         transaction == other.transaction &&
@@ -654,6 +674,7 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
     _$hash = $jc(_$hash, requestId.hashCode);
     _$hash = $jc(_$hash, type.hashCode);
     _$hash = $jc(_$hash, libsqlUri.hashCode);
+    _$hash = $jc(_$hash, name.hashCode);
     _$hash = $jc(_$hash, clearOnInit.hashCode);
     _$hash = $jc(_$hash, databaseName.hashCode);
     _$hash = $jc(_$hash, transaction.hashCode);
@@ -668,6 +689,7 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
           ..add('requestId', requestId)
           ..add('type', type)
           ..add('libsqlUri', libsqlUri)
+          ..add('name', name)
           ..add('clearOnInit', clearOnInit)
           ..add('databaseName', databaseName)
           ..add('transaction', transaction)
@@ -691,6 +713,10 @@ class DatabasePoolRequestBuilder
   Uri? _libsqlUri;
   Uri? get libsqlUri => _$this._libsqlUri;
   set libsqlUri(Uri? libsqlUri) => _$this._libsqlUri = libsqlUri;
+
+  String? _name;
+  String? get name => _$this._name;
+  set name(String? name) => _$this._name = name;
 
   bool? _clearOnInit;
   bool? get clearOnInit => _$this._clearOnInit;
@@ -718,6 +744,7 @@ class DatabasePoolRequestBuilder
       _requestId = $v.requestId;
       _type = $v.type;
       _libsqlUri = $v.libsqlUri;
+      _name = $v.name;
       _clearOnInit = $v.clearOnInit;
       _databaseName = $v.databaseName;
       _transaction = $v.transaction?.toBuilder();
@@ -757,6 +784,7 @@ class DatabasePoolRequestBuilder
               'type',
             ),
             libsqlUri: libsqlUri,
+            name: name,
             clearOnInit: clearOnInit,
             databaseName: databaseName,
             transaction: _transaction?.build(),

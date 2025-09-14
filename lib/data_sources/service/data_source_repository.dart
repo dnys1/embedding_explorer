@@ -8,7 +8,6 @@ import '../../configurations/model/configuration_manager.dart';
 import '../../database/database_pool.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
-import '../model/data_source_settings.dart';
 import 'csv_data_source.dart';
 import 'sqlite_data_source.dart';
 
@@ -33,19 +32,16 @@ class DataSourceRepository with ChangeNotifier {
   Future<void> initialize() async {
     final configs = _configManager.dataSourceConfigs.all;
     await Future.wait<void>([
-      for (final config in configs)
-        Future(() async {
-          try {
-            await connect(config);
-          } catch (e, st) {
-            _logger.warning(
-              'Failed to connect to data source: ${config.id}',
-              e,
-              st,
-            );
-          }
-        }),
+      for (final config in configs) _tryConnect(config),
     ]);
+  }
+
+  Future<void> _tryConnect(DataSourceConfig config) async {
+    try {
+      await connect(config);
+    } catch (e, st) {
+      _logger.warning('Failed to connect to data source: ${config.id}', e, st);
+    }
   }
 
   /// Get all available data sources
@@ -65,10 +61,11 @@ class DataSourceRepository with ChangeNotifier {
     return dataSource;
   }
 
-  /// Load a data source from configuration and a [web.File].
+  /// Load a data source from configuration and a [web.Blob], typically a
+  /// [web.File].
   Future<DataSource> loadFromFile({
     required DataSourceConfig config,
-    required web.File file,
+    required web.Blob file,
   }) async {
     final DataSource dataSource = await switch (config.type) {
       DataSourceType.csv => CsvDataSource.loadFromFile(
@@ -85,7 +82,9 @@ class DataSourceRepository with ChangeNotifier {
       ),
     };
     _dataSources[config.id] = dataSource;
-    unawaited(_configManager.dataSourceConfigs.add(config));
+    scheduleMicrotask(() {
+      unawaited(_configManager.dataSourceConfigs.add(config));
+    });
     return dataSource;
   }
 
@@ -108,7 +107,9 @@ class DataSourceRepository with ChangeNotifier {
     };
 
     _dataSources[config.id] = dataSource;
-    unawaited(_configManager.dataSourceConfigs.add(config));
+    scheduleMicrotask(() {
+      unawaited(_configManager.dataSourceConfigs.add(config));
+    });
     return dataSource;
   }
 
@@ -117,10 +118,8 @@ class DataSourceRepository with ChangeNotifier {
     notifyListeners();
     try {
       await dataSource?.dispose();
-      if (dataSource case SqliteDataSource(
-        sqliteSettings: SqliteDataSourceSettings(filename: final filename?),
-      )) {
-        await _databasePool.delete(filename);
+      if (dataSource is SqliteDataSource) {
+        await _databasePool.delete(dataSource.config.filename);
       }
       await _configManager.dataSourceConfigs.remove(id);
       _logger.info('Deleted data source: $id');
@@ -129,14 +128,18 @@ class DataSourceRepository with ChangeNotifier {
     }
   }
 
+  Future<void> clear() async {
+    try {
+      await Future.wait(_dataSources.values.map((ds) => ds.dispose()));
+    } finally {
+      _dataSources.clear();
+    }
+  }
+
   @override
   Future<void> dispose() async {
     _configManager.dataSourceConfigs.removeListener(_onDataSourceConfigChanged);
-
-    await Future.wait(_dataSources.values.map((ds) => ds.dispose()));
-
-    _dataSources.clear();
-
+    await clear();
     super.dispose();
   }
 
@@ -146,10 +149,22 @@ class DataSourceRepository with ChangeNotifier {
     final currentIds = currentConfigs.map((c) => c.id).toSet();
     final cachedIds = _dataSources.keys.toSet();
 
+    final connects = <Future<void> Function()>[];
+    final disconnects = <Future<void> Function()>[];
+
     // Remove data sources that no longer exist in config
     final removedIds = cachedIds.difference(currentIds);
     for (final id in removedIds) {
-      _removeDataSource(id);
+      _logger.info('Data source config removed: $id');
+      disconnects.add(() => _tryDisconnect(id));
+    }
+
+    // Add new data sources that are in config but not yet cached
+    final newIds = currentIds.difference(cachedIds);
+    for (final id in newIds) {
+      _logger.info('Data source config added: $id');
+      final config = currentConfigs.firstWhere((c) => c.id == id);
+      disconnects.add(() => _tryConnect(config));
     }
 
     // Update existing data sources if their config changed
@@ -159,24 +174,27 @@ class DataSourceRepository with ChangeNotifier {
         if (_hasConfigChanged(existing.config, config)) {
           _logger.info('Configuration changed for data source: ${config.id}');
           // Disconnect and recreate the data source with new config
-          // TODO:
-          // _removeDataSource(config.id);
-          // The data source will be recreated on next access
+          disconnects.add(() => _tryDisconnect(config.id));
+          connects.add(() => _tryConnect(config));
         }
       }
     }
 
-    notifyListeners();
+    Future.wait(
+      disconnects.map((f) => f()),
+    ).then((_) => Future.wait(connects.map((f) => f()))).whenComplete(() {
+      _logger.fine('Data source configurations synchronized');
+      notifyListeners();
+    });
   }
 
   /// Remove a data source from cache and disconnect it
-  void _removeDataSource(String id) {
+  Future<void> _tryDisconnect(String id) async {
     final dataSource = _dataSources.remove(id);
 
     if (dataSource != null) {
       _logger.info('Removing data source from cache: $id');
-      // Disconnect asynchronously without waiting
-      dataSource.dispose().catchError((Object e) {
+      await dataSource.dispose().catchError((Object e) {
         _logger.warning('Error disconnecting removed data source: $id', e);
       });
     }

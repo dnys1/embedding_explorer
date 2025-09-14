@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:logging/logging.dart';
-
 import '../../configurations/model/configuration_collection.dart';
 import '../../configurations/model/configuration_item.dart';
 import '../../util/type_id.dart';
@@ -10,14 +8,13 @@ import 'data_source_settings.dart';
 /// Configuration for a data source with metadata
 class DataSourceConfig<T extends DataSourceSettings>
     implements ConfigurationItem {
-  static final Logger _logger = Logger('DataSourceConfig');
-
   @override
   final String id;
   final String name;
   final String description;
   final DataSourceType type;
   final T settings;
+  final String filename;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,6 +24,7 @@ class DataSourceConfig<T extends DataSourceSettings>
     String description = '',
     required DataSourceType type,
     required T settings,
+    required String filename,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -37,6 +35,7 @@ class DataSourceConfig<T extends DataSourceSettings>
       description: description,
       type: type,
       settings: settings,
+      filename: filename,
       createdAt: createdAt ?? now,
       updatedAt: updatedAt ?? now,
     );
@@ -48,6 +47,7 @@ class DataSourceConfig<T extends DataSourceSettings>
     required this.description,
     required this.type,
     required this.settings,
+    required this.filename,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -59,6 +59,7 @@ class DataSourceConfig<T extends DataSourceSettings>
     String? description,
     DataSourceType? type,
     T? settings,
+    String? filename,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -68,33 +69,30 @@ class DataSourceConfig<T extends DataSourceSettings>
       description: description ?? this.description,
       type: type ?? this.type,
       settings: settings ?? this.settings,
+      filename: filename ?? this.filename,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   /// Create from database result set
-  static DataSourceConfig<DataSourceSettings>? fromDatabase(
+  static DataSourceConfig<DataSourceSettings> fromDatabase(
     Map<String, Object?> row,
   ) {
-    try {
-      final type = DataSourceType.values.byName(row['type'] as String);
-      return DataSourceConfig<DataSourceSettings>._(
-        id: row['id'] as String,
-        name: row['name'] as String,
-        description: row['description'] as String? ?? '',
-        type: type,
-        settings: DataSourceSettings.fromJson(
-          type,
-          jsonDecode(row['settings'] as String) as Map<String, dynamic>,
-        ),
-        createdAt: DateTime.parse(row['created_at'] as String),
-        updatedAt: DateTime.parse(row['updated_at'] as String),
-      );
-    } catch (e) {
-      _logger.severe('Error parsing DataSourceConfig from ResultSet: $row', e);
-      return null;
-    }
+    final type = DataSourceType.values.byName(row['type'] as String);
+    return DataSourceConfig<DataSourceSettings>._(
+      id: row['id'] as String,
+      name: row['name'] as String,
+      description: row['description'] as String? ?? '',
+      type: type,
+      filename: row['filename'] as String? ?? '',
+      settings: DataSourceSettings.fromJson(
+        type,
+        jsonDecode(row['settings'] as String) as Map<String, dynamic>,
+      ),
+      createdAt: DateTime.parse(row['created_at'] as String),
+      updatedAt: DateTime.parse(row['updated_at'] as String),
+    );
   }
 
   @override

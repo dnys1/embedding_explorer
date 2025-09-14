@@ -46,6 +46,7 @@ abstract class DatabasePoolRequest
 
   // For init operations
   Uri? get libsqlUri;
+  String? get name;
   bool? get clearOnInit;
 
   // For database-specific operations
@@ -58,12 +59,14 @@ abstract class DatabasePoolRequest
   factory DatabasePoolRequest.init({
     required int requestId,
     Uri? libsqlUri,
+    String? name,
     bool? clearOnInit,
   }) {
     return _$DatabasePoolRequest._(
       requestId: requestId,
       type: DatabasePoolRequestType.init,
       libsqlUri: libsqlUri,
+      name: name,
       clearOnInit: clearOnInit,
     );
   }
@@ -350,6 +353,7 @@ abstract class DatabasePoolWorker
               moduleUri: request.libsqlUri ?? Uri.parse('/js/libsql.js'),
             );
             sahPool = await libsql.getSAHPoolUtil(
+              name: request.name,
               clearOnInit: request.clearOnInit,
             );
             respond.add(

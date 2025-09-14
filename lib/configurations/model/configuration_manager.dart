@@ -12,35 +12,43 @@ import '../service/configuration_service.dart';
 
 /// Global state manager for all configuration collections
 class ConfigurationManager with ChangeNotifier {
-  static final ConfigurationManager instance = ConfigurationManager._();
+  static final ConfigurationManager _instance = ConfigurationManager._();
+  static ConfigurationManager get instance => _instance;
 
   ConfigurationManager._() : _configService = ConfigurationService();
 
   final ConfigurationService _configService;
 
   // Configuration collections
-  late final DataSourceConfigCollection dataSourceConfigs =
-      DataSourceConfigCollection(_configService);
-  late final EmbeddingTemplateConfigCollection embeddingTemplates =
-      EmbeddingTemplateConfigCollection(_configService);
-  late final ModelProviderConfigCollection modelProviders =
-      ModelProviderConfigCollection(
-        _configService,
-        CredentialService(_configService.database),
-      );
-  late final CustomProviderTemplateCollection customProviderTemplates =
-      CustomProviderTemplateCollection(_configService);
-  late final EmbeddingJobCollection embeddingJobs = EmbeddingJobCollection(
+
+  late final dataSourceConfigs = DataSourceConfigCollection(_configService);
+  late final embeddingTemplates = EmbeddingTemplateConfigCollection(
     _configService,
   );
+  late final modelProviders = ModelProviderConfigCollection(
+    _configService,
+    CredentialService(_configService.database),
+  );
+  late final customProviderTemplates = CustomProviderTemplateCollection(
+    _configService,
+  );
+  late final embeddingJobs = EmbeddingJobCollection(_configService);
 
   // Data source repository for managing connections
   late final DatabasePool _databasePool;
-  late DataSourceRepository dataSources;
+  late final DataSourceRepository dataSources;
 
   /// Initialize all collections and load from storage
-  Future<void> initialize({Uri? libsqlUri}) async {
-    _databasePool = await DatabasePool.create(libsqlUri: libsqlUri);
+  Future<void> initialize({
+    Uri? libsqlUri,
+    bool? clearOnInit,
+    String? poolName,
+  }) async {
+    _databasePool = await DatabasePool.create(
+      libsqlUri: libsqlUri,
+      clearOnInit: clearOnInit,
+      name: poolName,
+    );
     final configurationDb = await _databasePool.open('configurations.db');
 
     // Initialize the configuration service first
@@ -72,22 +80,14 @@ class ConfigurationManager with ChangeNotifier {
   Future<void> clearAll() async {
     await Future.wait([
       dataSourceConfigs.clear(),
+      dataSources.clear(),
       embeddingTemplates.clear(),
       modelProviders.clear(),
       customProviderTemplates.clear(),
       embeddingJobs.clear(),
     ]);
 
-    await dataSources.dispose();
-    await _databasePool.wipeAll();
-    await _databasePool.open('configurations.db');
-
-    // Migrate the table down after clearing
-    await _configService.migrateDown(to: 0);
-    await _configService.migrateUp();
-
-    // Recreate repository after clearing
-    dataSources = DataSourceRepository(this, _databasePool);
+    notifyListeners();
   }
 
   /// Get summary statistics

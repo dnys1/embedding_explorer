@@ -19,7 +19,7 @@ import 'migrations/migrations.dart';
 class ConfigurationService with ChangeNotifier {
   static final Logger _logger = Logger('ConfigurationService');
 
-  late final DatabaseHandle _database;
+  late DatabaseHandle _database;
   final Migrate _migrator;
   bool _isInitialized = false;
 
@@ -92,14 +92,15 @@ class ConfigurationService with ChangeNotifier {
     await database.execute(
       '''
       INSERT OR REPLACE INTO data_source_configs 
-      (id, name, description, type, settings, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (id, name, description, type, filename, settings, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''',
       [
         config.id,
         config.name,
         config.description,
         config.type.name,
+        config.filename,
         jsonEncode(config.settings.toJson()),
         config.createdAt.toIso8601String(),
         now,

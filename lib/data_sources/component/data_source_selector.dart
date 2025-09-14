@@ -1,8 +1,6 @@
 import 'dart:js_interop';
 
-import 'package:aws_common/aws_common.dart';
 import 'package:jaspr/jaspr.dart';
-import 'package:path/path.dart' as path;
 import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
@@ -47,8 +45,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
   // CSV configuration
   String _csvDelimiter = ',';
   bool _csvHasHeader = true;
-  bool _csvPersistent = false;
-  String? _csvPersistentName;
   web.File? _selectedFile;
 
   // SQLite configuration
@@ -69,13 +65,10 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
         _dataSourceName = dataSource.name;
         _csvDelimiter = dataSource.csvSettings.delimiter;
         _csvHasHeader = dataSource.csvSettings.hasHeader;
-        _csvPersistent = dataSource.csvSettings.persistent;
-        _csvPersistentName = dataSource.csvSettings.persistentName;
       case final SqliteDataSource dataSource:
         _selectedType = DataSourceType.sqlite;
         _dataSourceName = dataSource.name;
         _sqliteType = SqliteDataSourceType.persistent;
-        _sqliteFilename = dataSource.sqliteSettings.filename;
       case null:
         _selectedType = DataSourceType.csv;
     }
@@ -210,44 +203,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
         onFileChanged: (file) => setState(() => _selectedFile = file),
       ),
 
-      // Persistence options
-      div(classes: 'space-y-3', [
-        div(classes: 'flex items-center space-x-2', [
-          Checkbox(
-            id: 'csv-persistent',
-            checked: _csvPersistent,
-            onChanged: (checked) => setState(() {
-              _csvPersistent = checked;
-              _csvPersistentName ??= _dataSourceName
-                  ?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
-                  .toLowerCase();
-            }),
-          ),
-          Label(
-            htmlFor: 'csv-persistent',
-            children: [text('Save to persistent storage')],
-          ),
-        ]),
-        if (_csvPersistent)
-          div(classes: 'ml-6 space-y-2', [
-            Label(
-              htmlFor: 'csv-persistent-name',
-              children: [text('Persistent Dataset Name')],
-            ),
-            Input.text(
-              id: 'csv-persistent-name',
-              placeholder: 'my_csv_dataset',
-              value: _csvPersistentName,
-              onChange: (value) => setState(() => _csvPersistentName = value),
-            ),
-            p(classes: 'text-xs text-muted-foreground', [
-              text(
-                'The CSV data will be saved in browser storage and can be accessed later',
-              ),
-            ]),
-          ]),
-      ]),
-
       // CSV options
       div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-6', [
         // Delimiter
@@ -363,12 +318,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
           onFileChanged: (file) => setState(() {
             _selectedFile = file;
             if (_sqliteFilename == null && file != null) {
-              final filename = path.withoutExtension(file.name).snakeCase;
-              var ext = path.extension(file.name);
-              if (ext.isEmpty) {
-                ext = '.db';
-              }
-              _sqliteFilename = '$filename$ext';
+              _sqliteFilename = file.name;
             }
           }),
         ),
@@ -506,8 +456,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       _selectedType = DataSourceType.sqlite;
 
       // Sync SQLite-specific settings
-      final settings = dataSource.sqliteSettings;
-      _sqliteFilename = settings.filename;
+      _sqliteFilename = dataSource.config.filename;
     } else {
       // Handle other data source types (CSV, etc.)
       _selectedType = dataSource.type;
@@ -528,8 +477,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       } else if (type == DataSourceType.csv) {
         _csvDelimiter = ',';
         _csvHasHeader = true;
-        _csvPersistent = false;
-        _csvPersistentName = null;
       }
     });
   }
@@ -558,11 +505,10 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
       final dataSourceConfig = DataSourceConfig(
         name: _dataSourceName!,
         type: DataSourceType.csv,
+        filename: _selectedFile!.name,
         settings: CsvDataSourceSettings(
           delimiter: _csvDelimiter,
           hasHeader: _csvHasHeader,
-          persistent: _csvPersistent,
-          persistentName: _csvPersistentName,
         ),
       );
       final dataSource = await _repository.loadFromFile(
@@ -599,8 +545,9 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
     try {
       final config = DataSourceConfig(
         name: _dataSourceName!,
+        filename: _sqliteFilename ?? _selectedFile!.name,
         type: DataSourceType.sqlite,
-        settings: SqliteDataSourceSettings(filename: _sqliteFilename),
+        settings: SqliteDataSourceSettings(),
       );
       final dataSource = _sqliteType == SqliteDataSourceType.import
           ? await _repository.loadFromFile(config: config, file: _selectedFile!)

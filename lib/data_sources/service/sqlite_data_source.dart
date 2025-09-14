@@ -51,15 +51,13 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
   /// a data source.
   static Future<SqliteDataSource> loadFromFile({
     required DatabasePool dbPool,
-    required web.File file,
+    required web.Blob file,
     required DataSourceConfig config,
   }) async {
     assert(config.type == DataSourceType.sqlite);
     assert(config.settings is SqliteDataSourceSettings);
 
-    final settings = config.settings as SqliteDataSourceSettings;
-
-    final filename = settings.filename ?? file.name;
+    final filename = config.filename;
     final database = await dbPool.import(
       filename: filename,
       data: await file.readAsBytes(),
@@ -75,11 +73,9 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     required DataSourceConfig config,
   }) async {
     assert(config.type == DataSourceType.sqlite);
-    assert(config.settings is SqliteDataSourceSettings);
 
-    final settings = config.settings as SqliteDataSourceSettings;
-    final filename = settings.filename;
-    if (filename == null || filename.isEmpty) {
+    final filename = config.filename;
+    if (filename.isEmpty) {
       throw ArgumentError(
         'Filename is required to connect to a SQLite database',
       );

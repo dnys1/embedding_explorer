@@ -34,41 +34,17 @@ class CsvDataSourceSettings extends DataSourceSettings {
   /// Whether the first row contains column headers
   final bool hasHeader;
 
-  /// CSV text content
-  final String? content;
-
-  /// Whether to use persistent storage
-  final bool persistent;
-
-  /// Name for persistent storage (if persistent is true)
-  final String? persistentName;
-
-  const CsvDataSourceSettings({
-    this.delimiter = ',',
-    this.hasHeader = true,
-    this.content,
-    this.persistent = false,
-    this.persistentName,
-  });
+  const CsvDataSourceSettings({this.delimiter = ',', this.hasHeader = true});
 
   @override
   Map<String, dynamic> toJson() {
-    return {
-      'delimiter': delimiter,
-      'hasHeader': hasHeader,
-      'content': content,
-      'persistent': persistent,
-      'persistentName': ?persistentName,
-    };
+    return {'delimiter': delimiter, 'hasHeader': hasHeader};
   }
 
   factory CsvDataSourceSettings.fromJson(Map<String, dynamic> json) {
     return CsvDataSourceSettings(
       delimiter: json['delimiter'] as String? ?? ',',
       hasHeader: json['hasHeader'] as bool? ?? true,
-      content: json['content'] as String?,
-      persistent: json['persistent'] as bool? ?? false,
-      persistentName: json['persistentName'] as String?,
     );
   }
 
@@ -82,9 +58,6 @@ class CsvDataSourceSettings extends DataSourceSettings {
     return CsvDataSourceSettings(
       delimiter: delimiter ?? this.delimiter,
       hasHeader: hasHeader ?? this.hasHeader,
-      content: content ?? this.content,
-      persistent: persistent ?? this.persistent,
-      persistentName: persistentName ?? this.persistentName,
     );
   }
 
@@ -98,14 +71,10 @@ class CsvDataSourceSettings extends DataSourceSettings {
       other is CsvDataSourceSettings &&
           runtimeType == other.runtimeType &&
           delimiter == other.delimiter &&
-          hasHeader == other.hasHeader &&
-          persistent == other.persistent &&
-          persistentName == other.persistentName &&
-          content == other.content;
+          hasHeader == other.hasHeader;
 
   @override
-  int get hashCode =>
-      Object.hash(delimiter, hasHeader, persistent, persistentName, content);
+  int get hashCode => Object.hash(delimiter, hasHeader);
 }
 
 enum SqliteDataSourceType {
@@ -134,34 +103,29 @@ enum SqliteDataSourceType {
 
 /// Settings for SQLite data sources
 class SqliteDataSourceSettings extends DataSourceSettings {
-  /// Name for persistent storage (if persistent is true)
-  final String? filename;
-
-  const SqliteDataSourceSettings({this.filename});
+  const SqliteDataSourceSettings();
 
   @override
   Map<String, dynamic> toJson() {
-    return {'filename': ?filename};
+    return const {};
   }
 
   factory SqliteDataSourceSettings.fromJson(Map<String, dynamic> json) {
-    return SqliteDataSourceSettings(filename: json['filename'] as String?);
+    return const SqliteDataSourceSettings();
   }
 
-  SqliteDataSourceSettings copyWith({String? filename}) {
-    return SqliteDataSourceSettings(filename: filename ?? this.filename);
+  SqliteDataSourceSettings copyWith() {
+    return const SqliteDataSourceSettings();
   }
 
   @override
-  String toString() => 'SqliteDataSourceSettings(filename: $filename)';
+  String toString() => 'SqliteDataSourceSettings()';
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SqliteDataSourceSettings &&
-          runtimeType == other.runtimeType &&
-          filename == other.filename;
+      other is SqliteDataSourceSettings && runtimeType == other.runtimeType;
 
   @override
-  int get hashCode => filename.hashCode;
+  int get hashCode => (SqliteDataSourceSettings).hashCode;
 }

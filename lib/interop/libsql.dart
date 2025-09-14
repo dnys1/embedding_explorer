@@ -1215,7 +1215,7 @@ SAHPoolUtil? _globalSAHPool;
 
 /// Get or initialize the global SAH Pool utility
 Future<SAHPoolUtil> getSAHPoolUtil({
-  String name = 'default',
+  String? name,
   bool? clearOnInit,
   int initialCapacity = 6,
 }) async {
@@ -1228,7 +1228,7 @@ Future<SAHPoolUtil> getSAHPoolUtil({
 
   final globalSAHPool = await _installOpfsSAHPoolVfs(
     SAHPoolOptions(
-      name: name,
+      name: name ?? 'default',
       clearOnInit: clearOnInit ?? false,
       initialCapacity: initialCapacity,
     ),

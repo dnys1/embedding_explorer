@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS data_source_configs (
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     type TEXT NOT NULL, -- csv, json, database, api, etc.
+    filename TEXT NOT NULL, -- Filename of the data source
     settings TEXT NOT NULL, -- JSON string containing DataSourceSettings
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL  -- ISO 8601 datetime

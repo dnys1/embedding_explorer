@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:embeddings_explorer/database/database.dart';
@@ -20,11 +21,17 @@ void main() {
     setUp(() async {
       pool = await DatabasePool.create(
         libsqlUri: testLibsqlUri,
+        name: 'test_${Random().nextInt(10000)}',
         clearOnInit: true,
       );
     });
 
     tearDown(() async {
+      try {
+        await pool.wipeAll();
+      } on Object {
+        // OK, may already be disposed
+      }
       await pool.dispose();
     });
 
@@ -330,6 +337,8 @@ void main() {
         // Use the pool
         await pool.import(filename: 'dispose_test.db', data: testDbData);
         expect(pool.databaseNames, hasLength(1));
+
+        await pool.wipeAll();
 
         // Dispose
         await pool.dispose();

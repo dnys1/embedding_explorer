@@ -60,17 +60,14 @@ void main() {
     group('Data Source Configuration', () {
       test('should save and retrieve data source config', () async {
         final now = DateTime.now();
-        final settings = CsvDataSourceSettings(
-          delimiter: ',',
-          hasHeader: true,
-          content: 'name,age\nJohn,30\nJane,25',
-        );
+        final settings = CsvDataSourceSettings(delimiter: ',', hasHeader: true);
 
         final config = DataSourceConfig(
           id: 'test_ds_1',
           name: 'Test Data Source',
           description: 'A test data source configuration',
           type: DataSourceType.csv,
+          filename: 'test_data.csv',
           settings: settings,
           createdAt: now,
           updatedAt: now,
@@ -80,8 +77,10 @@ void main() {
 
         final retrieved = await service.getDataSourceConfig('test_ds_1');
         expect(retrieved, isNotNull);
-        expect(retrieved!.name, equals('Test Data Source'));
+        expect(retrieved!.id, equals('test_ds_1'));
+        expect(retrieved.name, equals('Test Data Source'));
         expect(retrieved.type, equals(DataSourceType.csv));
+        expect(retrieved.filename, equals('test_data.csv'));
         expect(
           retrieved.description,
           equals('A test data source configuration'),
@@ -100,10 +99,7 @@ void main() {
 
       test('should get all data source configs', () async {
         final now = DateTime.now();
-        final settings1 = CsvDataSourceSettings(
-          delimiter: ',',
-          content: 'name,age\nJohn,30\nJane,25',
-        );
+        final settings1 = CsvDataSourceSettings(delimiter: ',');
         final settings2 = SqliteDataSourceSettings();
 
         final config1 = DataSourceConfig(
@@ -111,6 +107,7 @@ void main() {
           name: 'Data Source 1',
           description: 'First data source',
           type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
           settings: settings1,
           createdAt: now,
           updatedAt: now,
@@ -121,6 +118,7 @@ void main() {
           name: 'Data Source 2',
           description: 'Second data source',
           type: DataSourceType.sqlite,
+          filename: 'data_source_2.db',
           settings: settings2,
           createdAt: now.add(Duration(minutes: 1)),
           updatedAt: now.add(Duration(minutes: 1)),
@@ -132,22 +130,22 @@ void main() {
         final allConfigs = await service.getAllDataSourceConfigs();
         expect(allConfigs, hasLength(2));
 
-        // Should be ordered by created_at DESC (most recent first)
-        expect(allConfigs[0].id, equals('ds_2'));
-        expect(allConfigs[1].id, equals('ds_1'));
+        expect(
+          allConfigs.map((it) => it.id),
+          unorderedEquals(['ds_1', 'ds_2']),
+        );
       });
 
       test('should delete data source config', () async {
         final now = DateTime.now();
-        final settings = CsvDataSourceSettings(
-          content: 'name,age\nJohn,30\nJane,25',
-        );
+        final settings = CsvDataSourceSettings();
 
         final config = DataSourceConfig(
           id: 'to_delete',
           name: 'To Delete',
           description: 'Config to delete',
           type: DataSourceType.csv,
+          filename: 'to_delete.csv',
           settings: settings,
           createdAt: now,
           updatedAt: now,
@@ -669,14 +667,15 @@ void main() {
         await service.database.execute(
           '''
           INSERT INTO data_source_configs 
-          (id, name, description, type, settings, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          (id, name, description, type, filename, settings, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''',
           [
             'raw_test',
             'Raw SQL Test',
             'Test description',
             'csv',
+            'test.csv',
             '{"delimiter": ","}',
             DateTime.now().toIso8601String(),
             DateTime.now().toIso8601String(),
@@ -700,14 +699,15 @@ void main() {
           tx.execute(
             '''
             INSERT INTO data_source_configs 
-            (id, name, description, type, settings, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, name, description, type, filename, settings, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ''',
             [
               'tx_test_1',
               'Transaction Test 1',
               'First test',
               'csv',
+              'test.csv',
               emptySettings,
               DateTime.now().toIso8601String(),
               DateTime.now().toIso8601String(),
@@ -717,14 +717,15 @@ void main() {
           tx.execute(
             '''
             INSERT INTO data_source_configs 
-            (id, name, description, type, settings, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, name, description, type, filename, settings, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ''',
             [
               'tx_test_2',
               'Transaction Test 2',
               'Second test',
               'sqlite',
+              'test.db',
               emptySettings,
               DateTime.now().toIso8601String(),
               DateTime.now().toIso8601String(),

@@ -40,17 +40,28 @@ class DatabasePool {
   DatabasePool._(this._worker);
 
   static Future<DatabasePool> create({
+    String? name,
     Uri? libsqlUri,
     bool? clearOnInit,
   }) async {
     final worker = DatabasePoolWorker.create();
-    await worker.spawn();
     final pool = DatabasePool._(worker);
-    await pool._init(libsqlUri: libsqlUri, clearOnInit: clearOnInit);
+    await pool._init(
+      libsqlUri: libsqlUri,
+      clearOnInit: clearOnInit,
+      name: name,
+    );
     return pool;
   }
 
-  Future<void> _init({Uri? libsqlUri, bool? clearOnInit}) async {
+  Future<void> _init({Uri? libsqlUri, bool? clearOnInit, String? name}) async {
+    try {
+      await _worker.spawn().timeout(const Duration(seconds: 10));
+    } on Object {
+      _worker.close(force: true).ignore();
+      rethrow;
+    }
+
     _logSubscription = _worker.logs.listen((record) {
       final logger = record is WorkerLogRecord && record.local == false
           ? _remoteLogger
@@ -63,6 +74,7 @@ class DatabasePool {
       DatabasePoolRequest.init(
         requestId: requestId,
         libsqlUri: libsqlUri,
+        name: name,
         clearOnInit: clearOnInit,
       ),
     );

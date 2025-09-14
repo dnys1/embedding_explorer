@@ -251,7 +251,8 @@ class DatabaseWorkerHandle implements DatabaseHandle {
     try {
       await _worker.spawn().timeout(const Duration(seconds: 10));
     } on Object {
-      await _worker.close(force: true);
+      _worker.close(force: true).ignore();
+      rethrow;
     }
 
     final requestId = _nextRequestId++;
