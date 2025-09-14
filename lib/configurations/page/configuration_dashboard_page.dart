@@ -134,7 +134,7 @@ class _DashboardState extends State<Dashboard>
   }
 
   Component _buildDataSourcesSection() {
-    final dataSources = configManager.dataSources.all;
+    final dataSources = configManager.dataSourceConfigs.all;
 
     return div(classes: 'bg-white rounded-lg shadow', [
       div(classes: 'px-6 py-4 border-b border-neutral-200', [
@@ -162,7 +162,7 @@ class _DashboardState extends State<Dashboard>
               description: config.description.isNotEmpty
                   ? config.description
                   : 'No description',
-              onDelete: () => configManager.dataSources.remove(config.id),
+              onDelete: () => configManager.dataSourceConfigs.remove(config.id),
             ),
           ),
       ]),
@@ -192,7 +192,7 @@ class _DashboardState extends State<Dashboard>
           ])
         else
           ...templates.map((config) {
-            final dataSource = configManager.dataSources.getById(
+            final dataSource = configManager.dataSourceConfigs.getById(
               config.dataSourceId,
             );
             final dataSourceInfo = dataSource != null

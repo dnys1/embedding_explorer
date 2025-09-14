@@ -43,7 +43,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
       createdAt: DateTime.now(),
     );
 
-    configManager.embeddingJobs.set(job.id, job);
+    configManager.embeddingJobs.add(job);
     component.onClose();
   }
 
@@ -83,7 +83,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
   }
 
   String _getDataSourceName(String id) {
-    final source = configManager.dataSources.getById(id);
+    final source = configManager.dataSourceConfigs.getById(id);
     return source?.name ?? 'Unknown';
   }
 
@@ -94,7 +94,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
 
   @override
   Component build(BuildContext context) {
-    final dataSources = configManager.dataSources.all;
+    final dataSources = configManager.dataSourceConfigs.all;
     final templates = configManager.embeddingTemplates.all;
     final providers = configManager.modelProviders.all;
 

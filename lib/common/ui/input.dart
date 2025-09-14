@@ -1,6 +1,7 @@
-import '../../util/clsx.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:web/web.dart';
+
+import '../../util/clsx.dart';
 
 class Input extends StatelessComponent {
   const Input({
@@ -16,6 +17,33 @@ class Input extends StatelessComponent {
     this.required = false,
     this.onChange,
   });
+
+  factory Input.text({
+    Key? key,
+    String? placeholder,
+    String? value,
+    String? className,
+    bool disabled = false,
+    bool readOnly = false,
+    String? id,
+    String? name,
+    bool required = false,
+    void Function(String event)? onChange,
+  }) {
+    return Input(
+      key: key,
+      type: InputType.text,
+      placeholder: placeholder,
+      value: value,
+      className: className,
+      disabled: disabled,
+      readOnly: readOnly,
+      id: id,
+      name: name,
+      required: required,
+      onChange: (e) => onChange?.call((e.target as HTMLInputElement).value),
+    );
+  }
 
   final InputType type;
   final String? placeholder;

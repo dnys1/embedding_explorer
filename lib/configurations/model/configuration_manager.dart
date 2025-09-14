@@ -2,6 +2,8 @@ import 'package:jaspr/jaspr.dart';
 
 import '../../credentials/service/credential_service.dart';
 import '../../data_sources/model/data_source_config.dart';
+import '../../data_sources/service/data_source_repository.dart';
+import '../../database/database_pool.dart';
 import '../../jobs/model/embedding_job_collection.dart';
 import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/model_provider_config.dart';
@@ -17,7 +19,7 @@ class ConfigurationManager with ChangeNotifier {
   final ConfigurationService _configService;
 
   // Configuration collections
-  late final DataSourceConfigCollection dataSources =
+  late final DataSourceConfigCollection dataSourceConfigs =
       DataSourceConfigCollection(_configService);
   late final EmbeddingTemplateConfigCollection embeddingTemplates =
       EmbeddingTemplateConfigCollection(_configService);
@@ -32,22 +34,35 @@ class ConfigurationManager with ChangeNotifier {
     _configService,
   );
 
+  // Data source repository for managing connections
+  late final DatabasePool _databasePool;
+  late DataSourceRepository dataSources;
+
   /// Initialize all collections and load from storage
-  Future<void> initialize() async {
+  Future<void> initialize({Uri? libsqlUri, bool verbose = false}) async {
+    _databasePool = await DatabasePool.create(
+      libsqlUri: libsqlUri,
+      verbose: verbose,
+    );
+    final configurationDb = await _databasePool.open('configurations.db');
+
     // Initialize the configuration service first
-    await _configService.initialize();
+    await _configService.initialize(database: configurationDb);
 
     // Load data from storage for all collections
     await Future.wait([
-      dataSources.loadFromStorage(),
+      dataSourceConfigs.loadFromStorage(),
       embeddingTemplates.loadFromStorage(),
       modelProviders.loadFromStorage(),
       customProviderTemplates.loadFromStorage(),
       embeddingJobs.loadFromStorage(),
     ]);
 
+    dataSources = DataSourceRepository(this, _databasePool);
+    await dataSources.initialize();
+
     // Set up change listeners to notify global listeners
-    dataSources.addListener(notifyListeners);
+    dataSourceConfigs.addListener(notifyListeners);
     embeddingTemplates.addListener(notifyListeners);
     modelProviders.addListener(notifyListeners);
     customProviderTemplates.addListener(notifyListeners);
@@ -59,22 +74,29 @@ class ConfigurationManager with ChangeNotifier {
   /// Clear all configurations (useful for testing or reset)
   Future<void> clearAll() async {
     await Future.wait([
-      dataSources.clear(),
+      dataSourceConfigs.clear(),
       embeddingTemplates.clear(),
       modelProviders.clear(),
       customProviderTemplates.clear(),
       embeddingJobs.clear(),
     ]);
 
+    await dataSources.dispose();
+    await _databasePool.wipeAll();
+    await _databasePool.open('configurations.db');
+
     // Migrate the table down after clearing
     await _configService.migrateDown(to: 0);
     await _configService.migrateUp();
+
+    // Recreate repository after clearing
+    dataSources = DataSourceRepository(this, _databasePool);
   }
 
   /// Get summary statistics
   ConfigurationSummary getSummary() {
     return ConfigurationSummary(
-      dataSourceCount: dataSources.length,
+      dataSourceCount: dataSourceConfigs.length,
       embeddingTemplateCount: embeddingTemplates.length,
       modelProviderCount: modelProviders.length,
       customProviderTemplateCount: customProviderTemplates.length,

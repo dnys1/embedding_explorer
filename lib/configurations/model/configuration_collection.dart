@@ -35,10 +35,10 @@ abstract class ConfigurationCollection<T extends ConfigurationItem>
   int get length => _items.length;
 
   /// Add or update a configuration
-  Future<void> set(String id, T item) async {
-    _items[id] = item;
+  Future<void> add(T item) async {
+    _items[item.id] = item;
     notifyListeners();
-    await saveItem(id, item);
+    await saveItem(item.id, item);
   }
 
   /// Remove a configuration

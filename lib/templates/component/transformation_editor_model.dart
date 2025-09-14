@@ -1,25 +1,18 @@
 import 'dart:async';
 import 'dart:js_interop';
 
-import '../../data_sources/model/data_source.dart';
-import '../../data_sources/service/sqlite_data_source.dart';
-import '../../interop/monaco.dart'
-    as monaco
-    show loadModule, editor, languages;
-import '../../interop/monaco.dart' hide Uri, RegExp;
-import '../model/transformation_template.dart';
-import '../../util/change_notifier.dart';
 import 'package:jaspr/browser.dart' show ValueListenable, ValueNotifier;
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
-final class TransformationEditorModel extends ChangeNotifierX {
-  factory TransformationEditorModel({required DataSource? dataSource}) {
-    dataSource ??= SqliteDataSource.withSampleData(name: 'test');
-    return TransformationEditorModel._(dataSource: dataSource);
-  }
+import '../../data_sources/model/data_source.dart';
+import '../../interop/monaco.dart' as monaco show loadModule, editor, languages;
+import '../../interop/monaco.dart' hide Uri, RegExp;
+import '../../util/change_notifier.dart';
+import '../model/transformation_template.dart';
 
-  TransformationEditorModel._({required DataSource dataSource})
+final class TransformationEditorModel extends ChangeNotifierX {
+  TransformationEditorModel({required DataSource dataSource})
     : _dataSource = dataSource;
 
   static final Logger _logger = Logger('TransformationEditorModel');
@@ -91,9 +84,6 @@ final class TransformationEditorModel extends ChangeNotifierX {
 
   Future<void> _loadAvailableFields() async {
     try {
-      if (!_dataSource.isConnected) {
-        await _dataSource.connect();
-      }
       final (schema, sampleData) = await (
         _dataSource.getSchema(),
         _dataSource.getSampleData(limit: 1),

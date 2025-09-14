@@ -46,7 +46,7 @@ class GeminiProvider implements EmbeddingProvider {
       'Google Gemini embedding models for text understanding';
 
   @override
-  bool get requiresApiKey => true;
+  CredentialType? get requiredCredential => CredentialType.apiKey;
 
   @override
   bool get supportsCustomConfig => false;

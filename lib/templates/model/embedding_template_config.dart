@@ -138,7 +138,7 @@ class EmbeddingTemplateConfigCollection
       metadata: metadata,
     ).copyWith(id: id);
 
-    await set(id, config);
+    await add(config);
     return id;
   }
 
@@ -165,7 +165,7 @@ class EmbeddingTemplateConfigCollection
       updatedAt: DateTime.now(),
     );
 
-    await set(id, updated);
+    await add(updated);
     return true;
   }
 

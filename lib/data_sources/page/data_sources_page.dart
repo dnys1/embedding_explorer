@@ -1,5 +1,4 @@
 import 'package:jaspr/jaspr.dart';
-import 'package:logging/logging.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
@@ -7,6 +6,7 @@ import '../../util/async_snapshot.dart';
 import '../component/data_source_selector.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
+import '../service/data_source_repository.dart';
 
 class DataSourcesPage extends StatefulComponent {
   const DataSourcesPage({super.key});
@@ -17,7 +17,7 @@ class DataSourcesPage extends StatefulComponent {
 
 class _DataSourcePageState extends State<DataSourcesPage>
     with ConfigurationManagerListener {
-  static final Logger _logger = Logger('DataSourcesPage');
+  DataSourceRepository get _repository => configManager.dataSources;
 
   bool _showCreateDialog = false;
   bool _isEditing = false;
@@ -33,10 +33,10 @@ class _DataSourcePageState extends State<DataSourcesPage>
     });
   }
 
-  void _showEdit(DataSourceConfig dataSource) {
+  void _showEdit(DataSource dataSource) {
     setState(() {
       _isEditing = true;
-      _selectedDataSource = DataSource.fromConfig(dataSource);
+      _selectedDataSource = dataSource;
       _errorMessage = null;
       _showCreateDialog = true;
     });
@@ -51,14 +51,14 @@ class _DataSourcePageState extends State<DataSourcesPage>
     });
   }
 
-  void _saveDataSource(DataSource dataSource) {
+  void _saveDataSource(DataSource dataSource) async {
     // DataSource now contains its own config, so we can use it directly
     var configToSave = dataSource.config;
 
     // If this is a new data source (no existing ID), generate one
     if (_selectedDataSource == null) {
       configToSave = configToSave.copyWith(
-        id: configManager.dataSources.generateId(),
+        id: configManager.dataSourceConfigs.generateId(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -67,17 +67,17 @@ class _DataSourcePageState extends State<DataSourcesPage>
       configToSave = configToSave.copyWith(updatedAt: DateTime.now());
     }
 
-    configManager.dataSources.set(configToSave.id, configToSave);
+    await configManager.dataSourceConfigs.add(configToSave);
     _hideDialog();
   }
 
-  void _deleteDataSource(DataSourceConfig dataSource) {
-    configManager.dataSources.remove(dataSource.id);
+  void _deleteDataSource(DataSource dataSource) {
+    configManager.dataSources.delete(dataSource.id);
   }
 
   @override
   Component build(BuildContext context) {
-    final dataSources = configManager.dataSources.all;
+    final dataSources = _repository.all;
 
     return div(classes: 'flex flex-col h-full', [
       // Page header
@@ -131,13 +131,13 @@ class _DataSourcePageState extends State<DataSourcesPage>
     ]);
   }
 
-  Component _buildDataSourcesList(List<DataSourceConfig> dataSources) {
+  Component _buildDataSourcesList(List<DataSource> dataSources) {
     return div(classes: 'space-y-4', [
       for (final dataSource in dataSources) _buildDataSourceCard(dataSource),
     ]);
   }
 
-  Component _buildDataSourceCard(DataSourceConfig dataSource) {
+  Component _buildDataSourceCard(DataSource dataSource) {
     return Card(
       className: 'hover:shadow-md transition-shadow',
       children: [
@@ -189,9 +189,9 @@ class _DataSourcePageState extends State<DataSourcesPage>
     );
   }
 
-  Component _buildAvailableFieldsSection(DataSourceConfig dataSourceConfig) {
-    return FutureBuilder<Map<String, String>>(
-      future: _getDataSourceSchema(dataSourceConfig),
+  Component _buildAvailableFieldsSection(DataSource dataSource) {
+    return FutureBuilder<Map<String, DataSourceFieldType>>(
+      future: dataSource.getSchema(),
       builder: (context, snapshot) {
         switch (snapshot.result) {
           case AsyncError():
@@ -231,7 +231,7 @@ class _DataSourcePageState extends State<DataSourcesPage>
                   Badge(
                     variant: BadgeVariant.secondary,
                     children: [
-                      Tooltip(child: text(field), content: schema[field]!),
+                      Tooltip(child: text(field), content: schema[field]!.name),
                     ],
                   ),
               ]),
@@ -239,27 +239,6 @@ class _DataSourcePageState extends State<DataSourcesPage>
         }
       },
     );
-  }
-
-  Future<Map<String, String>> _getDataSourceSchema(
-    DataSourceConfig dataSourceConfig,
-  ) async {
-    try {
-      final dataSource = DataSource.fromConfig(dataSourceConfig);
-      final connected = await dataSource.connect();
-      if (!connected) {
-        return {};
-      }
-      final schema = await dataSource.getSchema();
-      await dataSource.disconnect();
-      return schema;
-    } catch (e) {
-      _logger.severe(
-        'Error getting schema for data source: $dataSourceConfig',
-        e,
-      );
-      return {};
-    }
   }
 
   Component _buildDataSourceDialogContent() {

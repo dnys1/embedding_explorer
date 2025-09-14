@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:jaspr/jaspr.dart';
-import 'package:logging/logging.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
@@ -29,9 +29,6 @@ class AvailableProviderView extends StatefulComponent {
 
 class _AvailableProviderViewState extends State<AvailableProviderView>
     with ConfigurationManagerListener {
-  late final Logger _logger = Logger(
-    'AvailableProviderView.${provider.type.name}',
-  );
   AvailableProvider get provider => component.provider;
   ConfigurationState get configState => _getConfigurationState();
 
@@ -123,10 +120,15 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
     );
   }
 
+  final Map<String, Future<Map<String, EmbeddingModel>>> _availableModels = {};
+
   Component _buildModelsGrid() {
     final config = configManager.modelProviders.getByType(provider.type)!;
+    final future = _availableModels[config.id] ??= provider.listAvailableModels(
+      config,
+    );
     return FutureBuilder<Map<String, EmbeddingModel>>(
-      future: provider.listAvailableModels(config),
+      future: future,
       builder: (context, snapshot) {
         switch (snapshot.result) {
           case AsyncLoading():
@@ -191,7 +193,7 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
                 h3(classes: 'text-sm font-medium text-foreground', [
                   text(model.name),
                 ]),
-                // if (_isModelRecommended(model))
+                // if (_isNewModel(model))
                 //   span(
                 //     classes:
                 //         'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded flex items-center space-x-1',
@@ -245,19 +247,9 @@ class _AvailableProviderViewState extends State<AvailableProviderView>
     return ConfigurationState.fullyConfigured;
   }
 
-  void _toggleModel(EmbeddingModel model, String providerConfigId) async {
-    final success = await configManager.modelProviders.toggleModel(
-      providerConfigId,
-      model.id,
+  void _toggleModel(EmbeddingModel model, String providerConfigId) {
+    unawaited(
+      configManager.modelProviders.toggleModel(providerConfigId, model.id),
     );
-    if (!mounted) return;
-    if (success) {
-      setState(() {}); // Refresh the UI
-      _logger.finest(
-        'Toggled model ${model.id} for provider config $providerConfigId',
-      );
-    } else {
-      _logger.warning('Failed to toggle model ${model.id}');
-    }
   }
 }

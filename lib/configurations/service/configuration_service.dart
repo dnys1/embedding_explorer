@@ -19,44 +19,27 @@ import 'migrations/migrations.dart';
 class ConfigurationService with ChangeNotifier {
   static final Logger _logger = Logger('ConfigurationService');
 
-  Database? _database;
-  final Uri? _libsqlUri;
+  late final IDatabase _database;
   final Migrate _migrator;
-  final bool _verbose;
   bool _isInitialized = false;
 
-  /// Path to the database file
-  final String databasePath;
-
-  ConfigurationService({
-    this.databasePath = 'configurations.db',
-    Uri? libsqlUri,
-    bool verbose = false,
-  }) : _libsqlUri = libsqlUri,
-       _migrator = Migrate(migrations: configMigrations, logger: _logger),
-       _verbose = verbose;
+  ConfigurationService()
+    : _migrator = Migrate(migrations: configMigrations, logger: _logger);
 
   /// Initialize the database and run migrations
-  Future<void> initialize() async {
+  Future<void> initialize({required IDatabase database}) async {
     if (_isInitialized) {
       _logger.warning('ConfigurationService already initialized');
       return;
     }
 
-    try {
-      _logger.config(
-        'Initializing ConfigurationService with database: $databasePath',
-      );
+    _database = database;
 
-      // Open the database
-      _database = await Database.open(
-        databasePath,
-        moduleUri: _libsqlUri,
-        verbose: _verbose,
-      );
+    try {
+      _logger.config('Initializing ConfigurationService');
 
       // Run migrations to ensure schema is up to date
-      await _migrator.up(_database!);
+      await _migrator.up(_database);
 
       _isInitialized = true;
       _logger.config('ConfigurationService initialized successfully');
@@ -73,13 +56,13 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get the database instance
-  Database get database {
-    if (!_isInitialized || _database == null) {
+  IDatabase get database {
+    if (!_isInitialized) {
       throw StateError(
         'ConfigurationService not initialized. Call initialize() first.',
       );
     }
-    return _database!;
+    return _database;
   }
 
   /// Check if the service is initialized
@@ -823,12 +806,9 @@ ORDER BY created_at DESC
 
   /// Dispose of the database connection
   @override
-  void dispose() {
-    if (_database == null) {
-      return;
-    }
-    _database?.dispose();
-    _database = null;
+  Future<void> dispose() async {
+    if (!_isInitialized) return;
+    await _database.close();
     _isInitialized = false;
     super.dispose();
   }

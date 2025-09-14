@@ -4,11 +4,12 @@ import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
 import 'package:logging/logging.dart';
-import 'package:sqlite3/common.dart';
+import 'package:sqlite3/wasm.dart';
 import 'package:worker_bee/worker_bee.dart';
 
 import '../database/database.dart';
 import '../database/transaction.dart';
+import '../interop/libsql.dart' as libsql;
 
 part 'libsql_worker.g.dart';
 
@@ -56,8 +57,7 @@ abstract class LibsqlRequest
   factory LibsqlRequest.init({
     required int requestId,
     required String filename,
-    String? flags,
-    String? vfs,
+    required String vfs,
     Uri? moduleUri,
   }) {
     return _$LibsqlRequest._(
@@ -65,9 +65,8 @@ abstract class LibsqlRequest
       type: LibsqlRequestType.init,
       transaction: Transaction.empty,
       filename: filename,
-      flags: flags,
-      vfs: vfs,
       moduleUri: moduleUri,
+      vfsName: vfs,
     );
   }
 
@@ -78,8 +77,7 @@ abstract class LibsqlRequest
   // Init
   Uri? get moduleUri;
   String? get filename;
-  String? get flags;
-  String? get vfs;
+  String? get vfsName;
 
   LibsqlRequest._();
   factory LibsqlRequest.build([void Function(LibsqlRequestBuilder) updates]) =
@@ -90,21 +88,42 @@ abstract class LibsqlRequest
 
 abstract class LibsqlResponse
     implements Built<LibsqlResponse, LibsqlResponseBuilder> {
-  factory LibsqlResponse({
+  factory LibsqlResponse.success({
     required int requestId,
-    required List<String> columnNames,
-    required List<List<Object?>> rows,
+    required LibsqlResultSet resultSet,
+  }) {
+    return _$LibsqlResponse._(requestId: requestId, resultSet: resultSet);
+  }
+
+  factory LibsqlResponse.failure({
+    required int requestId,
+    required Object error,
+    int? errorCode,
+    required StackTrace stackTrace,
   }) {
     return _$LibsqlResponse._(
       requestId: requestId,
-      columnNames: columnNames.build(),
-      rows: rows.map((e) => e.build()).toBuiltList(),
+      error: LibsqlError(
+        message: error.toString(),
+        code: errorCode,
+        stackTrace: stackTrace,
+      ),
     );
   }
 
   int get requestId;
-  BuiltList<String> get columnNames;
-  BuiltList<BuiltList<Object?>> get rows;
+  LibsqlResultSet? get resultSet;
+  LibsqlError? get error;
+
+  LibsqlResultSet unwrap() {
+    if (error case final error?) {
+      Error.throwWithStackTrace(
+        SqliteException(error.code ?? -1, error.error),
+        error.stackTrace,
+      );
+    }
+    return resultSet!;
+  }
 
   LibsqlResponse._();
 
@@ -113,6 +132,65 @@ abstract class LibsqlResponse
 
   static Serializer<LibsqlResponse> get serializer =>
       _$libsqlResponseSerializer;
+}
+
+abstract class LibsqlResultSet
+    implements Built<LibsqlResultSet, LibsqlResultSetBuilder> {
+  factory LibsqlResultSet({
+    required List<String> columnNames,
+    required List<List<Object?>> rows,
+    required int lastInsertRowId,
+    required int updatedRows,
+  }) {
+    return _$LibsqlResultSet._(
+      columnNames: columnNames.build(),
+      lastInsertRowId: lastInsertRowId,
+      updatedRows: updatedRows,
+      rows: rows.map((e) => e.build()).toBuiltList(),
+    );
+  }
+
+  static final LibsqlResultSet empty = LibsqlResultSet(
+    columnNames: const [],
+    rows: const [],
+    lastInsertRowId: 0,
+    updatedRows: 0,
+  );
+
+  BuiltList<String> get columnNames;
+  int get lastInsertRowId;
+  int get updatedRows;
+  BuiltList<BuiltList<Object?>> get rows;
+
+  LibsqlResultSet._();
+
+  factory LibsqlResultSet.build([
+    void Function(LibsqlResultSetBuilder) updates,
+  ]) = _$LibsqlResultSet;
+
+  static Serializer<LibsqlResultSet> get serializer =>
+      _$libsqlResultSetSerializer;
+}
+
+abstract class LibsqlError implements Built<LibsqlError, LibsqlErrorBuilder> {
+  factory LibsqlError({
+    required String message,
+    int? code,
+    required StackTrace stackTrace,
+  }) {
+    return _$LibsqlError._(error: message, code: code, stackTrace: stackTrace);
+  }
+
+  String get error;
+  int? get code;
+  StackTrace get stackTrace;
+
+  LibsqlError._();
+
+  factory LibsqlError.build([void Function(LibsqlErrorBuilder) updates]) =
+      _$LibsqlError;
+
+  static Serializer<LibsqlError> get serializer => _$libsqlErrorSerializer;
 }
 
 @WorkerBee('lib/workers/workers.dart')
@@ -131,61 +209,89 @@ abstract class LibsqlWorker
     final loggerSubscription = Logger.root.onRecord.listen(
       (r) => logSink.sink.add(WorkerLogRecord.from(r, local: false)),
     );
+
+    Future<void> runWithErrorHandling(
+      int requestId,
+      Future<LibsqlResultSet> Function() action,
+    ) async {
+      try {
+        final result = await action();
+        respond.add(
+          LibsqlResponse.success(requestId: requestId, resultSet: result),
+        );
+      } catch (e, st) {
+        respond.add(
+          LibsqlResponse.failure(
+            requestId: requestId,
+            error: e,
+            errorCode: e is SqliteException ? e.extendedResultCode : null,
+            stackTrace: st,
+          ),
+        );
+      }
+    }
+
     try {
       late final Database db;
       await for (final request in listen) {
         switch (request.type) {
           case LibsqlRequestType.init:
-            db = await Database.open(
-              request.filename!,
+            await libsql.loadModule(
               // In debug mode, we need to pass the absolute path to the LibSQL
               // module since the worker's cwd is different.
               moduleUri: request.moduleUri ?? Uri.parse('/js/libsql.js'),
-              isWorker: true,
-              verbose: request.flags?.contains('t') ?? false,
+            );
+            db = Database(
+              libsql.Database(
+                filename: request.filename!,
+                vfs: request.vfsName,
+                flags: 'c',
+              ),
             );
             respond.add(
-              LibsqlResponse(
+              LibsqlResponse.success(
                 requestId: request.requestId,
-                rows: const [],
-                columnNames: const [],
+                resultSet: LibsqlResultSet.empty,
               ),
             );
           case LibsqlRequestType.execute:
-            final query = request.transaction.statements.single;
-            await db.execute(query.sql, query.parameters.toList());
-            respond.add(
-              LibsqlResponse(
-                requestId: request.requestId,
-                rows: const [],
+            await runWithErrorHandling(request.requestId, () async {
+              final query = request.transaction.statements.single;
+              final result = db.execute(query.sql, query.parameters.toList());
+              return LibsqlResultSet(
                 columnNames: const [],
-              ),
-            );
-          case LibsqlRequestType.query:
-            final query = request.transaction.statements.single;
-            final result =
-                await db.select(query.sql, query.parameters.toList())
-                    as ResultSet;
-            respond.add(
-              LibsqlResponse(
-                requestId: request.requestId,
-                rows: result.rows,
-                columnNames: result.columnNames,
-              ),
-            );
-          case LibsqlRequestType.transaction:
-            await db.transaction((tx) {
-              for (final statement in request.transaction.statements) {
-                tx.execute(statement.sql, statement.parameters.toList());
-              }
+                rows: const [],
+                lastInsertRowId: result.lastInsertRowId,
+                updatedRows: result.updatedRows,
+              );
             });
-            respond.add(
-              LibsqlResponse(
-                requestId: request.requestId,
-                rows: const [],
+          case LibsqlRequestType.query:
+            await runWithErrorHandling(request.requestId, () async {
+              final query = request.transaction.statements.single;
+              final result =
+                  db.select(query.sql, query.parameters.toList()) as ResultSet;
+              return LibsqlResultSet(
+                columnNames: result.columnNames,
+                rows: result.rows,
+                lastInsertRowId: -1,
+                updatedRows: -1,
+              );
+            });
+          case LibsqlRequestType.transaction:
+            await runWithErrorHandling(request.requestId, () async {
+              final changesBefore = db.totalChanges;
+              db.transaction((tx) {
+                for (final statement in request.transaction.statements) {
+                  tx.execute(statement.sql, statement.parameters.toList());
+                }
+              });
+              return LibsqlResultSet(
                 columnNames: const [],
-              ),
-            );
+                rows: const [],
+                lastInsertRowId: db.lastInsertRowId,
+                updatedRows: db.totalChanges - changesBefore,
+              );
+            });
         }
       }
     } finally {

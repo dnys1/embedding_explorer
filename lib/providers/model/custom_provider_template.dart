@@ -233,7 +233,7 @@ class CustomProviderTemplateCollection
       embeddingRequestTemplate: embeddingRequestTemplate,
     ).copyWith(id: id);
 
-    await set(id, template);
+    await add(template);
     return id;
   }
 
@@ -262,7 +262,7 @@ class CustomProviderTemplateCollection
       updatedAt: DateTime.now(),
     );
 
-    await set(id, updated);
+    await add(updated);
     return true;
   }
 

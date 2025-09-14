@@ -1,11 +1,11 @@
-import '../component/transformation_editor_model.dart';
 import 'package:jaspr/jaspr.dart';
 
 import '../../data_sources/model/data_source.dart';
 import '../component/transformation_editor.dart';
+import '../component/transformation_editor_model.dart';
 
 class TransformationPage extends StatefulComponent {
-  TransformationPage({super.key, required DataSource? dataSource})
+  TransformationPage({super.key, required DataSource dataSource})
     : model = TransformationEditorModel(dataSource: dataSource);
 
   final TransformationEditorModel model;
@@ -89,7 +89,7 @@ class _TransformationPageState extends State<TransformationPage> {
             ]),
             p(classes: 'text-sm text-neutral-500 mt-1', [
               text(
-                '${model.dataSource.name} (${model.dataSource.type.toUpperCase()})',
+                '${model.dataSource.name} (${model.dataSource.type.name.toUpperCase()})',
               ),
             ]),
           ]),

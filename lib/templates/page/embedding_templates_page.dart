@@ -67,7 +67,7 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
   @override
   Component build(BuildContext context) {
     final templates = configManager.embeddingTemplates.all;
-    final dataSources = configManager.dataSources.all;
+    final dataSources = configManager.dataSourceConfigs.all;
 
     return div(classes: 'flex flex-col h-full', [
       // Page header
@@ -157,7 +157,9 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
   }
 
   Component _buildTemplateCard(EmbeddingTemplateConfig template) {
-    final dataSource = configManager.dataSources.getById(template.dataSourceId);
+    final dataSource = configManager.dataSourceConfigs.getById(
+      template.dataSourceId,
+    );
 
     return Card(
       className: 'hover:shadow-md transition-shadow',
@@ -299,7 +301,7 @@ final class _CreateEditDialogState extends State<_CreateEditDialog>
         component.template?.id ?? configManager.embeddingTemplates.generateId();
     final template = model.createConfig(templateId);
 
-    configManager.embeddingTemplates.set(template.id, template);
+    configManager.embeddingTemplates.add(template);
     component.onClose();
   }
 
@@ -512,7 +514,9 @@ final class _PreviewDialogState extends State<_PreviewDialog>
     if (component.template == null) return div([]);
 
     final template = component.template!;
-    final dataSource = configManager.dataSources.getById(template.dataSourceId);
+    final dataSource = configManager.dataSourceConfigs.getById(
+      template.dataSourceId,
+    );
 
     return Dialog(
       onClose: component.onClose,

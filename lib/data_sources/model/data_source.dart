@@ -1,5 +1,5 @@
-import '../service/csv_data_source.dart';
-import '../service/sqlite_data_source.dart';
+import 'dart:async';
+
 import 'data_source_config.dart';
 import 'data_source_settings.dart';
 
@@ -14,16 +14,6 @@ abstract class DataSource<Settings extends DataSourceSettings> {
 
   DataSource(this.config);
 
-  static DataSource<Settings> fromConfig<Settings extends DataSourceSettings>(
-    DataSourceConfig<Settings> config,
-  ) {
-    return switch (config.type) {
-          DataSourceType.csv => CsvDataSource.fromConfig(config),
-          DataSourceType.sqlite => SqliteDataSource.fromConfig(config),
-        }
-        as DataSource<Settings>;
-  }
-
   /// Unique identifier for this data source
   String get id => config.id;
 
@@ -31,13 +21,10 @@ abstract class DataSource<Settings extends DataSourceSettings> {
   String get name => config.name;
 
   /// Type of data source (e.g., 'csv', 'sqlite')
-  String get type => config.type.name;
+  DataSourceType get type => config.type;
 
   /// Description of this data source
   String get description => config.description;
-
-  /// Whether this data source is currently connected/loaded
-  bool get isConnected;
 
   /// Configuration parameters specific to this data source type
   DataSourceSettings get settings => config.settings;
@@ -48,18 +35,10 @@ abstract class DataSource<Settings extends DataSourceSettings> {
   /// Last update timestamp
   DateTime get updatedAt => config.updatedAt;
 
-  /// Initialize and connect to the data source
-  ///
-  /// Returns true if connection was successful, false otherwise
-  Future<bool> connect();
-
-  /// Disconnect from the data source and cleanup resources
-  Future<void> disconnect();
-
   /// Get the schema information (column names and types) for this data source
   ///
   /// Returns a map where keys are column names and values are data types
-  Future<Map<String, String>> getSchema();
+  Future<Map<String, DataSourceFieldType>> getSchema();
 
   /// Get sample data from the data source for preview purposes
   ///
@@ -82,46 +61,30 @@ abstract class DataSource<Settings extends DataSourceSettings> {
   /// Returns a list of validation errors, empty if valid
   List<String> validate();
 
-  /// Create a copy of this data source with updated configuration
-  DataSource copyWith({
-    String? id,
-    String? name,
-    String? description,
-    DataSourceType? type,
-    Settings? settings,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    final newConfig = config.copyWith(
-      id: id,
-      name: name,
-      description: description,
-      type: type,
-      settings: settings,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-    return DataSource.fromConfig(newConfig);
-  }
-
-  /// Update the configuration and return a new DataSource instance
-  DataSource updateConfig(DataSourceConfig<DataSourceSettings> newConfig) {
-    return DataSource.fromConfig(newConfig);
-  }
+  Future<void> dispose();
 }
 
 /// Exception thrown when data source operations fail
 class DataSourceException implements Exception {
   final String message;
-  final String? sourceType;
+  final DataSourceType? sourceType;
   final dynamic cause;
 
   const DataSourceException(this.message, {this.sourceType, this.cause});
 
   @override
   String toString() {
-    final type = sourceType != null ? '[$sourceType] ' : '';
-    return 'DataSourceException: $type$message';
+    final buf = StringBuffer('DataSourceException: ');
+    if (sourceType case final type?) {
+      buf.write('[${type.name}] ');
+    }
+    buf.write(message);
+    if (cause != null) {
+      buf
+        ..writeln()
+        ..write(cause);
+    }
+    return buf.toString();
   }
 }
 

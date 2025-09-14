@@ -1,13 +1,12 @@
-import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
-import 'package:aws_common/aws_common.dart';
 import 'package:logging/logging.dart';
 import 'package:sqlparser/sqlparser.dart';
+import 'package:web/web.dart' as web;
 
-import '../../interop/libsql.dart' as libsql show loadModule;
-import '../../interop/libsql.dart';
+import '../../database/database.dart';
+import '../../database/database_pool.dart';
+import '../../util/file.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
 import '../model/data_source_settings.dart';
@@ -20,6 +19,13 @@ extension SqlEngineExtensions on SqlEngine {
     final stmt = parse(createTable).rootNode as CreateTableStatement;
     registerTable(schemaReader.read(stmt));
   }
+
+  /// Utility function that parses a `CREATE VIEW` statement and registers the
+  /// created view to the engine.
+  void registerViewFromSql(AnalysisContext context, String createView) {
+    final stmt = parse(createView).rootNode as CreateViewStatement;
+    registerView(schemaReader.readView(context, stmt));
+  }
 }
 
 /// SQLite data source implementation using LibSQL WASM
@@ -27,299 +33,178 @@ extension SqlEngineExtensions on SqlEngine {
 /// This class provides access to SQLite databases using LibSQL WASM,
 /// supporting both in-memory databases and file-based databases.
 class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
-  Database? _database;
+  IDatabase? _database;
   final Map<String, DataSourceFieldType> _fieldTypes = {};
   List<String> _tableNames = [];
-  bool _isConnected = false;
   SqlEngine? _sqlEngine;
+
+  /// The current SQL query (mutable, not persisted)
+  String _sqlQuery = '';
 
   static final Logger _logger = Logger('SqliteDataSource');
 
-  /// Create a SQLite data source from configuration
-  SqliteDataSource._(super.config);
+  /// Create a SQLite data source from configuration (private constructor)
+  SqliteDataSource._(super.config, {required IDatabase database})
+    : _database = database;
 
-  factory SqliteDataSource.fromConfig(DataSourceConfig config) {
-    return SqliteDataSource._(config);
+  /// Imports a SQLite database from a file into the database pool and creates
+  /// a data source.
+  static Future<SqliteDataSource> loadFromFile({
+    required DatabasePool dbPool,
+    required web.File file,
+    required DataSourceConfig config,
+  }) async {
+    assert(config.type == DataSourceType.sqlite);
+    assert(config.settings is SqliteDataSourceSettings);
+
+    final settings = config.settings as SqliteDataSourceSettings;
+
+    final filename = settings.filename ?? file.name;
+    final database = await dbPool.import(
+      filename: filename,
+      data: await file.readAsBytes(),
+    );
+    final dataSource = SqliteDataSource._(
+      config.copyWith(
+        settings: settings.copyWith(type: SqliteDataSourceType.persistent),
+      ),
+      database: database,
+    );
+    await dataSource._initialize();
+    return dataSource;
+  }
+
+  /// Connect to an existing SQLite database from the database pool.
+  static Future<SqliteDataSource> connect({
+    required DatabasePool dbPool,
+    required DataSourceConfig config,
+  }) async {
+    assert(config.type == DataSourceType.sqlite);
+    assert(config.settings is SqliteDataSourceSettings);
+
+    final settings = config.settings as SqliteDataSourceSettings;
+    final filename = settings.filename;
+    switch (settings.type) {
+      case SqliteDataSourceType.sample:
+        final db = await dbPool.open(filename ?? 'sample.db');
+        final dataSource = SqliteDataSource._(config, database: db);
+        await dataSource._createSampleSchema();
+        await dataSource._initialize();
+        return dataSource;
+      case SqliteDataSourceType.import:
+        throw ArgumentError(
+          'Import type requires a file to load the database. '
+          'Use loadFromFile() instead.',
+        );
+      case SqliteDataSourceType.persistent:
+        assert(settings.persistent);
+        if (filename == null || filename.isEmpty) {
+          throw ArgumentError('Filename is required for persistent type');
+        }
+        final db = await dbPool.open(filename);
+        final dataSource = SqliteDataSource._(config, database: db);
+        await dataSource._initialize();
+        return dataSource;
+    }
   }
 
   /// Get typed SQLite settings
   SqliteDataSourceSettings get sqliteSettings =>
       settings as SqliteDataSourceSettings;
 
-  /// Create an in-memory SQLite database with sample data for testing
-  factory SqliteDataSource.withSampleData({required String name}) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final config = DataSourceConfig(
-      id: id,
-      name: name,
-      description: 'SQLite data source with sample data',
-      type: DataSourceType.sqlite,
-      settings: SqliteDataSourceSettings(
-        type: SqliteDataSourceType.sample,
-        query: '',
-        persistent: false,
-      ),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    return SqliteDataSource.fromConfig(config);
-  }
-
-  /// Create a SQLite data source from uploaded database file
-  factory SqliteDataSource.fromUpload({
-    required String name,
-    required Uint8List databaseData,
-    bool persistent = false,
-    String? persistentName,
-  }) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final config = DataSourceConfig(
-      id: id,
-      name: name,
-      description: 'SQLite data source from uploaded database',
-      type: DataSourceType.sqlite,
-      settings: SqliteDataSourceSettings(
-        type: SqliteDataSourceType.upload,
-        query: '',
-        persistent: persistent,
-        databaseData: databaseData,
-        persistentName: persistent ? persistentName : null,
-      ),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    return SqliteDataSource.fromConfig(config);
-  }
-
-  /// Create a SQLite data source from a persistent OPFS database
-  factory SqliteDataSource.fromPersistent({
-    required String name,
-    required String filename,
-  }) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final config = DataSourceConfig(
-      id: id,
-      name: name,
-      description: 'SQLite data source from persistent database',
-      type: DataSourceType.sqlite,
-      settings: SqliteDataSourceSettings(
-        type: SqliteDataSourceType.persistent,
-        query: '',
-        persistent: true,
-        persistentName: filename,
-      ),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    return SqliteDataSource.fromConfig(config);
-  }
-
-  @override
-  bool get isConnected => _isConnected;
-
   /// Get the SQL query used for data operations
-  String? get sqlQuery => sqliteSettings.query;
+  String get sqlQuery => _sqlQuery;
 
   /// Get list of available tables in the database
   List<String> get tables => List.of(_tableNames);
 
   /// Set the SQL query to use for data operations
-  void setSqlQuery(String query) {
+  Future<void> setSqlQuery(String query) async {
     if (query.trim().isEmpty) {
       _logger.warning('SQL query cannot be empty for data source: $name');
       throw DataSourceException('SQL query cannot be empty', sourceType: type);
     }
 
     _logger.info('Setting SQL query for data source: $name');
-    // TODO: This method needs to be refactored to work with immutable settings
-    // For now, keeping it as-is until we can address the architecture
-    throw UnimplementedError(
-      'setSqlQuery needs refactoring for immutable settings',
-    );
+    _sqlQuery = query.trim();
+
+    // Re-infer field types for the new query if we're connected
+    await _inferFieldTypes(_sqlQuery);
   }
 
-  @override
-  Future<bool> connect() async {
-    try {
-      if (_isConnected) {
-        _logger.finest('SQLite data source already connected');
-        return true;
-      }
+  Future<void> _initialize() async {
+    // Discover tables
+    _logger.finest('Discovering tables in database');
+    await _discoverTables();
 
-      _logger.info('Connecting to SQLite data source: $name');
+    // Set query if not already specified, otherwise default to first table
+    if (_sqlQuery.isEmpty && _tableNames.isNotEmpty) {
+      // Default to selecting all from first table if no query specified
+      _sqlQuery = 'SELECT * FROM ${_tableNames.first}';
+      _logger.finest('Set default query: "$_sqlQuery"');
+    } else if (_sqlQuery.isNotEmpty) {
+      _logger.finest('Using configured SQL query: "$_sqlQuery"');
+    }
 
-      // Initialize LibSQL WASM if not already done
-      if (globalContext['libsql'].isUndefinedOrNull) {
-        _logger.finest('Initializing LibSQL WASM');
-        await _initializeLibSQL();
-      }
-
-      // Create database based on configuration type
-      final dbType = sqliteSettings.type;
-      _logger.finest('Creating SQLite database with type: $dbType');
-
-      switch (dbType) {
-        case SqliteDataSourceType.sample:
-          _database = Database();
-          _logger.finest('Created in-memory SQLite database for sample data');
-          await _createSampleSchema();
-
-        case SqliteDataSourceType.upload:
-          final data = sqliteSettings.databaseData;
-          if (data == null) {
-            _logger.warning('Database data is required for upload type');
-            throw DataSourceException(
-              'Database data is required for upload type',
-              sourceType: type,
-            );
-          }
-          final dataBytes = data is Uint8List ? data : Uint8List.fromList(data);
-
-          final persistent = sqliteSettings.persistent;
-          if (persistent) {
-            final persistentName =
-                sqliteSettings.persistentName ?? name.snakeCase;
-            _logger.finest('Using persistent storage: $persistentName');
-            await _importDatabaseData(persistentName, dataBytes);
-            _database = Database(filename: persistentName);
-          } else {
-            _logger.finest('Using in-memory database');
-            await _importDatabaseData(':memory:', dataBytes);
-            _database = Database();
-          }
-
-        case SqliteDataSourceType.persistent:
-          final filename = sqliteSettings.persistentName;
-          if (filename == null || filename.isEmpty) {
-            _logger.warning('Filename is required for persistent type');
-            throw DataSourceException(
-              'Filename is required for persistent type',
-              sourceType: type,
-            );
-          }
-          // Open existing OPFS database
-          _database = Database(filename: filename);
-          _logger.finest('Opened persistent OPFS database: $filename');
-      }
-
-      if (_database == null) {
-        _logger.severe('Failed to create database');
-        throw DataSourceException(
-          'Failed to create database',
-          sourceType: type,
-        );
-      }
-
-      // Ensure database is open
-      _database!.affirmOpen();
-      _logger.finest('Database opened successfully');
-
-      // Discover tables
-      _logger.finest('Discovering tables in database');
-      await _discoverTables();
-
-      // Set query if specified in config, otherwise default to first table
-      final configQuery = sqliteSettings.query;
-      if (configQuery != null && configQuery.trim().isNotEmpty) {
-        _logger.finest(
-          'Using configured SQL query: ${configQuery.length} chars',
-        );
-      } else if (_tableNames.isNotEmpty) {
-        // Default to selecting all from first table if no query specified
-        final defaultQuery = 'SELECT * FROM ${_tableNames.first}';
-        // TODO: This needs to be refactored to work with immutable settings
-        _logger.finest('Set default query: $defaultQuery');
-      }
-
-      // Infer field types for the query
-      final query = sqlQuery;
-      if (query != null && query.trim().isNotEmpty) {
-        _logger.finest(
-          'Inferring field types for query: ${query.length} chars',
-        );
-        _inferFieldTypes();
-      }
-
-      _isConnected = true;
-      _logger.info(
-        'Successfully connected to SQLite data source: $name (${_tableNames.length} tables, query: ${query?.length ?? 0} chars)',
-      );
-      return true;
-    } catch (e) {
-      _isConnected = false;
-      _logger.severe('Failed to connect to SQLite data source: $name', e);
-      if (e is DataSourceException) rethrow;
-      throw DataSourceException(
-        'Failed to connect to SQLite database: ${e.toString()}',
-        sourceType: type,
-        cause: e,
-      );
+    // Infer field types for the query
+    if (_sqlQuery.isNotEmpty) {
+      await _inferFieldTypes(_sqlQuery);
     }
   }
 
   @override
-  Future<void> disconnect() async {
+  Future<void> dispose() async {
     _logger.info('Disconnecting SQLite data source: $name');
-    if (_database != null) {
-      _database!.close();
+    if (_database case final database?) {
+      await database.close();
       _database = null;
       _logger.finest('Database closed');
     }
     _fieldTypes.clear();
     _tableNames.clear();
-    _isConnected = false;
     _logger.finest('SQLite data source disconnected: $name');
   }
 
   @override
-  Future<Map<String, String>> getSchema() async {
-    if (!_isConnected) {
+  Future<Map<String, DataSourceFieldType>> getSchema() async {
+    if (_database == null) {
       _logger.warning('Attempted to get schema when not connected: $name');
       throw DataSourceException('Data source not connected', sourceType: type);
     }
 
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty) {
+    if (_sqlQuery.isEmpty) {
       _logger.warning('No SQL query configured for data source: $name');
       throw DataSourceException('No SQL query configured', sourceType: type);
     }
 
-    _logger.finest('Getting schema for SQL query: ${query.length} chars');
-    final schema = Map.fromEntries(
-      _fieldTypes.entries.map((entry) => MapEntry(entry.key, entry.value.name)),
-    );
-    _logger.finest('Schema retrieved with ${schema.length} fields');
-    return schema;
+    return _fieldTypes;
   }
 
   @override
   Future<List<Map<String, dynamic>>> getSampleData({int limit = 10}) async {
-    if (!_isConnected) {
+    if (_database == null) {
       _logger.warning('Attempted to get sample data when not connected: $name');
       throw DataSourceException('Data source not connected', sourceType: type);
     }
 
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty) {
+    if (_sqlQuery.isEmpty) {
       _logger.warning('No SQL query configured for data source: $name');
       throw DataSourceException('No SQL query configured', sourceType: type);
     }
 
-    _logger.finest(
-      'Getting sample data for SQL query: ${query.length} chars (limit: $limit)',
-    );
+    _logger.finest('Querying sample data');
 
     // Wrap the user query with LIMIT if it doesn't already have one
-    String sampleQuery = query.trim();
+    String sampleQuery = _sqlQuery;
     if (!sampleQuery.toUpperCase().contains('LIMIT')) {
       sampleQuery = '$sampleQuery LIMIT ?';
-      final result = _database!.query(sql: sampleQuery, bind: [limit]);
+      final result = await _database!.select(sampleQuery, [limit]);
       final rows = result.map(_convertRow).toList();
       _logger.finest('Retrieved ${rows.length} sample rows');
       return rows;
     } else {
       // Query already has LIMIT, execute as-is
-      final result = _database!.query(sql: sampleQuery);
+      final result = await _database!.select(sampleQuery);
       final rows = result.map(_convertRow).toList();
       _logger.finest('Retrieved ${rows.length} sample rows');
       return rows;
@@ -328,22 +213,21 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
   @override
   Future<int> getRowCount() async {
-    if (!_isConnected) {
+    if (_database == null) {
       _logger.warning('Attempted to get row count when not connected: $name');
       throw DataSourceException('Data source not connected', sourceType: type);
     }
 
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty) {
+    if (_sqlQuery.isEmpty) {
       _logger.warning('No SQL query configured for data source: $name');
       throw DataSourceException('No SQL query configured', sourceType: type);
     }
 
-    _logger.finest('Getting row count for SQL query: ${query.length} chars');
+    _logger.finest('Getting row count for SQL query: "$_sqlQuery"');
 
     // Wrap user query in COUNT() to get total row count
-    final countQuery = 'SELECT COUNT(*) as count FROM (${query.trim()})';
-    final result = _database!.query(sql: countQuery);
+    final countQuery = 'SELECT COUNT(*) as count FROM ($_sqlQuery)';
+    final result = await _database!.select(countQuery);
 
     if (result.isNotEmpty) {
       final count = (result.first['count'] as num?)?.toInt() ?? 0;
@@ -360,23 +244,22 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     int offset = 0,
     int? limit,
   }) async {
-    if (!_isConnected) {
+    if (_database == null) {
       _logger.warning('Attempted to get all data when not connected: $name');
       throw DataSourceException('Data source not connected', sourceType: type);
     }
 
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty) {
+    if (_sqlQuery.isEmpty) {
       _logger.warning('No SQL query configured for data source: $name');
       throw DataSourceException('No SQL query configured', sourceType: type);
     }
 
     _logger.finest(
-      'Getting all data for SQL query: ${query.length} chars (offset: $offset, limit: $limit)',
+      'Getting all data for SQL query: "$_sqlQuery" (offset: $offset, limit: $limit)',
     );
 
     // Wrap user query with pagination if needed
-    String paginatedQuery = query.trim();
+    String paginatedQuery = _sqlQuery;
     final bind = <Object?>[];
 
     if (limit != null || offset > 0) {
@@ -390,7 +273,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
       }
     }
 
-    final result = _database!.query(sql: paginatedQuery, bind: bind);
+    final result = await _database!.select(paginatedQuery, bind);
     final rows = result.map(_convertRow).toList();
     _logger.finest('Retrieved ${rows.length} rows from SQL query');
     return rows;
@@ -402,19 +285,16 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
     final dbType = sqliteSettings.type;
     switch (dbType) {
-      case SqliteDataSourceType.upload:
-        if (sqliteSettings.databaseData == null) {
-          errors.add('Database data is required for upload type');
-        }
+      case SqliteDataSourceType.import:
         final persistent = sqliteSettings.persistent;
         if (persistent &&
-            (sqliteSettings.persistentName == null ||
-                sqliteSettings.persistentName!.isEmpty)) {
+            (sqliteSettings.filename == null ||
+                sqliteSettings.filename!.isEmpty)) {
           errors.add('Persistent name is required when persistence is enabled');
         }
       case SqliteDataSourceType.persistent:
-        if (sqliteSettings.persistentName == null ||
-            sqliteSettings.persistentName!.isEmpty) {
+        if (sqliteSettings.filename == null ||
+            sqliteSettings.filename!.isEmpty) {
           errors.add('Filename is required for persistent type');
         }
       case SqliteDataSourceType.sample:
@@ -423,14 +303,13 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     }
 
     // Validate SQL query using proper SQL parser
-    final query = sqliteSettings.query;
-    if (query == null || query.trim().isEmpty) {
+    if (_sqlQuery.isEmpty) {
       errors.add('SQL query is required');
     } else {
       try {
         // Use sqlparser to validate the query
         final engine = SqlEngine();
-        final result = engine.analyze(query);
+        final result = engine.analyze(_sqlQuery);
 
         // Check for parsing errors
         if (result.errors.isNotEmpty) {
@@ -449,40 +328,18 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     return errors;
   }
 
-  @override
-  DataSource copyWith({
-    String? id,
-    String? name,
-    String? description,
-    DataSourceType? type,
-    DataSourceSettings? settings,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    final newConfig = config.copyWith(
-      id: id,
-      name: name,
-      description: description,
-      type: type,
-      settings: settings,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-    return SqliteDataSource.fromConfig(newConfig);
-  }
-
   /// Execute a custom SQL query (for advanced users)
   Future<List<Map<String, dynamic>>> executeQuery(
     String sql, {
     List<Object?> bind = const [],
   }) async {
-    if (!_isConnected) {
+    if (_database == null) {
       _logger.warning('Attempted to execute query when not connected: $name');
       throw DataSourceException('Data source not connected', sourceType: type);
     }
 
     _logger.finest('Executing SQL query: $sql');
-    final result = _database!.query(sql: sql, bind: bind);
+    final result = await _database!.select(sql, bind);
     final rows = result.map(_convertRow).toList();
     _logger.finest('Query returned ${rows.length} rows');
     return rows;
@@ -493,7 +350,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     String sql, {
     List<Object?> bind = const [],
   }) async {
-    if (!_isConnected) {
+    if (_database == null) {
       _logger.warning(
         'Attempted to execute statement when not connected: $name',
       );
@@ -501,150 +358,104 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     }
 
     _logger.finest('Executing SQL statement: $sql');
-    _database!.exec(sql: sql, bind: bind);
+    await _database!.execute(sql, bind);
     _logger.finest('Statement executed successfully');
-  }
-
-  /// Initialize LibSQL WASM module
-  Future<void> _initializeLibSQL() async {
-    try {
-      _logger.finest('Initializing LibSQL WASM module');
-      await libsql.loadModule();
-      _logger.finest('LibSQL WASM module initialized successfully');
-    } catch (e) {
-      _logger.severe('Failed to initialize LibSQL WASM', e);
-      throw DataSourceException(
-        'Failed to initialize LibSQL WASM: ${e.toString()}',
-        sourceType: type,
-        cause: e,
-      );
-    }
   }
 
   /// Discover tables in the database and initialize SQL engine
   Future<void> _discoverTables() async {
-    try {
-      _logger.finest('Discovering tables in SQLite database');
-      final result = _database!.query(
-        sql:
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-      );
+    _logger.finest('Discovering tables in SQLite database');
+    final result = await _database!.select(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+    );
 
-      _tableNames = result
-          .map((row) => row['name'] as String?)
-          .where((name) => name != null)
-          .cast<String>()
-          .toList();
+    _tableNames = result
+        .map((row) => row['name'] as String?)
+        .where((name) => name != null)
+        .cast<String>()
+        .toList();
 
-      _logger.finest(
-        'Discovered ${_tableNames.length} tables: ${_tableNames.join(', ')}',
-      );
+    _logger.finest(
+      'Discovered ${_tableNames.length} tables: ${_tableNames.join(', ')}',
+    );
 
-      // Initialize SQL engine with database schema
-      await _initializeSqlEngine();
-    } catch (e) {
-      // If we can't discover tables, start with an empty list
-      _logger.warning('Failed to discover tables: $e');
-      _tableNames = [];
-    }
+    // Initialize SQL engine with database schema
+    await _initializeSqlEngine();
   }
 
   /// Initialize SQL engine with database schema for query analysis
   Future<void> _initializeSqlEngine() async {
-    try {
-      _logger.finest('Initializing SQL engine with database schema');
-      _sqlEngine = SqlEngine();
+    _logger.finest('Initializing SQL engine with database schema');
+    _sqlEngine = SqlEngine();
 
-      // Register all tables in the database
-      for (final tableName in _tableNames) {
-        try {
-          // Get the CREATE TABLE statement for this table
-          final result = _database!.query(
-            sql:
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name = ?",
-            bind: [tableName],
-          );
-
-          if (result.isNotEmpty) {
-            final createTableSql = result.first['sql'] as String?;
-            if (createTableSql != null && createTableSql.isNotEmpty) {
-              _sqlEngine!.registerTableFromSql(createTableSql);
-              _logger.finest('Registered table: $tableName');
-            }
-          }
-        } catch (e) {
-          _logger.warning('Failed to register table $tableName: $e');
-        }
-      }
-
-      _logger.finest(
-        'SQL engine initialized with ${_tableNames.length} tables',
+    // Register all tables in the database
+    for (final tableName in _tableNames) {
+      // Get the CREATE TABLE statement for this table
+      final result = await _database!.select(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name = ?",
+        [tableName],
       );
-    } catch (e) {
-      _logger.warning('Failed to initialize SQL engine: $e');
-      _sqlEngine = null;
+
+      if (result.isNotEmpty) {
+        final createTableSql = result.first['sql'] as String;
+        _sqlEngine!.registerTableFromSql(createTableSql);
+        _logger.finest('Registered table: $tableName');
+      }
     }
+
+    _logger.finest('SQL engine initialized with ${_tableNames.length} tables');
   }
 
   /// Infer field types for the configured SQL query
-  void _inferFieldTypes() {
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty || _database == null) return;
+  Future<void> _inferFieldTypes(String query) async {
+    _logger.finest(
+      'Inferring field types for SQL query: ${query.length} chars',
+    );
 
-    try {
-      _logger.finest(
-        'Inferring field types for SQL query: ${query.length} chars',
-      );
-
-      // First try to use SQL parser for column analysis
-      if (_sqlEngine != null) {
+    // First try to use SQL parser for column analysis
+    switch (sqliteSettings.type) {
+      case SqliteDataSourceType.sample:
+        await _inferFieldTypesFromSample(query);
+      case SqliteDataSourceType.import:
+      case SqliteDataSourceType.persistent:
         _inferFieldTypesFromParser(query);
-      }
-
-      // Fallback to sample data inference if parser fails or for runtime validation
-      _inferFieldTypesFromSample();
-    } catch (e) {
-      _logger.warning('Failed to infer field types for SQL query: $e');
     }
   }
 
   /// Infer field types using SQL parser analysis
   void _inferFieldTypesFromParser(String query) {
-    try {
-      _logger.finest('Analyzing SQL query with parser for field types');
+    _logger.finest('Analyzing SQL query with parser for field types');
 
-      final result = _sqlEngine!.analyze(query);
+    final result = _sqlEngine!.analyze(query);
 
-      if (result.errors.isNotEmpty) {
-        _logger.warning(
-          'SQL parser found errors: ${result.errors.map((e) => e.message).join(', ')}',
-        );
-        return;
-      }
+    if (result.errors.isNotEmpty) {
+      throw DataSourceException(
+        'SQL parser error',
+        sourceType: type,
+        cause: result.errors.map((e) => e.message).join(', '),
+      );
+    }
 
-      if (result.root is SelectStatement) {
-        final select = result.root as SelectStatement;
-        final columns = select.resolvedColumns;
+    if (result.root is SelectStatement) {
+      final select = result.root as SelectStatement;
+      final columns = select.resolvedColumns;
 
-        if (columns != null) {
-          _fieldTypes.clear();
+      if (columns != null) {
+        _fieldTypes.clear();
 
-          for (final column in columns) {
-            final type = result.typeOf(column);
-            final fieldType = _mapSqlTypeToFieldType(type.type?.type);
-            _fieldTypes[column.name] = fieldType;
-            _logger.finest(
-              'Column "${column.name}": SQL type $type -> ${fieldType.name}',
-            );
-          }
-
+        for (final column in columns) {
+          final type = result.typeOf(column);
+          final fieldType = _mapSqlTypeToFieldType(type.type?.type);
+          _fieldTypes[column.name] = fieldType;
           _logger.finest(
-            'Inferred ${_fieldTypes.length} field types from SQL parser',
+            'Column "${column.name}": SQL type $type -> ${fieldType.name}',
           );
         }
+
+        _logger.finest(
+          'Inferred ${_fieldTypes.length} field types from SQL parser',
+        );
       }
-    } catch (e) {
-      _logger.warning('Failed to analyze SQL query with parser: $e');
     }
   }
 
@@ -668,22 +479,19 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
   }
 
   /// Infer field types by sampling data from the configured query
-  void _inferFieldTypesFromSample() {
-    final query = sqlQuery;
-    if (query == null || query.trim().isEmpty || _database == null) return;
-
+  Future<void> _inferFieldTypesFromSample(String query) async {
     try {
       _logger.finest(
         'Inferring field types from sample data for query: ${query.length} chars',
       );
 
       // Execute the query with a small limit to get sample data
-      String sampleQuery = query.trim();
+      String sampleQuery = query;
       if (!sampleQuery.toUpperCase().contains('LIMIT')) {
         sampleQuery = '$sampleQuery LIMIT 10';
       }
 
-      final result = _database!.query(sql: sampleQuery);
+      final result = await _database!.select(sampleQuery);
 
       if (result.isNotEmpty) {
         _fieldTypes.clear();
@@ -790,8 +598,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
     try {
       // Create a sample movies table with various data types
-      _database!.exec(
-        sql: '''
+      await _database!.execute('''
         CREATE TABLE movies (
           id INTEGER PRIMARY KEY,
           title TEXT NOT NULL,
@@ -803,8 +610,7 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
           description TEXT,
           revenue INTEGER
         )
-        ''',
-      );
+        ''');
 
       // Insert sample data with proper parameter binding
       final sampleMovies = [
@@ -931,11 +737,10 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
       ];
 
       for (final movie in sampleMovies) {
-        _database!.exec(
-          sql:
-              'INSERT INTO movies (id, title, release_year, rating, is_favorite, release_date, created_at, description, revenue) '
-              'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          bind: [
+        await _database!.execute(
+          'INSERT INTO movies (id, title, release_year, rating, is_favorite, release_date, created_at, description, revenue) '
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
             movie['id'],
             movie['title'],
             movie['release_year'],
@@ -954,36 +759,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
       _logger.severe('Failed to create sample schema', e);
       throw DataSourceException(
         'Failed to create sample schema: ${e.toString()}',
-        sourceType: type,
-        cause: e,
-      );
-    }
-  }
-
-  /// Import database data from binary data
-  Future<void> _importDatabaseData(String filename, Uint8List data) async {
-    _logger.finest(
-      'Importing database from binary data (${data.length} bytes)',
-    );
-
-    try {
-      final result = await OpfsDatabase.importDb(
-        filename.toJS,
-        data.toJS,
-      ).toDart;
-      if (result.toDartInt != 0) {
-        _logger.severe('Failed to import database data, result code: $result');
-        throw DataSourceException(
-          'Failed to import database data, result code: $result',
-          sourceType: type,
-        );
-      }
-      _logger.finest('Database imported successfully to OPFS: $filename');
-    } catch (e) {
-      _logger.severe('Failed to import database data', e);
-      if (e is DataSourceException) rethrow;
-      throw DataSourceException(
-        'Failed to import database: ${e.toString()}',
         sourceType: type,
         cause: e,
       );

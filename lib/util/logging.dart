@@ -19,6 +19,7 @@ void configureLogging({required Level level}) {
         ..write(stackTrace);
     }
     final message = buffer.toString().toJS;
+    // print(message);
     switch (record.level) {
       case Level.SEVERE || Level.SHOUT:
         console.error(message);

@@ -1,14 +1,15 @@
-const colors = require('tailwindcss/colors');
+import * as colors from "tailwindcss/colors";
 
 const BLACK = "#2d2c2f";
 
-module.exports = {
+/** @type {import('tailwindcss').Config} */
+export default {
   theme: {
     extend: {
       colors: {
         // Existing colors
-        transparent: 'transparent',
-        current: 'currentColor',
+        transparent: "transparent",
+        current: "currentColor",
         primary: {
           50: "#ecf4c8",
           100: "#deeba0",

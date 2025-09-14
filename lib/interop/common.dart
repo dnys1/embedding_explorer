@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:fixnum/fixnum.dart';
 
@@ -25,5 +26,19 @@ extension type JSError._(JSObject _) implements JSObject {
 extension JSBigIntExtensions on JSBigInt {
   int toInt() {
     return Int64.parseInt(toString()).toInt();
+  }
+}
+
+/// Checks if the current context is a web worker.
+bool get kIsWorker {
+  try {
+    // In a worker context, DedicatedWorkerGlobalScope or SharedWorkerGlobalScope
+    // should be available instead of Window
+    return globalContext['DedicatedWorkerGlobalScope'].isDefinedAndNotNull ||
+        globalContext['SharedWorkerGlobalScope'].isDefinedAndNotNull ||
+        (globalContext['self'].isDefinedAndNotNull &&
+            globalContext['window'].isUndefinedOrNull);
+  } catch (e) {
+    return false;
   }
 }

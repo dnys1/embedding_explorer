@@ -3,6 +3,8 @@ import 'package:logging/logging.dart';
 
 import '../../common/ui/ui.dart';
 import '../model/data_source.dart';
+import '../service/sqlite_data_source.dart';
+import 'sql_query_editor.dart';
 
 /// A component that displays a preview of data from a data source
 ///
@@ -14,6 +16,7 @@ class DataPreview extends StatefulComponent {
   final bool showDataTypes;
   final bool showRowNumbers;
   final void Function(String message)? onError;
+  final void Function(DataSource dataSource)? onDataSourceUpdated;
 
   const DataPreview({
     required this.dataSource,
@@ -21,6 +24,7 @@ class DataPreview extends StatefulComponent {
     this.showDataTypes = true,
     this.showRowNumbers = true,
     this.onError,
+    this.onDataSourceUpdated,
     super.key,
   });
 
@@ -30,7 +34,7 @@ class DataPreview extends StatefulComponent {
 
 class _DataPreviewState extends State<DataPreview> {
   List<Map<String, dynamic>> _sampleData = [];
-  Map<String, String> _schema = {};
+  Map<String, DataSourceFieldType> _schema = {};
   bool _isLoading = false;
   String? _error;
   int _totalRows = 0;
@@ -46,22 +50,20 @@ class _DataPreviewState extends State<DataPreview> {
     _loadPreviewData();
   }
 
+  @override
+  void didUpdateComponent(DataPreview oldComponent) {
+    super.didUpdateComponent(oldComponent);
+    // Reload data if the data source changed
+    if (oldComponent.dataSource != component.dataSource) {
+      _logger.info('Data source changed, reloading preview data');
+      _loadPreviewData();
+    }
+  }
+
   Future<void> _loadPreviewData() async {
     _logger.info(
       'Loading preview data for: ${component.dataSource.name} (max rows: ${component.maxRows})',
     );
-
-    if (!component.dataSource.isConnected) {
-      _logger.warning(
-        'Data source is not connected: ${component.dataSource.name}',
-      );
-      setState(() {
-        _error = 'Data source is not connected';
-        _isLoading = false;
-      });
-      component.onError?.call('Data source is not connected');
-      return;
-    }
 
     setState(() {
       _isLoading = true;
@@ -107,10 +109,24 @@ class _DataPreviewState extends State<DataPreview> {
 
   @override
   Component build(BuildContext context) {
-    return Card(
-      className: 'data-preview',
-      children: [_buildHeader(), _buildContent()],
-    );
+    return div(classes: 'space-y-6', [
+      // SQL Query Editor for SQLite data sources
+      if (component.dataSource is SqliteDataSource)
+        SqlQueryEditor(
+          dataSource: component.dataSource as SqliteDataSource,
+          onQueryApplied: () {
+            _loadPreviewData();
+            // Notify parent that the data source has been updated
+            component.onDataSourceUpdated?.call(component.dataSource);
+          },
+        ),
+
+      // Data Preview Card
+      Card(
+        className: 'data-preview',
+        children: [_buildHeader(), _buildContent()],
+      ),
+    ]);
   }
 
   Component _buildHeader() {
@@ -137,7 +153,7 @@ class _DataPreviewState extends State<DataPreview> {
           div(classes: 'flex items-center space-x-2', [
             Badge(
               variant: BadgeVariant.secondary,
-              children: [text(component.dataSource.type.toUpperCase())],
+              children: [text(component.dataSource.type.name.toUpperCase())],
             ),
             span(classes: 'text-sm text-neutral-500', [
               text(component.dataSource.name),
@@ -338,14 +354,14 @@ class _DataPreviewState extends State<DataPreview> {
     final cellClasses = StringBuffer('font-mono text-sm');
 
     switch (fieldType) {
-      case 'integer':
+      case DataSourceFieldType.integer:
         cellClasses.write(' text-primary-600');
-      case 'real':
+      case DataSourceFieldType.real:
         cellClasses.write(' text-green-600');
-      case 'boolean':
+      case DataSourceFieldType.boolean:
         cellClasses.write(' text-purple-600');
-      case 'date':
-      case 'datetime':
+      case DataSourceFieldType.date:
+      case DataSourceFieldType.datetime:
         cellClasses.write(' text-indigo-600');
       default:
         cellClasses.write(' text-neutral-900');
@@ -363,24 +379,24 @@ class _DataPreviewState extends State<DataPreview> {
     return cellContent;
   }
 
-  String _getDisplayType(String type) {
-    switch (type.toLowerCase()) {
-      case 'integer':
+  String _getDisplayType(DataSourceFieldType type) {
+    switch (type) {
+      case DataSourceFieldType.integer:
         return 'int';
-      case 'real':
+      case DataSourceFieldType.real:
         return 'number';
-      case 'text':
+      case DataSourceFieldType.text:
         return 'text';
-      case 'boolean':
+      case DataSourceFieldType.boolean:
         return 'bool';
-      case 'date':
+      case DataSourceFieldType.date:
         return 'date';
-      case 'datetime':
+      case DataSourceFieldType.datetime:
         return 'datetime';
-      case 'blob':
+      case DataSourceFieldType.blob:
         return 'binary';
       default:
-        return type;
+        return type.name;
     }
   }
 }

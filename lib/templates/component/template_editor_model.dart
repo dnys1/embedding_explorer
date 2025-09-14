@@ -107,15 +107,10 @@ final class TemplateEditorModel extends ChangeNotifierX
 
   Future<void> _loadDataSourceById(String dataSourceId) async {
     try {
-      final dataSourceConfig = _configManager.dataSources.getById(dataSourceId);
-      if (dataSourceConfig == null) {
+      _currentDataSource = await _configManager.dataSources.get(dataSourceId);
+      if (_currentDataSource == null) {
         _error.value = 'Data source not found: $dataSourceId';
         return;
-      }
-
-      _currentDataSource = DataSource.fromConfig(dataSourceConfig);
-      if (!_currentDataSource!.isConnected) {
-        await _currentDataSource!.connect();
       }
 
       final (schema, sampleData) = await (

@@ -733,7 +733,7 @@ extension type Database._(JSObject _) {
   /// 2nd argument is `true`, it uses `sqlite3_changes64()` or
   /// `sqlite3_total_changes64()`, which will trigger an exception if this build
   /// does not have `BigInt` support enabled.
-  external double changes([bool? total, bool? sixtyFour]);
+  external int changes([bool? total, bool? sixtyFour]);
 
   /// Returns the filename associated with the given database name. Defaults to
   /// `main`. Throws if this database is `close()`d.
@@ -768,7 +768,6 @@ extension type Database._(JSObject _) {
   /// The first two call forms can only be used for creating scalar functions.
   /// Creating an aggregate or window function requires the options-object form,
   /// as described below.
-  @JS('createFunction')
   external Database createFunction(String name, JSFunction func);
 
   /// Prepares the given SQL, `step()`s it one time, and returns an array
@@ -866,7 +865,11 @@ extension type Database._(JSObject _) {
     }
   }
 
-  external double getAutocommit();
+  @JS('getAutocommit')
+  external int _getAutocommit();
+
+  bool get autocommit => _getAutocommit() != 0;
+
   external JSBigInt lastInsertRowid();
 }
 
@@ -962,6 +965,277 @@ extension type OpfsDatabase._(JSObject _) implements Database {
   );
 }
 
+/// Options for configuring the SAH Pool VFS
+extension type SAHPoolOptions._(JSObject _) implements JSObject {
+  external factory SAHPoolOptions({
+    bool? clearOnInit,
+    int? initialCapacity,
+    String? directory,
+    String? name,
+  });
+
+  /// If truthy (default=false) contents and filename mapping are removed from
+  /// each SAH it is acquired during initalization of the VFS, leaving the
+  /// VFS's storage in a pristine state. Use this only for databases which need
+  /// not survive a page reload.
+  external bool? clearOnInit;
+
+  /// (default=6) Specifies the default capacity of the VFS.
+  ///
+  /// This should not be set unduly high because the VFS has to open (and keep
+  /// open) a file for each entry in the pool. This setting only has an effect
+  /// when the pool is initially empty. It does not have any effect if a pool
+  /// already exists. Note that this number needs to be at least twice the
+  /// number of expected database files (to account for journal files) and may
+  /// need to be even higher than three times the number of databases plus one,
+  /// depending on the value of the `TEMP_STORE` pragma and how the databases
+  /// are used.
+  external int? initialCapacity;
+
+  /// (default="."+options.name) Specifies the OPFS directory name in which to
+  /// store metadata for the VFS.
+  ///
+  /// Only one instance of this VFS can use the same directory concurrently.
+  /// Using a different directory name for each application enables different
+  /// engines in the same HTTP origin to co-exist, but their data are invisible
+  /// to each other. Changing this name will effectively orphan any databases
+  /// stored under previous names. This option may contain multiple path
+  /// elements, e.g. "/foo/bar/baz", and they are created automatically. In
+  /// practice there should be no driving need to change this.
+  ///
+  /// **ACHTUNG:** all files in this directory are assumed to be managed by the
+  /// VFS. Do not place other files in this directory, as they may be deleted
+  /// or otherwise modified by the VFS.
+  external String? directory;
+
+  /// (default="opfs-sahpool") sets the name to register this VFS under.
+  ///
+  /// Normally this should not be changed, but it is possible to register this
+  /// VFS under multiple names so long as each has its own separate directory
+  /// to work from. The storage for each is invisible to all others. The name
+  /// must be a string compatible with `sqlite3_vfs_register()` and friends and
+  /// suitable for use in URI-style database file names.
+  ///
+  /// **ACHTUNG:** if a custom name is provided, a custom directory must also
+  /// be provided if any other instance is registered with the default
+  /// directory. No two instances may use the same directory. If no directory
+  /// is explicitly provided then a directory name is synthesized from the name
+  /// option.
+  external String? name;
+}
+
+/// Shared Access Handle (SAH) Pool utility for managing OPFS databases.
+///
+/// This provides advanced database management capabilities including:
+/// - Listing all databases in OPFS storage
+/// - Importing and exporting database files
+/// - Managing storage capacity and cleanup
+/// - File lifecycle management
+///
+/// This is the recommended interface for applications that need to manage
+/// multiple databases and their lifecycle in OPFS storage.
+extension type SAHPoolUtil._(JSObject _) implements JSObject {
+  @JS('addCapacity')
+  external JSPromise<JSNumber> _addCapacity(int numEntries);
+
+  /// Adds `numEntries` entries to the current pool.
+  ///
+  /// This change is persistent across sessions so should not be called
+  /// automatically at each app startup (but see `reserveMinimumCapacity()`). Its
+  /// returned Promise resolves to the new capacity. Because this operation is
+  /// necessarily asynchronous, the C-level VFS API cannot call this on its own
+  /// as needed.
+  Future<int> addCapacity(int numEntries) async {
+    final jsResult = await _addCapacity(numEntries).toDart;
+    return jsResult.toDartInt;
+  }
+
+  @JS('reduceCapacity')
+  external JSPromise<JSNumber> _reduceCapacity(int numEntries);
+
+  /// Removes up to [numEntries] entries from the pool, with the caveat that it
+  /// can only remove currently-unused entries.
+  ///
+  /// It returns a Promise which resolves to the number of entries actually
+  /// removed.
+  Future<int> reduceCapacity(int numEntries) async {
+    final jsResult = await _reduceCapacity(numEntries).toDart;
+    return jsResult.toDartInt;
+  }
+
+  @JS('exportFile')
+  external JSPromise<JSUint8Array> _exportFile(String filename);
+
+  /// Synchronously reads the contents of the given file into a [JSUint8Array] and
+  /// returns it.
+  ///
+  /// This will throw if the given name is not currently in active use or on I/O
+  /// error. Note that the given name is not visible directly in OPFS (or, if it
+  /// is, it's not from this VFS). The reason for that is that this VFS manages
+  /// name-to-file mappings in a roundabout way in order to maintain its list of
+  /// SAHs.
+  Future<Uint8List> exportFile(String filename) async {
+    final jsResult = await _exportFile(filename).toDart;
+    return jsResult.toDart;
+  }
+
+  @JS('reserveMinimumCapacity')
+  external JSPromise<JSNumber> _reserveMinimumCapacity(int minCapacity);
+
+  /// If the current capacity is less than [minCapacity], the capacity is
+  /// increased to [minCapacity], else this returns with no side effects.
+  ///
+  /// The resulting Promise resolves to the new capacity.
+  Future<int> reserveMinimumCapacity(int minCapacity) async {
+    final jsResult = await _reserveMinimumCapacity(minCapacity).toDart;
+    return jsResult.toDartInt;
+  }
+
+  @JS('getCapacity')
+  external int _getCapacity();
+
+  /// Returns the number of files currently contained in the SAH pool.
+  ///
+  /// The default capacity is only large enough for one or two databases and
+  /// their associated temp files.
+  int get capacity => _getCapacity();
+
+  @JS('getFileCount')
+  external int _getFileCount();
+
+  /// Returns the number of files from the pool currently allocated to VFS slots.
+  ///
+  /// This is not the same as the files being "opened".
+  int get fileCount => _getFileCount();
+
+  @JS('getFileNames')
+  external JSArray<JSString> _getFileNames();
+
+  /// Returns an array of the names of the files currently allocated to VFS
+  /// slots.
+  ///
+  /// This list is the same length as [fileCount].
+  List<String> get fileNames =>
+      _getFileNames().toDart.map((jsString) => jsString.toDart).toList();
+
+  @JS('importDb')
+  external JSNumber _importDb(String name, JSUint8Array data);
+
+  /// Imports the contents of an SQLite database, provided as a byte array or
+  /// ArrayBuffer, under the given name, overwriting any existing content.
+  ///
+  /// Throws if the pool has no available file slots, on I/O error, or if the
+  /// input does not appear to be a database. In the latter case, only a cursory
+  /// examination is made.
+  ///
+  /// Note that this routine is only for importing database files, not arbitrary
+  /// files, the reason being that this VFS will automatically clean up any
+  /// non-database files so importing them is pointless.
+  ///
+  /// If passed a function for its second argument, its behavior changes to
+  /// asynchronous, and it imports its data in chunks fed to it by the given
+  /// callback function. It calls the callback (which may be async) repeatedly,
+  /// expecting either a Uint8Array or ArrayBuffer (to denote new input) or
+  /// undefined (to denote EOF).
+  ///
+  /// For so long as the callback continues to return non-undefined, it will
+  /// append incoming data to the given VFS-hosted database file. The result of
+  /// the resolved Promise when called this way is the size of the resulting
+  /// database.
+  ///
+  /// On success, the number of bytes written is returned. On success this
+  /// routine rewrites the database header bytes in the output file (not the
+  /// input array) to force disabling of WAL mode.
+  ///
+  /// On a write error, the handle is removed from the pool and made available
+  /// for re-use.
+  int importDb(String name, Uint8List data) {
+    final jsResult = _importDb(name, data.toJS);
+    return jsResult.toDartInt;
+  }
+
+  /// If a virtual file exists with the given name, disassociates it from the
+  /// pool and returns true, else returns false without side effects. Results are
+  /// undefined if the file is currently in active use. Recall that names need to
+  /// use absolute paths (starting with a slash).
+  external bool unlink(String filename);
+
+  @JS('wipeFiles')
+  external JSPromise<JSAny?> _wipeFiles();
+
+  /// Clears all client-defined state of all SAHs and makes all of them available
+  /// for re-use by the pool. Results are undefined if any such handles are
+  /// currently in use, e.g. by an sqlite3 db.
+  Future<void> wipeFiles() async {
+    await _wipeFiles().toDart;
+  }
+
+  @JS('removeVfs')
+  external JSPromise<JSBoolean> _removeVfs();
+
+  /// Unregisters the VFS and removes its directory from OPFS (which means all
+  /// client content is destroyed). After calling this, the VFS may no longer be
+  /// used and there is currently no way to re-add it aside from reloading the
+  /// current JavaScript context.
+  ///
+  /// Results are undefined if a database is currently in use with this VFS.
+  ///
+  /// The returned Promise resolves to true if it performed the removal and false
+  /// if the VFS was not installed.
+  ///
+  /// If the VFS has a multi-level directory, e.g. "/foo/bar/baz", only the
+  /// bottom-most directory is removed because this VFS cannot know for certain
+  /// whether the higher-level directories contain data which should be removed.
+  Future<bool> removeVfs() async {
+    final jsResult = await _removeVfs().toDart;
+    return jsResult.toDart;
+  }
+
+  /// The SQLite VFS name under which this pool's VFS is registered.
+  external String get vfsName;
+
+  /// The constructor for [OpfsSAHPoolDatabase] instances.
+  external JSFunction get OpfsSAHPoolDb;
+
+  /// Open a database from the pool.
+  OpfsSAHPoolDatabase openDatabase(String filename) {
+    return OpfsSAHPoolDb.callAsConstructor(filename.toJS);
+  }
+}
+
+extension type OpfsSAHPoolDatabase._(JSObject _) implements Database {}
+
+/// Install the OPFS SAH Pool VFS and return the utility object
+@JS('installOpfsSAHPoolVfs')
+external JSPromise<SAHPoolUtil> installOpfsSAHPoolVfs([
+  SAHPoolOptions? options,
+]);
+
+/// Global SAH Pool utility instance (cached after first initialization)
+SAHPoolUtil? _globalSAHPool;
+
+/// Get or initialize the global SAH Pool utility
+Future<SAHPoolUtil> getSAHPoolUtil({SAHPoolOptions? options}) async {
+  if (_globalSAHPool case final globalSAHPool?) {
+    return globalSAHPool;
+  }
+
+  final Logger logger = Logger('SAHPool');
+  logger.info('Initializing SAH Pool VFS...');
+
+  final globalSAHPool = await installOpfsSAHPoolVfs(
+    options ?? SAHPoolOptions(name: 'default', clearOnInit: true),
+  ).toDart;
+
+  logger.info(
+    'SAH Pool VFS initialized with VFS name: ${globalSAHPool.vfsName}',
+  );
+  logger.info('Pool capacity: ${globalSAHPool.capacity}');
+  logger.info('Existing databases: ${globalSAHPool.fileNames.join(', ')}');
+
+  return _globalSAHPool = globalSAHPool;
+}
+
 /// Exception class for reporting WASM-side allocation errors.
 @JS('WasmAllocError')
 extension type WasmAllocError._(JSObject _) implements JSError {
@@ -975,7 +1249,7 @@ extension type WasmAllocError._(JSObject _) implements JSError {
 extension type SQLite3Error._(JSObject _) implements JSError {
   external SQLite3Error(String message);
 
-  external double resultCode;
+  external int resultCode;
 }
 
 extension type InitOptions._(JSObject _) implements JSObject {

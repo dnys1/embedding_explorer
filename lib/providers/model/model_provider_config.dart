@@ -227,7 +227,7 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    await set(id, config);
+    await add(config);
     return id;
   }
 
@@ -254,7 +254,7 @@ class ModelProviderConfigCollection
       enabledModels: enabledModels,
     ).copyWith(id: id);
 
-    await set(id, config);
+    await add(config);
     return id;
   }
 
@@ -286,7 +286,7 @@ class ModelProviderConfigCollection
       updatedAt: DateTime.now(),
     );
 
-    await set(id, updated);
+    await add(updated);
     return true;
   }
 
@@ -334,7 +334,7 @@ class ModelProviderConfigCollection
     final existing = getById(providerId);
     if (existing == null) return false;
 
-    final newEnabledModels = Set<String>.from(existing.enabledModels);
+    final newEnabledModels = Set<String>.of(existing.enabledModels);
     if (newEnabledModels.contains(modelId)) {
       newEnabledModels.remove(modelId);
     } else {

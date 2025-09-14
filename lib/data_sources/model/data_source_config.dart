@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 
 import '../../configurations/model/configuration_collection.dart';
 import '../../configurations/model/configuration_item.dart';
+import '../../util/type_id.dart';
 import 'data_source_settings.dart';
 
 /// Configuration for a data source with metadata
@@ -20,7 +21,28 @@ class DataSourceConfig<T extends DataSourceSettings>
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  const DataSourceConfig({
+  factory DataSourceConfig({
+    String? id,
+    required String name,
+    String description = '',
+    required DataSourceType type,
+    required T settings,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    final now = DateTime.now();
+    return DataSourceConfig._(
+      id: id ?? typeId('ds'),
+      name: name,
+      description: description,
+      type: type,
+      settings: settings,
+      createdAt: createdAt ?? now,
+      updatedAt: updatedAt ?? now,
+    );
+  }
+
+  const DataSourceConfig._({
     required this.id,
     required this.name,
     required this.description,
@@ -40,7 +62,7 @@ class DataSourceConfig<T extends DataSourceSettings>
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return DataSourceConfig<T>(
+    return DataSourceConfig<T>._(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
@@ -57,7 +79,7 @@ class DataSourceConfig<T extends DataSourceSettings>
   ) {
     try {
       final type = DataSourceType.values.byName(row['type'] as String);
-      return DataSourceConfig<DataSourceSettings>(
+      return DataSourceConfig<DataSourceSettings>._(
         id: row['id'] as String,
         name: row['name'] as String,
         description: row['description'] as String? ?? '',
@@ -73,25 +95,6 @@ class DataSourceConfig<T extends DataSourceSettings>
       _logger.severe('Error parsing DataSourceConfig from ResultSet: $row', e);
       return null;
     }
-  }
-
-  /// Create a default configuration
-  static DataSourceConfig<T> createDefault<T extends DataSourceSettings>({
-    required String name,
-    required DataSourceType type,
-    required T settings,
-    String? description,
-  }) {
-    final now = DateTime.now();
-    return DataSourceConfig<T>(
-      id: 'temp_id', // Will be replaced when added to collection
-      name: name,
-      description: description ?? '',
-      type: type,
-      settings: settings,
-      createdAt: now,
-      updatedAt: now,
-    );
   }
 
   @override
@@ -124,82 +127,6 @@ class DataSourceConfigCollection
 
   @override
   String get tableName => 'data_source_configs';
-
-  /// Add a new data source configuration
-  Future<String> addConfig({
-    required String name,
-    required DataSourceType type,
-    String? description,
-    DataSourceSettings? settings,
-  }) async {
-    final id = generateId();
-
-    // Create default settings if none provided
-    final defaultSettings = settings ?? _createDefaultSettings(type);
-
-    final config = DataSourceConfig<DataSourceSettings>(
-      id: id,
-      name: name,
-      description: description ?? '',
-      type: type,
-      settings: defaultSettings,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    await set(id, config);
-    return id;
-  }
-
-  /// Create default settings for a data source type
-  DataSourceSettings _createDefaultSettings(DataSourceType type) {
-    switch (type) {
-      case DataSourceType.csv:
-        return const CsvDataSourceSettings();
-      case DataSourceType.sqlite:
-        return const SqliteDataSourceSettings();
-    }
-  }
-
-  /// Update an existing configuration
-  Future<bool> updateConfig(
-    String id, {
-    String? name,
-    String? description,
-    DataSourceType? type,
-    DataSourceSettings? settings,
-  }) async {
-    final existing = getById(id);
-    if (existing == null) return false;
-
-    final updated = existing.copyWith(
-      name: name,
-      description: description,
-      type: type,
-      settings: settings,
-      updatedAt: DateTime.now(),
-    );
-
-    await set(id, updated);
-    return true;
-  }
-
-  /// Get configurations by type
-  List<DataSourceConfig> getByType(DataSourceType type) {
-    return all.where((config) => config.type == type).toList();
-  }
-
-  /// Search configurations by name
-  List<DataSourceConfig> searchByName(String query) {
-    final lowerQuery = query.toLowerCase();
-    return all
-        .where(
-          (config) =>
-              config.name.toLowerCase().contains(lowerQuery) ||
-              config.description.toLowerCase().contains(lowerQuery),
-        )
-        .toList();
-  }
 
   @override
   Future<void> saveItem(

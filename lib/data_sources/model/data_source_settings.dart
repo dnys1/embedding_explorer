@@ -32,29 +32,8 @@ class CsvDataSourceSettings extends DataSourceSettings {
   /// Whether the first row contains column headers
   final bool hasHeader;
 
-  /// Character encoding (default: 'utf-8')
-  final String encoding;
-
-  /// Quote character for escaping values
-  final String quoteChar;
-
-  /// Escape character for special characters
-  final String escapeChar;
-
-  /// Whether to skip empty lines
-  final bool skipEmptyLines;
-
-  /// Number of lines to skip at the beginning
-  final int skipRows;
-
-  /// Maximum number of rows to read (null for all)
-  final int? maxRows;
-
-  /// The actual CSV content (for file-based sources)
+  /// CSV text content
   final String? content;
-
-  /// Source type ('file', 'url', 'text')
-  final String source;
 
   /// Whether to use persistent storage
   final bool persistent;
@@ -65,14 +44,7 @@ class CsvDataSourceSettings extends DataSourceSettings {
   const CsvDataSourceSettings({
     this.delimiter = ',',
     this.hasHeader = true,
-    this.encoding = 'utf-8',
-    this.quoteChar = '"',
-    this.escapeChar = '\\',
-    this.skipEmptyLines = true,
-    this.skipRows = 0,
-    this.maxRows,
     this.content,
-    this.source = 'file',
     this.persistent = false,
     this.persistentName,
   });
@@ -82,14 +54,7 @@ class CsvDataSourceSettings extends DataSourceSettings {
     return {
       'delimiter': delimiter,
       'hasHeader': hasHeader,
-      'encoding': encoding,
-      'quoteChar': quoteChar,
-      'escapeChar': escapeChar,
-      'skipEmptyLines': skipEmptyLines,
-      'skipRows': skipRows,
-      'maxRows': ?maxRows,
-      'content': ?content,
-      'source': source,
+      'content': content,
       'persistent': persistent,
       'persistentName': ?persistentName,
     };
@@ -99,14 +64,7 @@ class CsvDataSourceSettings extends DataSourceSettings {
     return CsvDataSourceSettings(
       delimiter: json['delimiter'] as String? ?? ',',
       hasHeader: json['hasHeader'] as bool? ?? true,
-      encoding: json['encoding'] as String? ?? 'utf-8',
-      quoteChar: json['quoteChar'] as String? ?? '"',
-      escapeChar: json['escapeChar'] as String? ?? '\\',
-      skipEmptyLines: json['skipEmptyLines'] as bool? ?? true,
-      skipRows: (json['skipRows'] as num?)?.toInt() ?? 0,
-      maxRows: (json['maxRows'] as num?)?.toInt(),
       content: json['content'] as String?,
-      source: json['source'] as String? ?? 'file',
       persistent: json['persistent'] as bool? ?? false,
       persistentName: json['persistentName'] as String?,
     );
@@ -115,28 +73,14 @@ class CsvDataSourceSettings extends DataSourceSettings {
   CsvDataSourceSettings copyWith({
     String? delimiter,
     bool? hasHeader,
-    String? encoding,
-    String? quoteChar,
-    String? escapeChar,
-    bool? skipEmptyLines,
-    int? skipRows,
-    int? maxRows,
     String? content,
-    String? source,
     bool? persistent,
     String? persistentName,
   }) {
     return CsvDataSourceSettings(
       delimiter: delimiter ?? this.delimiter,
       hasHeader: hasHeader ?? this.hasHeader,
-      encoding: encoding ?? this.encoding,
-      quoteChar: quoteChar ?? this.quoteChar,
-      escapeChar: escapeChar ?? this.escapeChar,
-      skipEmptyLines: skipEmptyLines ?? this.skipEmptyLines,
-      skipRows: skipRows ?? this.skipRows,
-      maxRows: maxRows ?? this.maxRows,
       content: content ?? this.content,
-      source: source ?? this.source,
       persistent: persistent ?? this.persistent,
       persistentName: persistentName ?? this.persistentName,
     );
@@ -153,32 +97,13 @@ class CsvDataSourceSettings extends DataSourceSettings {
           runtimeType == other.runtimeType &&
           delimiter == other.delimiter &&
           hasHeader == other.hasHeader &&
-          encoding == other.encoding &&
-          quoteChar == other.quoteChar &&
-          escapeChar == other.escapeChar &&
-          skipEmptyLines == other.skipEmptyLines &&
-          skipRows == other.skipRows &&
-          maxRows == other.maxRows &&
-          content == other.content &&
-          source == other.source &&
           persistent == other.persistent &&
-          persistentName == other.persistentName;
+          persistentName == other.persistentName &&
+          content == other.content;
 
   @override
-  int get hashCode => Object.hash(
-    delimiter,
-    hasHeader,
-    encoding,
-    quoteChar,
-    escapeChar,
-    skipEmptyLines,
-    skipRows,
-    maxRows,
-    content,
-    source,
-    persistent,
-    persistentName,
-  );
+  int get hashCode =>
+      Object.hash(delimiter, hasHeader, persistent, persistentName, content);
 }
 
 enum SqliteDataSourceType {
@@ -186,10 +111,10 @@ enum SqliteDataSourceType {
     displayName: 'Sample Data',
     description: 'Use pre-loaded sample movie data for testing and exploration',
   ),
-  upload(
-    displayName: 'Upload Database File',
+  import(
+    displayName: 'Import Database File',
     description:
-        'Upload an existing SQLite database file with optional persistence',
+        'Import an existing SQLite database file with optional persistence',
   ),
   persistent(
     displayName: 'Persistent Storage',
@@ -210,100 +135,46 @@ class SqliteDataSourceSettings extends DataSourceSettings {
   /// Type of SQLite data source ('sample', 'upload', 'persistent')
   final SqliteDataSourceType type;
 
-  /// SQL query to execute for data retrieval
-  final String? query;
-
   /// Whether to use persistent storage
-  final bool persistent;
+  bool get persistent => type != SqliteDataSourceType.sample;
 
   /// Name for persistent storage (if persistent is true)
-  final String? persistentName;
-
-  /// Binary database data (for uploaded files)
-  final List<int>? databaseData;
-
-  /// Connection timeout in milliseconds
-  final int connectionTimeout;
-
-  /// Whether to enable write-ahead logging (WAL) mode
-  final bool enableWal;
-
-  /// Page size for the database
-  final int? pageSize;
-
-  /// Cache size in pages
-  final int? cacheSize;
+  final String? filename;
 
   const SqliteDataSourceSettings({
     this.type = SqliteDataSourceType.sample,
-    this.query,
-    this.persistent = false,
-    this.persistentName,
-    this.databaseData,
-    this.connectionTimeout = 30000,
-    this.enableWal = false,
-    this.pageSize,
-    this.cacheSize,
-  });
+    this.filename,
+  }) : assert(
+         type == SqliteDataSourceType.sample || filename != null,
+         'Filename must be provided for import or persistent types',
+       );
 
   @override
   Map<String, dynamic> toJson() {
-    return {
-      'type': type.name,
-      'query': ?query,
-      'persistent': persistent,
-      'persistentName': ?persistentName,
-      'databaseData': ?databaseData,
-      'connectionTimeout': connectionTimeout,
-      'enableWal': enableWal,
-      'pageSize': ?pageSize,
-      'cacheSize': ?cacheSize,
-    };
+    return {'type': type.name, 'persistent': persistent, 'filename': ?filename};
   }
 
   factory SqliteDataSourceSettings.fromJson(Map<String, dynamic> json) {
     return SqliteDataSourceSettings(
       type: SqliteDataSourceType.values.byName(json['type'] as String),
-      query: json['query'] as String?,
-      persistent: json['persistent'] as bool? ?? false,
-      persistentName: json['persistentName'] as String?,
-      databaseData: (json['databaseData'] as List<dynamic>?)
-          ?.cast<num>()
-          .map((e) => e.toInt())
-          .toList(),
-      connectionTimeout: (json['connectionTimeout'] as num?)?.toInt() ?? 30000,
-      enableWal: json['enableWal'] as bool? ?? false,
-      pageSize: (json['pageSize'] as num?)?.toInt(),
-      cacheSize: (json['cacheSize'] as num?)?.toInt(),
+      filename: json['filename'] as String?,
     );
   }
 
   SqliteDataSourceSettings copyWith({
     SqliteDataSourceType? type,
-    String? query,
     bool? persistent,
-    String? persistentName,
-    List<int>? databaseData,
-    int? connectionTimeout,
-    bool? enableWal,
-    int? pageSize,
-    int? cacheSize,
+    String? filename,
   }) {
     return SqliteDataSourceSettings(
       type: type ?? this.type,
-      query: query ?? this.query,
-      persistent: persistent ?? this.persistent,
-      persistentName: persistentName ?? this.persistentName,
-      databaseData: databaseData ?? this.databaseData,
-      connectionTimeout: connectionTimeout ?? this.connectionTimeout,
-      enableWal: enableWal ?? this.enableWal,
-      pageSize: pageSize ?? this.pageSize,
-      cacheSize: cacheSize ?? this.cacheSize,
+      filename: filename ?? this.filename,
     );
   }
 
   @override
-  String toString() => 'SqliteDataSourceSettings(type: $type, query: $query)';
+  String toString() =>
+      'SqliteDataSourceSettings(type: $type, persistent: $persistent, filename: $filename)';
 
   @override
   bool operator ==(Object other) =>
@@ -311,23 +182,9 @@ class SqliteDataSourceSettings extends DataSourceSettings {
       other is SqliteDataSourceSettings &&
           runtimeType == other.runtimeType &&
           type == other.type &&
-          query == other.query &&
           persistent == other.persistent &&
-          persistentName == other.persistentName &&
-          connectionTimeout == other.connectionTimeout &&
-          enableWal == other.enableWal &&
-          pageSize == other.pageSize &&
-          cacheSize == other.cacheSize;
+          filename == other.filename;
 
   @override
-  int get hashCode => Object.hash(
-    type,
-    query,
-    persistent,
-    persistentName,
-    connectionTimeout,
-    enableWal,
-    pageSize,
-    cacheSize,
-  );
+  int get hashCode => Object.hash(type, persistent, filename);
 }

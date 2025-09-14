@@ -12,90 +12,45 @@ import '../model/data_source_settings.dart';
 /// CSV data source implementation that can load and parse CSV files
 /// from file uploads or URLs.
 class CsvDataSource extends DataSource {
-  List<List<dynamic>> _rawData = [];
-  List<String> _headers = [];
-  final Map<String, DataSourceFieldType> _fieldTypes = {};
-  bool _isConnected = false;
+  final List<List<dynamic>> _rawData;
+  final List<String> _headers;
+  final Map<String, DataSourceFieldType> _fieldTypes;
 
   static final Logger _logger = Logger('CsvDataSource');
 
-  /// Create a CSV data source from configuration
-  CsvDataSource._(super.config);
-
-  factory CsvDataSource.fromConfig(DataSourceConfig config) {
-    return CsvDataSource._(config);
-  }
+  /// Create a CSV data source from configuration (private constructor)
+  CsvDataSource._(
+    super.config, {
+    required List<List<dynamic>> rawData,
+    required List<String> headers,
+    required Map<String, DataSourceFieldType> fieldTypes,
+  }) : _rawData = rawData,
+       _headers = headers,
+       _fieldTypes = fieldTypes;
 
   /// Get typed CSV settings
   CsvDataSourceSettings get csvSettings => settings as CsvDataSourceSettings;
 
-  /// Create a CSV data source from file content
-  factory CsvDataSource.fromFileContent({
-    required String name,
-    required String csvContent,
-    String delimiter = ',',
-    bool hasHeader = true,
-    String? encoding,
-    bool persistent = false,
-    String? persistentName,
-  }) {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final config = DataSourceConfig(
-      id: id,
-      name: name,
-      description: 'CSV data source created from file content',
-      type: DataSourceType.csv,
-      settings: CsvDataSourceSettings(
-        delimiter: delimiter,
-        hasHeader: hasHeader,
-        encoding: encoding ?? 'utf-8',
-        content: csvContent,
-        source: 'file',
-        persistent: persistent,
-        persistentName: persistentName,
-      ),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    return CsvDataSource.fromConfig(config);
-  }
-
-  /// Create a CSV data source from a File object (browser file upload)
-  static Future<CsvDataSource> fromFile({
+  static Future<CsvDataSource> loadFromFile({
+    required DataSourceConfig config,
     required web.File file,
-    String? name,
-    String delimiter = ',',
-    bool hasHeader = true,
-    bool persistent = false,
-    String? persistentName,
   }) async {
-    final content = await file.readAsString();
-    return CsvDataSource.fromFileContent(
-      name: name ?? file.name,
-      csvContent: content,
-      delimiter: delimiter,
-      hasHeader: hasHeader,
-      persistent: persistent,
-      persistentName: persistentName,
-    );
-  }
+    assert(config.type == DataSourceType.csv);
+    assert(config.settings is CsvDataSourceSettings);
 
-  @override
-  bool get isConnected => _isConnected;
-
-  @override
-  Future<bool> connect() async {
+    final csvSettings = config.settings as CsvDataSourceSettings;
     try {
-      if (_isConnected) {
-        return true;
-      }
+      _logger.info('Connecting to CSV data source: ${config.name}');
 
-      _logger.info('Connecting to CSV data source: $name');
-
-      final content = csvSettings.content;
-      if (content == null || content.isEmpty) {
-        _logger.warning('No CSV content provided for data source: $name');
-        return false;
+      final content = await file.readAsString();
+      if (content.isEmpty) {
+        _logger.warning(
+          'No CSV content provided for data source: ${config.name}',
+        );
+        throw DataSourceException(
+          'No CSV content provided',
+          sourceType: config.type,
+        );
       }
 
       final delimiter = csvSettings.delimiter;
@@ -114,84 +69,70 @@ class CsvDataSource extends DataSource {
       );
 
       if (csvData.isEmpty) {
-        _logger.warning('CSV file is empty for data source: $name');
-        throw DataSourceException('CSV file is empty', sourceType: type);
+        _logger.warning('CSV file is empty for data source: ${config.name}');
+        throw DataSourceException('CSV file is empty', sourceType: config.type);
       }
 
-      _rawData = csvData;
+      List<List<dynamic>> rawData = csvData;
       _logger.finest('Parsed ${csvData.length} rows from CSV content');
       _logger.finest('First 3 raw rows: ${csvData.take(3).toList()}');
 
       // Extract headers
+      final List<String> headers;
       if (hasHeader && csvData.isNotEmpty) {
-        _headers = csvData.first.map((e) => e?.toString() ?? '').toList();
-        _rawData = csvData.skip(1).toList();
-        _logger.finest('Extracted headers: ${_headers.join(', ')}');
+        headers = csvData.first.map((e) => e?.toString() ?? '').toList();
+        rawData = csvData.skip(1).toList();
+        _logger.finest('Extracted headers: ${headers.join(', ')}');
       } else {
         // Generate column names if no header
         final columnCount = csvData.first.length;
-        _headers = List.generate(columnCount, (i) => 'Column${i + 1}');
-        _logger.finest('Generated headers: ${_headers.join(', ')}');
+        headers = List.generate(columnCount, (i) => 'Column${i + 1}');
+        _logger.finest('Generated headers: ${headers.join(', ')}');
       }
 
       // Infer field types
-      _logger.finest('Starting type inference for ${_headers.length} columns');
-      _inferFieldTypes();
+      _logger.finest('Starting type inference for ${headers.length} columns');
+      final fieldTypes = _inferFieldTypes(rawData: rawData, headers: headers);
 
-      _isConnected = true;
       _logger.info(
-        'Successfully connected to CSV data source: $name (${_rawData.length} rows, ${_headers.length} columns)',
+        'Successfully connected to CSV data source: ${config.name} '
+        '(${rawData.length} rows, ${headers.length} columns)',
       );
-      return true;
+      return CsvDataSource._(
+        config,
+        rawData: rawData,
+        headers: headers,
+        fieldTypes: fieldTypes,
+      );
     } catch (e) {
-      _isConnected = false;
-      _logger.severe('Failed to connect to CSV data source: $name', e);
+      _logger.severe('Failed to connect to CSV data source: ${config.name}', e);
       if (e is DataSourceException) rethrow;
       throw DataSourceException(
         'Failed to parse CSV: ${e.toString()}',
-        sourceType: type,
+        sourceType: config.type,
         cause: e,
       );
     }
   }
 
-  @override
-  Future<void> disconnect() async {
-    _logger.info('Disconnecting CSV data source: $name');
-    _rawData.clear();
-    _headers.clear();
-    _fieldTypes.clear();
-    _isConnected = false;
-    _logger.finest('CSV data source disconnected: $name');
+  static Future<CsvDataSource> connect({
+    required DataSourceConfig config,
+  }) async {
+    throw UnimplementedError(
+      'Connect method is not implemented for CSV data source',
+    );
   }
 
   @override
-  Future<Map<String, String>> getSchema() async {
-    if (!_isConnected) {
-      _logger.warning('Attempted to get schema when not connected: $name');
-      throw DataSourceException('Data source not connected', sourceType: type);
-    }
+  Future<void> dispose() async {}
 
-    _logger.finest('Getting schema for CSV data source: $name');
-    final schema = Map.fromEntries(
-      _headers.map(
-        (header) => MapEntry(
-          header,
-          _fieldTypes[header]?.name ?? DataSourceFieldType.text.name,
-        ),
-      ),
-    );
-    _logger.finest('Schema retrieved with ${schema.length} fields');
-    return schema;
+  @override
+  Future<Map<String, DataSourceFieldType>> getSchema() async {
+    return _fieldTypes;
   }
 
   @override
   Future<List<Map<String, dynamic>>> getSampleData({int limit = 10}) async {
-    if (!_isConnected) {
-      _logger.warning('Attempted to get sample data when not connected: $name');
-      throw DataSourceException('Data source not connected', sourceType: type);
-    }
-
     _logger.finest(
       'Getting sample data for CSV data source: $name (limit: $limit)',
     );
@@ -203,11 +144,6 @@ class CsvDataSource extends DataSource {
 
   @override
   Future<int> getRowCount() async {
-    if (!_isConnected) {
-      _logger.warning('Attempted to get row count when not connected: $name');
-      throw DataSourceException('Data source not connected', sourceType: type);
-    }
-
     _logger.finest('Getting row count for CSV data source: $name');
     return _rawData.length;
   }
@@ -217,11 +153,6 @@ class CsvDataSource extends DataSource {
     int offset = 0,
     int? limit,
   }) async {
-    if (!_isConnected) {
-      _logger.warning('Attempted to get all data when not connected: $name');
-      throw DataSourceException('Data source not connected', sourceType: type);
-    }
-
     _logger.finest(
       'Getting all data for CSV data source: $name (offset: $offset, limit: $limit)',
     );
@@ -239,38 +170,12 @@ class CsvDataSource extends DataSource {
   List<String> validate() {
     final errors = <String>[];
 
-    if (csvSettings.content == null || csvSettings.content!.isEmpty) {
-      errors.add('CSV content is required');
-    }
-
     final delimiter = csvSettings.delimiter;
     if (delimiter.isEmpty) {
       errors.add('Delimiter is required');
     }
 
     return errors;
-  }
-
-  @override
-  DataSource copyWith({
-    String? id,
-    String? name,
-    String? description,
-    DataSourceType? type,
-    DataSourceSettings? settings,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    final newConfig = config.copyWith(
-      id: id,
-      name: name,
-      description: description,
-      type: type,
-      settings: settings,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-    );
-    return CsvDataSource.fromConfig(newConfig);
   }
 
   /// Convert raw CSV rows to list of maps with proper field names
@@ -320,16 +225,19 @@ class CsvDataSource extends DataSource {
   }
 
   /// Infer field types by sampling data values
-  void _inferFieldTypes() {
+  static Map<String, DataSourceFieldType> _inferFieldTypes({
+    required List<List<dynamic>> rawData,
+    required List<String> headers,
+  }) {
     _logger.finest(
-      'Starting field type inference for ${_headers.length} columns',
+      'Starting field type inference for ${headers.length} columns',
     );
-    _fieldTypes.clear();
+    final fieldTypes = <String, DataSourceFieldType>{};
 
-    for (int columnIndex = 0; columnIndex < _headers.length; columnIndex++) {
-      final header = _headers[columnIndex];
+    for (int columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+      final header = headers[columnIndex];
       final sampleSize = 100; // Sample first 100 rows for type inference
-      final sampleValues = _rawData
+      final sampleValues = rawData
           .take(sampleSize)
           .where((row) => columnIndex < row.length && row[columnIndex] != null)
           .map((row) => row[columnIndex].toString())
@@ -337,16 +245,17 @@ class CsvDataSource extends DataSource {
           .toList();
 
       final inferredType = _inferFieldType(sampleValues);
-      _fieldTypes[header] = inferredType;
+      fieldTypes[header] = inferredType;
     }
 
     _logger.finest(
-      'Field type inference completed: ${_fieldTypes.length} fields processed',
+      'Field type inference completed: ${fieldTypes.length} fields processed',
     );
+    return fieldTypes;
   }
 
   /// Infer the most likely field type from a sample of values
-  DataSourceFieldType _inferFieldType(List<String> sampleValues) {
+  static DataSourceFieldType _inferFieldType(List<String> sampleValues) {
     if (sampleValues.isEmpty) return DataSourceFieldType.text;
 
     int integerCount = 0;

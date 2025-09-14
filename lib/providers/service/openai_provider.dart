@@ -53,7 +53,7 @@ class OpenAIProvider implements EmbeddingProvider {
       'OpenAI embedding models including text-embedding-3-small and text-embedding-3-large';
 
   @override
-  bool get requiresApiKey => true;
+  CredentialType? get requiredCredential => CredentialType.apiKey;
 
   @override
   bool get supportsCustomConfig => false;

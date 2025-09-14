@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:js_interop';
 
 import 'package:logging/logging.dart';
-import 'package:sqlite3/common.dart' show ResultSet;
+import 'package:sqlite3/wasm.dart' show ResultSet, SqliteException;
 import 'package:worker_bee/worker_bee.dart';
 
+import '../interop/common.dart';
 import '../interop/libsql.dart' as libsql;
 import '../workers/libsql_worker.dart';
 import 'transaction.dart';
 
-abstract interface class Database implements TransactionExecutor {
+typedef ExecResult = ({int lastInsertRowId, int updatedRows});
+
+abstract class IDatabase implements TransactionExecutor {
   static final Logger _logger = Logger('LibsqlDatabase');
 
   /// Creates a LibSQL database from a file path.
@@ -16,10 +20,9 @@ abstract interface class Database implements TransactionExecutor {
   /// On Web platforms, this creates an in-memory database if path is ':memory:',
   /// otherwise attempts to use the provided path (may not be supported in all environments).
   /// The WASM module is automatically initialized before creating the database.
-  static Future<Database> open(
+  static Future<IDatabase> open(
     String path, {
     Uri? moduleUri,
-    bool isWorker = false,
     bool verbose = false,
   }) async {
     await libsql.loadModule(moduleUri: moduleUri);
@@ -28,10 +31,11 @@ abstract interface class Database implements TransactionExecutor {
     } else if (libsql.supportsOpfs) {
       return Database.opfs(path, verbose: verbose);
     } else {
-      if (!isWorker) {
+      if (!kIsWorker) {
         try {
-          return await Database.worker(
+          return await IDatabase.worker(
             path: path,
+            vfsName: 'opfs',
             moduleUri: moduleUri,
             verbose: verbose,
           );
@@ -43,35 +47,6 @@ abstract interface class Database implements TransactionExecutor {
     }
   }
 
-  /// Creates an in-memory LibSQL database.
-  factory Database.memory({bool verbose = false}) {
-    _logger.config('Initializing in-memory LibSQL database');
-    return _Database._(libsql.Database(flags: verbose ? 'ct' : 'c'));
-  }
-
-  /// Creates a LibSQL database using the OPFS VFS at the given path.
-  ///
-  /// **NOTE**: This can only be used in environments that support OPFS, and
-  /// requires APIs only available in workers. If OPFS is not supported, an
-  /// [UnsupportedError] is thrown.
-  factory Database.opfs(String path, {bool verbose = false}) {
-    if (!libsql.supportsOpfs) {
-      throw UnsupportedError('OPFS is not supported in this environment');
-    }
-    _logger.config('Initializing LibSQL OPFS database at $path');
-    return _Database._(
-      libsql.Database(filename: path, flags: verbose ? 'ct' : 'c', vfs: 'opfs'),
-    );
-  }
-
-  /// Creates a LibSQL database using the browser's local storage.
-  factory Database.local(String path, {bool verbose = false}) {
-    _logger.config('Initializing LibSQL local database at $path');
-    return _Database._(
-      libsql.Database(filename: path, flags: verbose ? 'ct' : 'c'),
-    );
-  }
-
   /// Creates a LibSQL database accessed via a worker.
   ///
   /// This is useful for accessing persistent databases in environments that
@@ -79,27 +54,34 @@ abstract interface class Database implements TransactionExecutor {
   ///
   /// The [moduleUri] can be provided to specify the location of the WASM module
   /// to be used by the worker.
-  static Future<Database> worker({
+  static Future<IDatabase> worker({
     required String path,
+    required String vfsName,
     Uri? moduleUri,
     bool verbose = false,
   }) {
     _logger.config('Initializing LibSQL worker for $path');
     return DatabaseWorker.spawn(
       filename: path,
+      vfsName: vfsName,
       moduleUri: moduleUri,
       verbose: verbose,
     );
   }
 
+  String get filename;
+
   @override
-  FutureOr<void> execute(String sql, [List<Object?> parameters = const []]);
+  FutureOr<ExecResult> execute(
+    String sql, [
+    List<Object?> parameters = const [],
+  ]);
   FutureOr<List<Map<String, Object?>>> select(
     String sql, [
     List<Object?> parameters = const [],
   ]);
   FutureOr<void> transaction(void Function(TransactionExecutor tx) action);
-  FutureOr<void> dispose();
+  FutureOr<void> close();
 }
 
 abstract interface class TransactionExecutor {
@@ -110,12 +92,49 @@ abstract interface class TransactionExecutor {
 ///
 /// This implementation uses WASM bindings to provide LibSQL functionality
 /// in web browsers.
-class _Database implements Database {
+class Database implements IDatabase {
   final libsql.Database _db;
   bool get _disposed => !_db.isOpen();
 
-  _Database._(this._db) {
+  Database(this._db) {
     _db.affirmOpen();
+  }
+
+  static final Logger _logger = Logger('Database');
+
+  /// Creates an in-memory LibSQL database.
+  ///
+  /// Requires [libsql.loadModule] to be called beforehand.
+  factory Database.memory({bool verbose = false}) {
+    _logger.config('Initializing in-memory LibSQL database');
+    return Database(libsql.Database(flags: verbose ? 'ct' : 'c'));
+  }
+
+  /// Creates a LibSQL database using the OPFS VFS at the given path.
+  ///
+  /// **NOTE**: This can only be used in environments that support OPFS, and
+  /// requires APIs only available in workers. If OPFS is not supported, an
+  /// [UnsupportedError] is thrown.
+  ///
+  /// Requires [libsql.loadModule] to be called beforehand.
+  factory Database.opfs(String path, {bool verbose = false}) {
+    if (!libsql.supportsOpfs) {
+      throw UnsupportedError('OPFS is not supported in this environment');
+    }
+    _logger.config('Initializing LibSQL OPFS database at $path');
+    return Database(
+      libsql.Database(filename: path, flags: verbose ? 'ct' : 'c', vfs: 'opfs'),
+    );
+  }
+
+  /// Creates a LibSQL database using the browser's local storage.
+  ///
+  /// Requires [libsql.loadModule] to be called beforehand.
+  factory Database.local(String path, {bool verbose = false}) {
+    _logger.config('Initializing LibSQL local database at $path');
+    return Database(
+      libsql.Database(filename: path, flags: verbose ? 'ct' : 'c'),
+    );
   }
 
   void _checkNotDisposed() {
@@ -124,10 +143,28 @@ class _Database implements Database {
     }
   }
 
+  T _run<T>(T Function() action) {
+    try {
+      return action();
+    } on Object catch (e) {
+      if ((e as JSAny?).isA<libsql.SQLite3Error>()) {
+        final sqlError = e as libsql.SQLite3Error;
+        throw SqliteException(sqlError.resultCode, sqlError.message);
+      }
+      rethrow;
+    }
+  }
+
   @override
-  void execute(String sql, [List<Object?> parameters = const []]) {
+  String get filename => _db.filename;
+
+  @override
+  ExecResult execute(String sql, [List<Object?> parameters = const []]) {
     _checkNotDisposed();
-    _db.exec(sql: sql, bind: parameters);
+    return _run(() {
+      _db.exec(sql: sql, bind: parameters);
+      return (lastInsertRowId: lastInsertRowId, updatedRows: updatedRows);
+    });
   }
 
   @override
@@ -136,19 +173,23 @@ class _Database implements Database {
     List<Object?> parameters = const [],
   ]) {
     _checkNotDisposed();
-    final rows = _db.query(sql: sql, bind: parameters);
+    return _run(() {
+      final rows = _db.query(sql: sql, bind: parameters);
 
-    final columnNames = rows.isNotEmpty ? rows.first.keys.toList() : <String>[];
+      final columnNames = rows.isNotEmpty
+          ? rows.first.keys.toList()
+          : <String>[];
 
-    final rowsList = rows.map((row) {
-      return columnNames.map((col) => row[col]).toList();
-    }).toList();
+      final rowsList = rows.map((row) {
+        return columnNames.map((col) => row[col]).toList();
+      }).toList();
 
-    return ResultSet(columnNames, null, rowsList);
+      return ResultSet(columnNames, null, rowsList);
+    });
   }
 
   @override
-  void dispose() {
+  void close() {
     if (!_disposed) {
       _db.close();
     }
@@ -157,30 +198,40 @@ class _Database implements Database {
   @override
   void transaction(void Function(TransactionExecutor tx) action) {
     _checkNotDisposed();
-    _db.transaction((tx) {
-      action(_Database._(tx));
+    _run(() {
+      _db.transaction((tx) {
+        action(Database(tx));
+      });
     });
   }
+
+  int get lastInsertRowId => _db.lastInsertRowid().toInt();
+  int get updatedRows => _db.changes();
+  int get totalChanges => _db.changes(true);
 }
 
-class DatabaseWorker implements Database {
-  DatabaseWorker._(this._worker);
+class DatabaseWorker implements IDatabase {
+  DatabaseWorker._(this._worker, this.filename);
 
   static final Logger _localLogger = Logger('Database');
   static final Logger _remoteLogger = Logger('Database.Worker');
 
   final LibsqlWorker _worker;
+  @override
+  final String filename;
   StreamSubscription<LogRecord>? _logSubscription;
   var _nextRequestId = 1;
 
   static Future<DatabaseWorker> spawn({
     required String filename,
+    required String vfsName,
     Uri? moduleUri,
     bool verbose = false,
   }) async {
-    final worker = DatabaseWorker._(LibsqlWorker.create());
+    final worker = DatabaseWorker._(LibsqlWorker.create(), filename);
     await worker._init(
       filename: filename,
+      vfsName: vfsName,
       moduleUri: moduleUri,
       verbose: verbose,
     );
@@ -189,6 +240,7 @@ class DatabaseWorker implements Database {
 
   Future<void> _init({
     required String filename,
+    required String vfsName,
     Uri? moduleUri,
     bool verbose = false,
   }) async {
@@ -211,12 +263,13 @@ class DatabaseWorker implements Database {
         requestId: requestId,
         filename: filename,
         moduleUri: moduleUri,
-        flags: verbose ? 'ct' : 'c',
+        vfs: vfsName,
       ),
     );
-    await _worker.stream.firstWhere(
+    final response = await _worker.stream.firstWhere(
       (response) => response.requestId == requestId,
     );
+    response.unwrap();
   }
 
   var _disposed = false;
@@ -228,7 +281,7 @@ class DatabaseWorker implements Database {
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> close() async {
     if (_disposed) return;
     _disposed = true;
     unawaited(_logSubscription?.cancel());
@@ -237,7 +290,7 @@ class DatabaseWorker implements Database {
   }
 
   @override
-  Future<void> execute(
+  Future<ExecResult> execute(
     String sql, [
     List<Object?> parameters = const [],
   ]) async {
@@ -251,8 +304,13 @@ class DatabaseWorker implements Database {
         parameters: parameters,
       ),
     );
-    await _worker.stream.firstWhere(
+    final response = await _worker.stream.firstWhere(
       (response) => response.requestId == requestId,
+    );
+    final result = response.unwrap();
+    return (
+      lastInsertRowId: result.lastInsertRowId,
+      updatedRows: result.updatedRows,
     );
   }
 
@@ -274,10 +332,11 @@ class DatabaseWorker implements Database {
     final response = await _worker.stream.firstWhere(
       (response) => response.requestId == requestId,
     );
+    final result = response.unwrap();
     return ResultSet(
-      response.columnNames.toList(),
+      result.columnNames.toList(),
       null,
-      response.rows.map((e) => e.toList()).toList(),
+      result.rows.map((e) => e.toList()).toList(),
     );
   }
 
@@ -294,9 +353,10 @@ class DatabaseWorker implements Database {
         transaction: builder.build(),
       ),
     );
-    await _worker.stream.firstWhere(
+    final response = await _worker.stream.firstWhere(
       (response) => response.requestId == requestId,
     );
+    response.unwrap();
   }
 }
 

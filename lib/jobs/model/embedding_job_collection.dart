@@ -56,7 +56,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
         completedAt: completedAt ?? job.completedAt,
         errorMessage: errorMessage ?? job.errorMessage,
       );
-      await set(jobId, updatedJob);
+      await add(updatedJob);
     }
   }
 
@@ -72,7 +72,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
         totalRecords: totalRecords ?? job.totalRecords,
         processedRecords: processedRecords ?? job.processedRecords,
       );
-      await set(jobId, updatedJob);
+      await add(updatedJob);
     }
   }
 
@@ -87,7 +87,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
     final job = getById(jobId);
     if (job != null) {
       final updatedJob = job.copyWith(results: results);
-      await set(jobId, updatedJob);
+      await add(updatedJob);
     }
   }
 

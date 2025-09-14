@@ -2,15 +2,17 @@ import 'dart:js_interop';
 
 import 'package:aws_common/aws_common.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:path/path.dart' as path;
 import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
+import '../../configurations/model/configuration_manager.dart';
 import '../../util/element.dart';
-import '../../util/file.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
 import '../model/data_source_settings.dart';
 import '../service/csv_data_source.dart';
+import '../service/data_source_repository.dart';
 import '../service/sqlite_data_source.dart';
 import 'data_preview.dart';
 
@@ -31,8 +33,12 @@ class DataSourceSelector extends StatefulComponent {
   State<DataSourceSelector> createState() => _DataSourceSelectorState();
 }
 
-class _DataSourceSelectorState extends State<DataSourceSelector> {
-  DataSourceType _selectedType = DataSourceType.csv;
+class _DataSourceSelectorState extends State<DataSourceSelector>
+    with ConfigurationManagerListener {
+  late DataSourceType _selectedType;
+
+  /// Access to the data source repository
+  DataSourceRepository get _repository => configManager.dataSources;
   DataSource? _currentDataSource;
   bool _isLoading = false;
   String? _error;
@@ -47,10 +53,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
 
   // SQLite configuration
   SqliteDataSourceType _sqliteType = SqliteDataSourceType.sample;
-  bool _sqlitePersistent = false;
-  String? _sqlitePersistentName;
-  String _sqlQuery = '';
-  bool _showQueryEditor = false;
+  String? _sqliteFilename;
 
   @override
   void initState() {
@@ -58,21 +61,23 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     _loadInitialDataSource();
   }
 
-  Future<void> _loadInitialDataSource() async {
-    final initialDataSource = component.initialDataSource;
-    if (initialDataSource == null) {
-      return;
-    }
-    _isLoading = true;
-    try {
-      _currentDataSource = initialDataSource;
-      _selectedType = DataSourceType.values.byName(initialDataSource.type);
-      _dataSourceName = initialDataSource.name;
-      await initialDataSource.connect();
-    } catch (e) {
-      component.onError?.call('Failed to load initial data source: $e');
-    } finally {
-      setState(() => _isLoading = false);
+  void _loadInitialDataSource() {
+    _currentDataSource = component.initialDataSource;
+    switch (component.initialDataSource) {
+      case final CsvDataSource dataSource:
+        _selectedType = DataSourceType.csv;
+        _dataSourceName = dataSource.name;
+        _csvDelimiter = dataSource.csvSettings.delimiter;
+        _csvHasHeader = dataSource.csvSettings.hasHeader;
+        _csvPersistent = dataSource.csvSettings.persistent;
+        _csvPersistentName = dataSource.csvSettings.persistentName;
+      case final SqliteDataSource dataSource:
+        _selectedType = DataSourceType.sqlite;
+        _dataSourceName = dataSource.name;
+        _sqliteType = dataSource.sqliteSettings.type;
+        _sqliteFilename = dataSource.sqliteSettings.filename;
+      case null:
+        _selectedType = DataSourceType.csv;
     }
   }
 
@@ -176,22 +181,11 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
                 htmlFor: 'data-source-name',
                 children: [text('Data Source Name *')],
               ),
-              input(
-                classes:
-                    'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                attributes: {
-                  'id': 'data-source-name',
-                  'placeholder': 'Enter a name for this data source',
-                  'value': _dataSourceName ?? '',
-                },
-                events: {
-                  'input': (event) {
-                    setState(() {
-                      _dataSourceName =
-                          (event.target as web.HTMLInputElement).value;
-                    });
-                  },
-                },
+              Input.text(
+                id: 'data-source-name',
+                placeholder: 'Enter a name for this data source',
+                value: _dataSourceName,
+                onChange: (value) => setState(() => _dataSourceName = value),
               ),
             ]),
             if (_selectedType == DataSourceType.csv)
@@ -236,19 +230,15 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         ]),
         if (_csvPersistent)
           div(classes: 'ml-6 space-y-2', [
-            Label(children: [text('Persistent Dataset Name')]),
-            input(
-              classes:
-                  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              attributes: {
-                'placeholder': 'my_csv_dataset',
-                'value': ?_csvPersistentName,
-              },
-              events: {
-                'input': (e) => setState(() {
-                  _csvPersistentName = (e.target as web.HTMLInputElement).value;
-                }),
-              },
+            Label(
+              htmlFor: 'csv-persistent-name',
+              children: [text('Persistent Dataset Name')],
+            ),
+            Input.text(
+              id: 'csv-persistent-name',
+              placeholder: 'my_csv_dataset',
+              value: _csvPersistentName,
+              onChange: (value) => setState(() => _csvPersistentName = value),
             ),
             p(classes: 'text-xs text-muted-foreground', [
               text(
@@ -334,13 +324,23 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     ]);
   }
 
+  bool _shouldShowOption(SqliteDataSourceType type) {
+    return switch (type) {
+      SqliteDataSourceType.persistent =>
+        _repository.persistentSqliteDatabaseNames.isNotEmpty,
+      _ => true,
+    };
+  }
+
   Component _buildSqliteConfiguration() {
     return div(classes: 'space-y-6', [
       // Database type
       div(classes: 'space-y-2', [
         Label(children: [text('Database Type')]),
         div(classes: 'space-y-3', [
-          for (final option in SqliteDataSourceType.values)
+          for (final option in SqliteDataSourceType.values.where(
+            _shouldShowOption,
+          ))
             _buildRadioOption(
               value: option,
               title: option.displayName,
@@ -352,7 +352,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       ]),
 
       // Configuration based on type
-      if (_sqliteType == SqliteDataSourceType.upload) ...[
+      if (_sqliteType == SqliteDataSourceType.import)
         FileUpload(
           label: 'Database File',
           accept: '.db,.sqlite,.sqlite3',
@@ -360,53 +360,37 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
           dropText: 'Drop your SQLite file here',
           supportedFormats: 'Supports .db, .sqlite, .sqlite3 files',
           selectedFile: _selectedFile,
-          onFileChanged: (file) => setState(() => _selectedFile = file),
+          onFileChanged: (file) => setState(() {
+            _selectedFile = file;
+            if (_sqliteFilename == null && file != null) {
+              final filename = path.withoutExtension(file.name).snakeCase;
+              var ext = path.extension(file.name);
+              if (ext.isEmpty) {
+                ext = '.db';
+              }
+              _sqliteFilename = '$filename$ext';
+            }
+          }),
         ),
 
-        // Persistence options for upload
-        div(classes: 'space-y-3', [
-          div(classes: 'flex items-center space-x-2', [
-            Checkbox(
-              id: 'sqlite-persistent',
-              checked: _sqlitePersistent,
-              onChanged: (checked) => setState(() {
-                _sqlitePersistent = checked;
-                _sqlitePersistentName ??= _dataSourceName?.snakeCase;
-              }),
-            ),
-            Label(
-              htmlFor: 'sqlite-persistent',
-              children: [text('Save to persistent storage')],
-            ),
-          ]),
-          if (_sqlitePersistent)
-            div(classes: 'ml-6 space-y-2', [
-              Label(children: [text('Persistent Database Name')]),
-              input(
-                classes:
-                    'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                attributes: {
-                  'placeholder': 'my_database',
-                  'value': ?_sqlitePersistentName,
-                },
-                events: {
-                  'input': (e) => setState(() {
-                    _sqlitePersistentName =
-                        (e.target as web.HTMLInputElement).value;
-                  }),
-                },
-              ),
-              p(classes: 'text-xs text-muted-foreground', [
-                text(
-                  'The database will be saved in browser storage and can be accessed later',
+      if (_sqliteType == SqliteDataSourceType.persistent)
+        // Select from existing persistent databases
+        div(classes: 'space-y-2', [
+          Label(children: [text('Select Database')]),
+          Select(
+            value: _sqliteFilename,
+            placeholder: 'Select a database',
+            onChange: (value) => setState(() => _sqliteFilename = value),
+            children: [
+              for (final name in _repository.persistentSqliteDatabaseNames)
+                Option(
+                  value: name,
+                  selected: _sqliteFilename == name,
+                  children: [text(name)],
                 ),
-              ]),
-            ]),
+            ],
+          ),
         ]),
-      ],
-
-      // SQL Query editor (if database is loaded and connected)
-      if (_showQueryEditor) _buildSqlQueryEditor(),
 
       // Load button
       div(classes: 'pt-4', [
@@ -499,33 +483,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     );
   }
 
-  Component _buildSqlQueryEditor() {
-    return div(classes: 'space-y-2', [
-      Label(children: [text('SQL Query')]),
-      div(classes: 'space-y-2', [
-        Textarea(
-          placeholder:
-              'SELECT * FROM table_name\nWHERE condition = value\nORDER BY column',
-          value: _sqlQuery,
-          onInput: (String value) => setState(() => _sqlQuery = value),
-          className: 'min-h-[120px] font-mono text-sm',
-        ),
-        p(classes: 'text-xs text-muted-foreground', [
-          text(
-            'Enter a SQL query to retrieve the data you need. You can use JOINs, WHERE clauses, and other SQL features.',
-          ),
-        ]),
-        if (_sqlQuery.trim().isNotEmpty)
-          Button(
-            variant: ButtonVariant.primary,
-            size: ButtonSize.sm,
-            onPressed: _applySqlQuery,
-            children: [text('Apply Query')],
-          ),
-      ]),
-    ]);
-  }
-
   Component _buildPreviewSection() {
     return div(id: 'data-preview', [
       if (_error != null)
@@ -534,8 +491,28 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
         DataPreview(
           dataSource: _currentDataSource!,
           onError: (message) => setState(() => _error = message),
+          onDataSourceUpdated: (dataSource) {
+            // Sync state and notify parent when data source is updated (e.g., query changed)
+            _syncStateFromDataSource(dataSource);
+            component.onDataSourceSelected?.call(dataSource);
+          },
         ),
     ]);
+  }
+
+  /// Synchronize UI state with the current data source state
+  void _syncStateFromDataSource(DataSource dataSource) {
+    if (dataSource is SqliteDataSource) {
+      _selectedType = DataSourceType.sqlite;
+
+      // Sync SQLite-specific settings
+      final settings = dataSource.sqliteSettings;
+      _sqliteType = settings.type;
+      _sqliteFilename = settings.filename;
+    } else {
+      // Handle other data source types (CSV, etc.)
+      _selectedType = dataSource.type;
+    }
   }
 
   void _selectType(DataSourceType type) {
@@ -544,8 +521,17 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
       _currentDataSource = null;
       _error = null;
       _selectedFile = null;
-      _showQueryEditor = false;
-      _sqlQuery = '';
+
+      // Reset type-specific state
+      if (type == DataSourceType.sqlite) {
+        _sqliteType = SqliteDataSourceType.sample;
+        _sqliteFilename = null;
+      } else if (type == DataSourceType.csv) {
+        _csvDelimiter = ',';
+        _csvHasHeader = true;
+        _csvPersistent = false;
+        _csvPersistentName = null;
+      }
     });
   }
 
@@ -554,24 +540,6 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     setState(() {
       _csvDelimiter = select.value;
     });
-  }
-
-  void _applySqlQuery() {
-    if (_currentDataSource is SqliteDataSource && _sqlQuery.trim().isNotEmpty) {
-      final sqliteDs = _currentDataSource as SqliteDataSource;
-      try {
-        sqliteDs.setSqlQuery(_sqlQuery.trim());
-        component.onDataSourceSelected?.call(_currentDataSource!);
-        setState(() {
-          _error = null;
-        });
-      } catch (e) {
-        setState(() {
-          _error = 'Invalid SQL query: ${e.toString()}';
-        });
-        component.onError?.call('Invalid SQL query: ${e.toString()}');
-      }
-    }
   }
 
   Future<void> _scrollToPreview() async {
@@ -588,19 +556,20 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     });
 
     try {
-      final dataSource = await CsvDataSource.fromFile(
-        name: _dataSourceName,
-        file: _selectedFile!,
-        delimiter: _csvDelimiter,
-        hasHeader: _csvHasHeader,
-        persistent: _csvPersistent,
-        persistentName: _csvPersistentName,
+      final dataSourceConfig = DataSourceConfig(
+        name: _dataSourceName!,
+        type: DataSourceType.csv,
+        settings: CsvDataSourceSettings(
+          delimiter: _csvDelimiter,
+          hasHeader: _csvHasHeader,
+          persistent: _csvPersistent,
+          persistentName: _csvPersistentName,
+        ),
       );
-
-      final connected = await dataSource.connect();
-      if (!connected) {
-        throw Exception('Failed to connect to CSV data source');
-      }
+      final dataSource = await _repository.loadFromFile(
+        config: dataSourceConfig,
+        file: _selectedFile!,
+      );
 
       setState(() {
         _currentDataSource = dataSource;
@@ -629,48 +598,22 @@ class _DataSourceSelectorState extends State<DataSourceSelector> {
     });
 
     try {
-      late SqliteDataSource dataSource;
-
-      switch (_sqliteType) {
-        case SqliteDataSourceType.sample:
-          dataSource = SqliteDataSource.withSampleData(
-            name: 'Sample Movie Database',
-          );
-        case SqliteDataSourceType.upload:
-          if (_selectedFile == null) {
-            throw Exception('Please select a database file');
-          }
-          final bytes = await _selectedFile!.readAsBytes();
-
-          if (_sqlitePersistent) {
-            dataSource = SqliteDataSource.fromUpload(
-              name: _dataSourceName ?? _selectedFile!.name,
-              databaseData: bytes,
-              persistent: true,
-              persistentName: _sqlitePersistentName,
-            );
-          } else {
-            dataSource = SqliteDataSource.fromUpload(
-              name: _dataSourceName ?? _selectedFile!.name,
-              databaseData: bytes,
-            );
-          }
-        case SqliteDataSourceType.persistent:
-          throw UnsupportedError(
-            'Persistent SQLite data source not implemented yet',
-          );
-      }
-
-      final connected = await dataSource.connect();
-      if (!connected) {
-        throw Exception('Failed to connect to SQLite database');
-      }
+      final config = DataSourceConfig(
+        name: _dataSourceName!,
+        type: DataSourceType.sqlite,
+        settings: SqliteDataSourceSettings(
+          type: _sqliteType,
+          filename: _sqliteFilename,
+        ),
+      );
+      final dataSource = _sqliteType == SqliteDataSourceType.import
+          ? await _repository.loadFromFile(config: config, file: _selectedFile!)
+          : await _repository.connect(config);
 
       setState(() {
         _currentDataSource = dataSource;
-        _showQueryEditor = true;
-        _sqlQuery = dataSource.sqlQuery ?? '';
         _dataSourceName = dataSource.name;
+        _syncStateFromDataSource(dataSource);
         _isLoading = false;
       });
 

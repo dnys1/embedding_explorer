@@ -321,7 +321,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
   }
 
   String _getDataSourceName(String id) {
-    final source = configManager.dataSources.getById(id);
+    final source = configManager.dataSourceConfigs.getById(id);
     return source?.name ?? 'Unknown';
   }
 

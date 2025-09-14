@@ -3,6 +3,13 @@
 @source "../lib/**/*.dart";
 @config "./tailwind.config.js";
 
+/* 
+ * Generate grid-cols-1 through grid-cols-6 for all breakpoints
+ *
+ * https://tailwindcss.com/docs/detecting-classes-in-source-files#safelisting-with-ranges
+*/
+@source inline("{sm:,md:,lg:,xl:,2xl:,}grid-cols-{{1..6}}");
+
 html,
 body {
   font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",

@@ -9,6 +9,7 @@ import 'package:embeddings_explorer/configurations/service/migrations/migrations
 import 'package:embeddings_explorer/credentials/model/credential.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_config.dart';
 import 'package:embeddings_explorer/data_sources/model/data_source_settings.dart';
+import 'package:embeddings_explorer/database/database.dart';
 import 'package:embeddings_explorer/jobs/model/embedding_job.dart';
 import 'package:embeddings_explorer/providers/model/custom_provider_template.dart';
 import 'package:embeddings_explorer/providers/model/model_provider_config.dart';
@@ -24,25 +25,20 @@ void main() {
 
   group('ConfigurationService', () {
     late ConfigurationService service;
+    late IDatabase database;
 
-    setUp(() {
-      service = ConfigurationService(
-        databasePath: ':memory:',
-        libsqlUri: testLibsqlUri,
-        verbose: true,
-      );
+    setUp(() async {
+      service = ConfigurationService();
+      database = await IDatabase.open(':memory:', moduleUri: testLibsqlUri);
+      await service.initialize(database: database);
     });
 
     tearDown(() async {
-      service.dispose();
+      await service.dispose();
     });
 
     group('Initialization', () {
-      test('should initialize successfully with default settings', () async {
-        expect(service.isInitialized, isFalse);
-
-        await service.initialize();
-
+      test('should initialize successfully', () async {
         expect(service.isInitialized, isTrue);
         expect(
           service.getCurrentVersion(),
@@ -50,32 +46,22 @@ void main() {
         );
       });
 
-      test('should throw when accessing database before initialization', () {
-        expect(() => service.database, throwsStateError);
-      });
-
       test('should not re-initialize if already initialized', () async {
-        await service.initialize();
         expect(service.isInitialized, isTrue);
 
         // Should not throw on re-initialization
-        await service.initialize();
+        await service.initialize(database: database);
         expect(service.isInitialized, isTrue);
       });
     });
 
     group('Data Source Configuration', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should save and retrieve data source config', () async {
         final now = DateTime.now();
         final settings = CsvDataSourceSettings(
           delimiter: ',',
           hasHeader: true,
           content: 'name,age\nJohn,30\nJane,25',
-          source: 'text',
         );
 
         final config = DataSourceConfig(
@@ -103,7 +89,6 @@ void main() {
         final csvSettings = retrieved.settings as CsvDataSourceSettings;
         expect(csvSettings.delimiter, equals(','));
         expect(csvSettings.hasHeader, isTrue);
-        expect(csvSettings.source, equals('text'));
       });
 
       test('should return null for non-existent data source config', () async {
@@ -113,7 +98,10 @@ void main() {
 
       test('should get all data source configs', () async {
         final now = DateTime.now();
-        final settings1 = CsvDataSourceSettings(delimiter: ',', source: 'file');
+        final settings1 = CsvDataSourceSettings(
+          delimiter: ',',
+          content: 'name,age\nJohn,30\nJane,25',
+        );
         final settings2 = SqliteDataSourceSettings();
 
         final config1 = DataSourceConfig(
@@ -149,7 +137,9 @@ void main() {
 
       test('should delete data source config', () async {
         final now = DateTime.now();
-        final settings = CsvDataSourceSettings(source: 'file');
+        final settings = CsvDataSourceSettings(
+          content: 'name,age\nJohn,30\nJane,25',
+        );
 
         final config = DataSourceConfig(
           id: 'to_delete',
@@ -177,10 +167,6 @@ void main() {
     });
 
     group('Embedding Template Configuration', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should save and retrieve embedding template config', () async {
         final now = DateTime.now();
         final config = EmbeddingTemplateConfig(
@@ -301,10 +287,6 @@ void main() {
     });
 
     group('Model Provider Configuration', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test(
         'should save and retrieve model provider config (no persist creds)',
         () async {
@@ -458,10 +440,6 @@ void main() {
     });
 
     group('Custom Provider Template', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should save and retrieve custom provider template', () async {
         final now = DateTime.now();
         final template = CustomProviderTemplate(
@@ -534,10 +512,6 @@ void main() {
     });
 
     group('Embedding Job', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should save and retrieve embedding job', () async {
         final now = DateTime.now();
         final job = EmbeddingJob(
@@ -688,10 +662,6 @@ void main() {
     });
 
     group('Database Operations', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should execute raw SQL queries', () async {
         // Insert test data
         await service.database.execute(
@@ -785,10 +755,6 @@ void main() {
     });
 
     group('Embedding Table Management', () {
-      setUp(() async {
-        await service.initialize();
-      });
-
       test('should create embedding table', () async {
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -1162,10 +1128,9 @@ void main() {
 
     group('Disposal', () {
       test('should dispose resources properly', () async {
-        await service.initialize();
         expect(service.isInitialized, isTrue);
 
-        service.dispose();
+        await service.dispose();
         expect(service.isInitialized, isFalse);
 
         // Should throw after disposal

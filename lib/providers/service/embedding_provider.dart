@@ -1,3 +1,4 @@
+import '../../credentials/model/credential.dart';
 import '../model/model_provider_config.dart';
 
 /// Abstract interface for embedding providers
@@ -11,8 +12,8 @@ abstract class EmbeddingProvider {
   /// Description of the provider
   String get description;
 
-  /// Whether this provider requires an API key
-  bool get requiresApiKey;
+  /// Type of credential required for this provider, or null if none required
+  CredentialType? get requiredCredential;
 
   /// List of available models for this provider
   Future<Map<String, EmbeddingModel>> listAvailableModels(
