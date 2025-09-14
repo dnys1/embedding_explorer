@@ -13,13 +13,18 @@ import 'package:logging/logging.dart';
 
 import 'common.dart';
 
+Future<void>? _loadFuture;
+
 Future<void> loadModule({Uri? moduleUri}) async {
   if (globalContext['libsql'].isDefinedAndNotNull) {
     return;
   }
+  return _loadFuture ??= _loadModule(moduleUri);
+}
 
+Future<void> _loadModule(Uri? libsqlUri) async {
+  libsqlUri ??= Uri.base.resolve('./js/libsql.js');
   final logger = Logger('libsql');
-  final libsqlUri = moduleUri ?? Uri.base.resolve('./js/libsql.js');
   logger.config('Loading LibSQL module from $libsqlUri');
 
   // Different ways to load the module, depending on how it was included

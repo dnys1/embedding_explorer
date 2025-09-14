@@ -49,13 +49,12 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
 
   /// Imports a SQLite database from a file into the database pool and creates
   /// a data source.
-  static Future<SqliteDataSource> loadFromFile({
+  static Future<SqliteDataSource> import({
     required DatabasePool dbPool,
-    required web.Blob file,
+    required web.File file,
     required DataSourceConfig config,
   }) async {
     assert(config.type == DataSourceType.sqlite);
-    assert(config.settings is SqliteDataSourceSettings);
 
     final filename = config.filename;
     final database = await dbPool.import(
@@ -85,10 +84,6 @@ class SqliteDataSource extends DataSource<SqliteDataSourceSettings> {
     await dataSource._initialize();
     return dataSource;
   }
-
-  /// Get typed SQLite settings
-  SqliteDataSourceSettings get sqliteSettings =>
-      settings as SqliteDataSourceSettings;
 
   /// Get the SQL query used for data operations
   String get sqlQuery => _sqlQuery;

@@ -3,7 +3,6 @@
 // ignore_for_file: non_constant_identifier_names, unnecessary_parenthesis
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-@JS('monaco')
 library;
 
 import 'dart:async';
@@ -17,23 +16,32 @@ import 'package:web/web.dart' as _i3;
 
 import '_tuples.dart' as _i4;
 
-@JS()
-external MonacoEditor get editor;
+MonacoModule get monaco => MonacoModule._(globalContext['monaco'] as JSObject?);
 
-@JS()
-external MonacoLanguages get languages;
+@JS('monaco')
+extension type MonacoModule._(JSObject? _) {
+  static Future<void>? _loadFuture;
 
-Future<void> loadModule() async {
-  if (globalContext['monaco'].isDefinedAndNotNull) {
-    return;
+  Future<void> loadModule() async {
+    if (globalContext['monaco'].isDefinedAndNotNull) {
+      return;
+    }
+    return _loadFuture ??= _loadModule();
   }
-  final monacoUri = core.Uri.base.resolve('./js/monaco.js').toString();
-  await importModule(monacoUri.toJS).toDart;
-  assert(globalContext['monaco'].isDefinedAndNotNull);
+
+  Future<void> _loadModule() async {
+    final monacoUri = core.Uri.base.resolve('./js/monaco.js').toString();
+    await importModule(monacoUri.toJS).toDart;
+    assert(globalContext['monaco'].isDefinedAndNotNull);
+  }
+
+  external MonacoEditorNS get editor;
+
+  external MonacoLanguagesNS get languages;
 }
 
 /// Monaco Editor main API
-extension type MonacoEditor._(JSObject _) implements JSObject {
+extension type MonacoEditorNS._(JSObject _) implements JSObject {
   /// Creates a new editor instance
   external IStandaloneCodeEditor create(
     JSObject container,
@@ -60,7 +68,7 @@ extension type MonacoEditor._(JSObject _) implements JSObject {
 }
 
 /// Monaco Languages API for custom language support
-extension type MonacoLanguages._(JSObject _) implements JSObject {
+extension type MonacoLanguagesNS._(JSObject _) implements JSObject {
   /// Registers a new language
   external void register(ILanguageExtensionPoint language);
 

@@ -1,8 +1,8 @@
-import 'interop/monaco.dart' as monaco;
-import 'interop/monaco.dart' hide RegExp;
 import 'package:jaspr/browser.dart' hide Position;
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
+
+import 'interop/monaco.dart' hide RegExp;
 
 final class EditorTestPage extends StatefulComponent {
   const EditorTestPage({super.key});

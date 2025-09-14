@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:js_interop';
+import 'dart:convert';
 
 import 'package:csv/csv.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
+import '../../storage/service/storage_service.dart';
 import '../../util/file.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
@@ -32,13 +33,13 @@ class CsvDataSource extends DataSource {
   /// Get typed CSV settings
   CsvDataSourceSettings get csvSettings => settings as CsvDataSourceSettings;
 
-  static Future<CsvDataSource> loadFromFile({
+  static Future<CsvDataSource> import({
     required DataSourceConfig config,
-    required web.Blob file,
+    required StorageService storage,
+    required web.File file,
   }) async {
     assert(config.type == DataSourceType.csv);
 
-    final opfs = await web.window.navigator.storage.getDirectory().toDart;
     try {
       _logger.info('Connecting to CSV data source: ${config.name}');
 
@@ -53,22 +54,16 @@ class CsvDataSource extends DataSource {
         );
       }
 
-      _logger.finest('Persisting to OPFS');
-      final fileHandle = await opfs
-          .getFileHandle(
-            config.filename,
-            web.FileSystemGetFileOptions(create: true),
-          )
-          .toDart;
-      final writable = await fileHandle.createWritable().toDart;
-      await writable.write(content.toJS).toDart;
-      await writable.close().toDart;
-      _logger.finest('CSV content persisted to OPFS as ${config.filename}');
+      _logger.finest('Persisting to ${storage.name}');
+      await storage.write(config.filename, utf8.encode(content));
+      _logger.finest(
+        'CSV content persisted to ${storage.name} as ${config.filename}',
+      );
 
       return await _load(content, config: config);
     } catch (e) {
       _logger.severe('Failed to connect to CSV data source: ${config.name}', e);
-      opfs.removeEntry(config.filename).toDart.ignore();
+      storage.delete(config.filename).ignore();
       if (e is DataSourceException) rethrow;
       throw DataSourceException(
         'Failed to load CSV: ${e.toString()}',
@@ -79,6 +74,7 @@ class CsvDataSource extends DataSource {
   }
 
   static Future<CsvDataSource> connect({
+    required StorageService storage,
     required DataSourceConfig config,
   }) async {
     assert(config.type == DataSourceType.csv);
@@ -86,18 +82,11 @@ class CsvDataSource extends DataSource {
     try {
       _logger.info('Connecting to CSV data source: ${config.name}');
 
-      final opfs = await web.window.navigator.storage.getDirectory().toDart;
-      final fileHandle = await opfs
-          .getFileHandle(
-            config.filename,
-            web.FileSystemGetFileOptions(create: true),
-          )
-          .toDart;
-      final file = await fileHandle.getFile().toDart;
-      final content = await file.readAsString();
+      final content = utf8.decode(await storage.read(config.filename));
 
       _logger.finest(
-        'Read CSV content from OPFS: ${config.filename}, length=${content.length}',
+        'Read CSV content from ${storage.name}: '
+        '${config.filename}, length=${content.length}',
       );
 
       return await _load(content, config: config);

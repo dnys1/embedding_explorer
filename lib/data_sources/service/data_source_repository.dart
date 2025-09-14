@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js_interop';
 
 import 'package:jaspr/jaspr.dart';
 import 'package:logging/logging.dart';
@@ -6,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import '../../configurations/model/configuration_manager.dart';
 import '../../database/database_pool.dart';
+import '../../storage/service/storage_service.dart';
 import '../model/data_source.dart';
 import '../model/data_source_config.dart';
 import 'csv_data_source.dart';
@@ -23,6 +25,8 @@ class DataSourceRepository with ChangeNotifier {
   final ConfigurationManager _configManager;
   final DatabasePool _databasePool;
   final Map<String, DataSource> _dataSources = {};
+
+  final OpfsStorageService _opfsStorage = OpfsStorageService();
 
   DataSourceRepository(this._configManager, this._databasePool) {
     _configManager.dataSourceConfigs.addListener(_onDataSourceConfigChanged);
@@ -63,16 +67,17 @@ class DataSourceRepository with ChangeNotifier {
 
   /// Load a data source from configuration and a [web.Blob], typically a
   /// [web.File].
-  Future<DataSource> loadFromFile({
+  Future<DataSource> import({
     required DataSourceConfig config,
-    required web.Blob file,
+    required web.File file,
   }) async {
     final DataSource dataSource = await switch (config.type) {
-      DataSourceType.csv => CsvDataSource.loadFromFile(
+      DataSourceType.csv => CsvDataSource.import(
         config: config,
         file: file,
+        storage: _opfsStorage,
       ),
-      DataSourceType.sqlite => SqliteDataSource.loadFromFile(
+      DataSourceType.sqlite => SqliteDataSource.import(
         dbPool: _databasePool,
         config: config,
         file: file,
@@ -95,7 +100,10 @@ class DataSourceRepository with ChangeNotifier {
     }
 
     final DataSource dataSource = await switch (config.type) {
-      DataSourceType.csv => CsvDataSource.connect(config: config),
+      DataSourceType.csv => CsvDataSource.connect(
+        config: config,
+        storage: _opfsStorage,
+      ),
       DataSourceType.sqlite => SqliteDataSource.connect(
         dbPool: _databasePool,
         config: config,
@@ -120,6 +128,9 @@ class DataSourceRepository with ChangeNotifier {
       await dataSource?.dispose();
       if (dataSource is SqliteDataSource) {
         await _databasePool.delete(dataSource.config.filename);
+      } else if (dataSource is CsvDataSource) {
+        final opfs = await web.window.navigator.storage.getDirectory().toDart;
+        await opfs.removeEntry(dataSource.config.filename).toDart;
       }
       await _configManager.dataSourceConfigs.remove(id);
       _logger.info('Deleted data source: $id');
@@ -131,6 +142,7 @@ class DataSourceRepository with ChangeNotifier {
   Future<void> clear() async {
     try {
       await Future.wait(_dataSources.values.map((ds) => ds.dispose()));
+      await _opfsStorage.clear();
     } finally {
       _dataSources.clear();
     }

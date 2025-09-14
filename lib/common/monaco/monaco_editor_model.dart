@@ -5,7 +5,6 @@ import 'package:logging/logging.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:web/web.dart' as web;
 
-import '../../interop/monaco.dart' as monaco show editor, languages, loadModule;
 import '../../interop/monaco.dart' hide Uri, RegExp;
 import '../../util/change_notifier.dart';
 import 'custom_language.dart';

@@ -74,9 +74,9 @@ void main() {
         updatedAt: DateTime.now(),
       );
 
-      final dataSource = await repository.loadFromFile(
+      final dataSource = await repository.import(
         config: config,
-        file: web.Blob([content.toJS].toJS),
+        file: web.File([content.toJS].toJS, 'test.csv'),
       );
 
       // First call should create and cache the data source
@@ -105,9 +105,9 @@ void main() {
         updatedAt: DateTime.now(),
       );
 
-      final dataSource = await repository.loadFromFile(
+      final dataSource = await repository.import(
         config: config,
-        file: web.Blob([content.toJS].toJS),
+        file: web.File([content.toJS].toJS, 'test.csv'),
       );
       await nextChange();
 
@@ -150,9 +150,9 @@ void main() {
         updatedAt: DateTime.now(),
       );
 
-      await repository.loadFromFile(
+      await repository.import(
         config: config,
-        file: web.Blob([content.toJS].toJS),
+        file: web.File([content.toJS].toJS, 'test.csv'),
       );
       await nextChange();
 

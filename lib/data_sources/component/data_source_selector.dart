@@ -511,7 +511,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
           hasHeader: _csvHasHeader,
         ),
       );
-      final dataSource = await _repository.loadFromFile(
+      final dataSource = await _repository.import(
         config: dataSourceConfig,
         file: _selectedFile!,
       );
@@ -550,7 +550,7 @@ class _DataSourceSelectorState extends State<DataSourceSelector>
         settings: SqliteDataSourceSettings(),
       );
       final dataSource = _sqliteType == SqliteDataSourceType.import
-          ? await _repository.loadFromFile(config: config, file: _selectedFile!)
+          ? await _repository.import(config: config, file: _selectedFile!)
           : await _repository.connect(config);
 
       setState(() {
