@@ -131,7 +131,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
   /// Get jobs using a specific model provider
   List<EmbeddingJob> getJobsByModelProvider(String providerId) {
     return all
-        .where((job) => job.modelProviderIds.contains(providerId))
+        .where((job) => job.providerIds.contains(providerId))
         .toList();
   }
 

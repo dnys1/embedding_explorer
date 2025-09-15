@@ -38,7 +38,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
       description: _jobDescription,
       dataSourceId: _selectedDataSourceId!,
       embeddingTemplateId: _selectedTemplateId!,
-      modelProviderIds: _selectedProviderIds.toList(),
+      providerIds: _selectedProviderIds.toList(),
       createdAt: DateTime.now(),
     );
 

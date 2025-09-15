@@ -49,7 +49,7 @@ class EmbeddingJob implements ConfigurationItem {
   final String description;
   final String dataSourceId;
   final String embeddingTemplateId;
-  final List<String> modelProviderIds;
+  final List<String> providerIds;
   final JobStatus status;
   final DateTime createdAt;
   final DateTime? startedAt;
@@ -65,7 +65,7 @@ class EmbeddingJob implements ConfigurationItem {
     required this.description,
     required this.dataSourceId,
     required this.embeddingTemplateId,
-    required this.modelProviderIds,
+    required this.providerIds,
     this.status = JobStatus.pending,
     required this.createdAt,
     this.startedAt,
@@ -107,7 +107,7 @@ class EmbeddingJob implements ConfigurationItem {
     String? description,
     String? dataSourceId,
     String? embeddingTemplateId,
-    List<String>? modelProviderIds,
+    List<String>? providerIds,
     JobStatus? status,
     DateTime? createdAt,
     DateTime? startedAt,
@@ -123,7 +123,7 @@ class EmbeddingJob implements ConfigurationItem {
       description: description ?? this.description,
       dataSourceId: dataSourceId ?? this.dataSourceId,
       embeddingTemplateId: embeddingTemplateId ?? this.embeddingTemplateId,
-      modelProviderIds: modelProviderIds ?? this.modelProviderIds,
+      providerIds: providerIds ?? this.providerIds,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       startedAt: startedAt ?? this.startedAt,
@@ -143,7 +143,7 @@ class EmbeddingJob implements ConfigurationItem {
       description: row['description'] as String,
       dataSourceId: row['data_source_id'] as String,
       embeddingTemplateId: row['embedding_template_id'] as String,
-      modelProviderIds: row['provider_ids'] != null
+      providerIds: row['provider_ids'] != null
           ? (jsonDecode(row['provider_ids'] as String) as List).cast()
           : const [],
       status: JobStatus.values.byName(row['status'] as String),

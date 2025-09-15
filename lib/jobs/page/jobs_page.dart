@@ -157,7 +157,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
           ),
           _buildJobDetail(
             'Providers',
-            '${job.modelProviderIds.length} provider(s)',
+            '${job.providerIds.length} provider(s)',
           ),
           _buildJobDetail('Created', _formatDate(job.createdAt)),
         ]),

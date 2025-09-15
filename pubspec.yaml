@@ -10,6 +10,7 @@ dependencies:
   aws_common: ^0.7.10
   built_collection: ^5.1.1
   built_value: ^8.11.2
+  clock: ^1.1.2
   collection: ^1.19.1
   csv: ^6.0.0
   fixnum: ^1.1.1

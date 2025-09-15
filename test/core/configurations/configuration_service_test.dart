@@ -106,7 +106,7 @@ class TestHelpers {
       description: description,
       dataSourceId: dataSourceId,
       embeddingTemplateId: embeddingTemplateId,
-      modelProviderIds: modelProviderIds,
+      providerIds: modelProviderIds,
       status: status,
       totalRecords: 0,
       processedRecords: 0,
@@ -776,7 +776,7 @@ void main() {
           description: 'A test embedding job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: ['provider_1', 'provider_2'],
+          providerIds: ['provider_1', 'provider_2'],
           status: JobStatus.pending,
           totalRecords: 1000,
           processedRecords: 0,
@@ -795,10 +795,7 @@ void main() {
         expect(retrieved.status, equals(JobStatus.pending));
         expect(retrieved.dataSourceId, equals('ds_1'));
         expect(retrieved.embeddingTemplateId, equals('template_1'));
-        expect(
-          retrieved.modelProviderIds,
-          equals(['provider_1', 'provider_2']),
-        );
+        expect(retrieved.providerIds, equals(['provider_1', 'provider_2']));
         expect(retrieved.totalRecords, equals(1000));
         expect(retrieved.processedRecords, equals(0));
         expect(retrieved.startedAt, isNull);
@@ -859,7 +856,7 @@ void main() {
           description: 'A pending job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: ['provider_1'],
+          providerIds: ['provider_1'],
           status: JobStatus.pending,
           totalRecords: 100,
           processedRecords: 0,
@@ -876,7 +873,7 @@ void main() {
           description: 'A running job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: ['provider_1'],
+          providerIds: ['provider_1'],
           status: JobStatus.running,
           totalRecords: 200,
           processedRecords: 50,
@@ -893,7 +890,7 @@ void main() {
           description: 'A completed job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: ['provider_1'],
+          providerIds: ['provider_1'],
           status: JobStatus.completed,
           totalRecords: 150,
           processedRecords: 150,
@@ -978,7 +975,7 @@ void main() {
           description: 'Job that will be deleted',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: ['provider_1'],
+          providerIds: ['provider_1'],
           status: JobStatus.failed,
           totalRecords: 10,
           processedRecords: 5,
@@ -1138,7 +1135,7 @@ void main() {
           description: 'Test job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: [],
+          providerIds: [],
           status: JobStatus.pending,
           totalRecords: 0,
           processedRecords: 0,
@@ -1207,7 +1204,7 @@ void main() {
           description: 'Test job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
-          modelProviderIds: [],
+          providerIds: [],
           status: JobStatus.pending,
           totalRecords: 0,
           processedRecords: 0,

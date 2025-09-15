@@ -398,7 +398,7 @@ EmbeddingJob _createTestJob(String id) {
     description: 'Test job description for $id',
     dataSourceId: 'test-datasource',
     embeddingTemplateId: 'test-template',
-    modelProviderIds: ['test-provider'],
+    providerIds: ['test-provider'],
     createdAt: DateTime.now(),
   );
 }

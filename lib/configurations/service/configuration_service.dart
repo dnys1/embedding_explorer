@@ -389,7 +389,7 @@ ORDER BY created_at DESC
           job.description,
           job.dataSourceId,
           job.embeddingTemplateId,
-          jsonEncode(job.modelProviderIds),
+          jsonEncode(job.providerIds),
           job.status.name,
           job.createdAt.toIso8601String(),
           job.startedAt?.toIso8601String(),
@@ -404,7 +404,7 @@ ORDER BY created_at DESC
       // Update the junction table for job-provider relationships
       tx.execute('DELETE FROM job_providers WHERE job_id = ?', [job.id]);
 
-      for (final providerId in job.modelProviderIds) {
+      for (final providerId in job.providerIds) {
         tx.execute(
           '''
           INSERT INTO job_providers (job_id, provider_id)

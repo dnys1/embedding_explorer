@@ -430,7 +430,7 @@ class JobResumeService {
         }
       }
 
-      final remainingProviders = job.modelProviderIds
+      final remainingProviders = job.providerIds
           .where((id) => !completedProviders.contains(id))
           .toList();
 
