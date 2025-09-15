@@ -56,6 +56,23 @@ abstract class DatabasePoolRequest
   // For import operations
   Uint8List? get importData;
 
+  @override
+  String toString() {
+    return (newBuiltValueToStringHelper(r'DatabasePoolRequest')
+          ..add('requestId', requestId)
+          ..add('type', type)
+          ..add('libsqlUri', libsqlUri)
+          ..add('name', name)
+          ..add('clearOnInit', clearOnInit)
+          ..add('databaseName', databaseName)
+          ..add('transaction', transaction)
+          ..add(
+            'importData',
+            importData != null ? '[${importData!.length} bytes]' : null,
+          ))
+        .toString();
+  }
+
   factory DatabasePoolRequest.init({
     required int requestId,
     Uri? libsqlUri,
@@ -268,6 +285,18 @@ abstract class DatabasePoolResultSet
   // For import/delete operations (success indicator)
   bool? get success;
 
+  @override
+  String toString() {
+    return (newBuiltValueToStringHelper(r'DatabasePoolResultSet')
+          ..add(
+            'exportData',
+            exportData != null ? '[${exportData!.length} bytes]' : null,
+          )
+          ..add('resultSet', resultSet)
+          ..add('success', success))
+        .toString();
+  }
+
   factory DatabasePoolResultSet({
     Uint8List? exportData,
     DatabaseResultSet? resultSet,
@@ -309,6 +338,18 @@ abstract class DatabasePoolWorker
 
     late final libsql.SAHPoolUtil sahPool;
     final Map<String, Database> openDatabases = {};
+
+    /// Ensures there's enough capacity in the pool for new files.
+    /// Based on libsql implementation: each file needs exactly 1 SAH slot.
+    /// Pool fails when fileCount >= capacity, so we ensure some buffer.
+    Future<void> ensureCapacity({int requiredSlots = 1}) async {
+      final availableSlots = sahPool.capacity - sahPool.fileCount;
+      if (availableSlots < requiredSlots) {
+        final additionalCapacity =
+            requiredSlots - availableSlots + 2; // Add buffer
+        await sahPool.addCapacity(additionalCapacity);
+      }
+    }
 
     Future<void> runWithErrorHandling(
       int requestId,
@@ -372,9 +413,15 @@ abstract class DatabasePoolWorker
 
           case DatabasePoolRequestType.importDatabase:
             await runWithErrorHandling(request.requestId, () async {
+              // Ensure capacity before importing
+              await ensureCapacity();
+
               final bytesImported = sahPool.importDb(
                 filename!,
                 request.importData!,
+              );
+              openDatabases[filename] = Database(
+                sahPool.openDatabase(filename),
               );
               return DatabasePoolResultSet(
                 success: bytesImported == request.importData!.length,
@@ -383,25 +430,34 @@ abstract class DatabasePoolWorker
 
           case DatabasePoolRequestType.deleteDatabase:
             await runWithErrorHandling(request.requestId, () async {
-              final deleted = sahPool.unlink(filename!);
+              final db = openDatabases.remove(filename!);
+              if (db != null) {
+                db.close();
+              }
+              final deleted = sahPool.unlink(filename);
               return DatabasePoolResultSet(success: deleted);
             });
 
           case DatabasePoolRequestType.openDatabase:
             await runWithErrorHandling(request.requestId, () async {
-              // Create database using SAH Pool VFS
-              final db = sahPool.openDatabase(filename!);
-              openDatabases[filename] = Database(db);
+              var db = openDatabases[filename!];
+              if (db == null) {
+                // Ensure capacity before opening new database
+                await ensureCapacity();
 
+                // Create database using SAH Pool VFS
+                db = openDatabases[filename] = Database(
+                  sahPool.openDatabase(filename),
+                );
+              }
               return DatabasePoolResultSet(success: true);
             });
           case DatabasePoolRequestType.closeDatabase:
             await runWithErrorHandling(request.requestId, () async {
               final db = openDatabases.remove(filename!);
-              if (db == null) {
-                return DatabasePoolResultSet(success: true);
+              if (db != null) {
+                db.close();
               }
-              db.close();
               return DatabasePoolResultSet(success: true);
             });
           case DatabasePoolRequestType.wipeAll:

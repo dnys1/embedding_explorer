@@ -682,20 +682,6 @@ class _$DatabasePoolRequest extends DatabasePoolRequest {
     _$hash = $jf(_$hash);
     return _$hash;
   }
-
-  @override
-  String toString() {
-    return (newBuiltValueToStringHelper(r'DatabasePoolRequest')
-          ..add('requestId', requestId)
-          ..add('type', type)
-          ..add('libsqlUri', libsqlUri)
-          ..add('name', name)
-          ..add('clearOnInit', clearOnInit)
-          ..add('databaseName', databaseName)
-          ..add('transaction', transaction)
-          ..add('importData', importData))
-        .toString();
-  }
 }
 
 class DatabasePoolRequestBuilder
@@ -1150,15 +1136,6 @@ class _$DatabasePoolResultSet extends DatabasePoolResultSet {
     _$hash = $jc(_$hash, success.hashCode);
     _$hash = $jf(_$hash);
     return _$hash;
-  }
-
-  @override
-  String toString() {
-    return (newBuiltValueToStringHelper(r'DatabasePoolResultSet')
-          ..add('exportData', exportData)
-          ..add('resultSet', resultSet)
-          ..add('success', success))
-        .toString();
   }
 }
 

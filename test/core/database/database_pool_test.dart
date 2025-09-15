@@ -13,12 +13,13 @@ import 'package:test/test.dart';
 import '../../common.dart';
 
 void main() {
-  setupTests();
+  final logs = setupTests();
 
   group('DatabasePool', () {
     late DatabasePool pool;
 
     setUp(() async {
+      logs.resume();
       pool = await DatabasePool.create(
         libsqlUri: testLibsqlUri,
         name: 'test_${Random().nextInt(10000)}',
@@ -27,6 +28,7 @@ void main() {
     });
 
     tearDown(() async {
+      logs.pause();
       try {
         await pool.wipeAll();
       } on Object {
@@ -575,6 +577,186 @@ void main() {
 
         await db.close();
       });
+    });
+
+    group('capacity management', () {
+      test('tracks pool capacity and file count correctly', () async {
+        final initialCapacity = pool.reservedCapacity;
+        final initialFileCount = pool.fileCount;
+
+        expect(initialCapacity, greaterThan(0));
+        expect(initialFileCount, equals(0));
+
+        // Import a database and verify count increases
+        await pool.import(filename: 'capacity_test.db', data: testDbData);
+        expect(pool.fileCount, equals(initialFileCount + 1));
+
+        // Delete database and verify count decreases
+        await pool.delete('capacity_test.db');
+        expect(pool.fileCount, equals(initialFileCount));
+      });
+
+      test('can create databases up to capacity limit', () async {
+        final initialFileCount = pool.fileCount;
+        final initialCapacity = pool.reservedCapacity;
+
+        // Each database file uses exactly 1 SAH slot
+        final availableSlots = initialCapacity - initialFileCount;
+        final maxNewDatabases = availableSlots;
+
+        final createdDatabases = <String>[];
+
+        // Create databases up to capacity
+        for (int i = 0; i < maxNewDatabases; i++) {
+          final filename = 'capacity_limit_$i.db';
+          await pool.import(filename: filename, data: testDbData);
+          createdDatabases.add(filename);
+        }
+
+        // Verify we've reached capacity
+        expect(pool.fileCount, equals(initialCapacity));
+        expect(pool.databaseNames.length, equals(maxNewDatabases));
+      });
+
+      test('automatically increases capacity when needed', () async {
+        final initialFileCount = pool.fileCount;
+        final initialCapacity = pool.reservedCapacity;
+
+        // Fill the current capacity
+        final availableSlots = initialCapacity - initialFileCount;
+        for (int i = 0; i < availableSlots; i++) {
+          final filename = 'capacity_fill_$i.db';
+          await pool.import(filename: filename, data: testDbData);
+        }
+
+        expect(pool.fileCount, equals(initialCapacity));
+
+        // Try to create one more database - should trigger auto-expansion
+        await pool.import(filename: 'capacity_exceed.db', data: testDbData);
+
+        // Capacity should have automatically increased
+        expect(pool.reservedCapacity, greaterThan(initialCapacity));
+        expect(pool.fileCount, equals(initialCapacity + 1));
+      });
+
+      test(
+        'automatically expands capacity when opening new databases',
+        () async {
+          final initialFileCount = pool.fileCount;
+          final initialCapacity = pool.reservedCapacity;
+
+          // Fill current capacity with opened databases
+          final availableSlots = initialCapacity - initialFileCount;
+          for (int i = 0; i < availableSlots; i++) {
+            final filename = 'open_capacity_$i.db';
+            final db = await pool.open(filename);
+            addTearDown(db.close);
+          }
+
+          expect(pool.fileCount, equals(initialCapacity));
+
+          // Try to open one more database - should trigger auto-expansion
+          final extraFilename = 'open_capacity_extra.db';
+          final extraDb = await pool.open(extraFilename);
+          addTearDown(extraDb.close);
+
+          // Capacity should have automatically increased
+          expect(pool.reservedCapacity, greaterThan(initialCapacity));
+          expect(pool.fileCount, equals(initialCapacity + 1));
+        },
+      );
+
+      test('provides accurate stats after capacity changes', () async {
+        final initialCapacity = pool.reservedCapacity;
+        final initialFileCount = pool.fileCount;
+        final initialDatabaseCount = pool.databaseNames.length;
+        expect(initialFileCount, equals(initialDatabaseCount));
+
+        // Import a database
+        await pool.import(filename: 'stats_test.db', data: testDbData);
+
+        expect(pool.fileCount, equals(initialFileCount + 1));
+        expect(pool.databaseNames.length, equals(initialDatabaseCount + 1));
+        expect(pool.reservedCapacity, greaterThanOrEqualTo(initialCapacity));
+
+        // Export the database (which closes it)
+        final exportedData = await pool.export('stats_test.db');
+        expect(exportedData, isNotEmpty);
+
+        // Delete the database
+        await pool.delete('stats_test.db');
+
+        expect(pool.fileCount, equals(initialFileCount));
+        expect(pool.databaseNames.length, equals(initialDatabaseCount));
+      });
+
+      test(
+        'handles mixed operations with automatic capacity expansion',
+        () async {
+          final initialCapacity = pool.reservedCapacity;
+          final initialFileCount = pool.fileCount;
+
+          final createdDatabases = <String>[];
+          final openDatabases = <DatabaseHandle>[];
+
+          // Create enough databases to potentially trigger capacity expansion
+          final databasesToCreate = initialCapacity - initialFileCount + 2;
+
+          for (int i = 0; i < databasesToCreate; i++) {
+            final importFilename = 'mixed_import_$i.db';
+            final openFilename = 'mixed_open_$i.db';
+
+            // Import a database with existing data
+            final importedDb = await pool.import(
+              filename: importFilename,
+              data: testDbData,
+            );
+            createdDatabases.add(importFilename);
+            openDatabases.add(importedDb);
+
+            // Open a new empty database
+            final openedDb = await pool.open(openFilename);
+            createdDatabases.add(openFilename);
+            openDatabases.add(openedDb);
+          }
+
+          // Verify capacity increased if needed
+          expect(pool.reservedCapacity, greaterThanOrEqualTo(initialCapacity));
+          expect(pool.fileCount, equals(createdDatabases.length));
+
+          // Perform operations on databases that have test_table
+          for (int i = 0; i < openDatabases.length; i += 2) {
+            // Only imported databases
+            final db = openDatabases[i];
+            final rows = await db.select(
+              'SELECT COUNT(*) as count FROM test_table',
+            );
+            expect(rows, hasLength(1));
+            expect(rows[0]['count'], equals(2)); // Test data has 2 rows
+          }
+
+          // Perform operations on empty databases
+          for (int i = 1; i < openDatabases.length; i += 2) {
+            // Only opened databases
+            final db = openDatabases[i];
+            await db.execute(
+              'CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)',
+            );
+            await db.execute('INSERT INTO test_table (name) VALUES (?)', [
+              'Mixed Operation',
+            ]);
+            final rows = await db.select(
+              'SELECT COUNT(*) as count FROM test_table',
+            );
+            expect(rows, hasLength(1));
+            expect(rows[0]['count'], equals(1));
+          }
+
+          // Export one of the imported databases
+          final exportedData = await pool.export('mixed_import_0.db');
+          expect(exportedData, isNotEmpty);
+        },
+      );
     });
   });
 }

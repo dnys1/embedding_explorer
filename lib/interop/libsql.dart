@@ -1071,18 +1071,6 @@ extension type SAHPoolUtil._(JSObject _) implements JSObject {
   @JS('exportFile')
   external JSUint8Array _exportFile(String filename);
 
-  /// Synchronously reads the contents of the given file into a [JSUint8Array] and
-  /// returns it.
-  ///
-  /// This will throw if the given name is not currently in active use or on I/O
-  /// error. Note that the given name is not visible directly in OPFS (or, if it
-  /// is, it's not from this VFS). The reason for that is that this VFS manages
-  /// name-to-file mappings in a roundabout way in order to maintain its list of
-  /// SAHs.
-  Uint8List exportFile(String filename) {
-    return _exportFile(filename).toDart;
-  }
-
   @JS('reserveMinimumCapacity')
   external JSPromise<JSNumber> _reserveMinimumCapacity(int minCapacity);
 
@@ -1103,6 +1091,18 @@ extension type SAHPoolUtil._(JSObject _) implements JSObject {
   /// The default capacity is only large enough for one or two databases and
   /// their associated temp files.
   int get capacity => _getCapacity();
+
+  /// Synchronously reads the contents of the given file into a [JSUint8Array] and
+  /// returns it.
+  ///
+  /// This will throw if the given name is not currently in active use or on I/O
+  /// error. Note that the given name is not visible directly in OPFS (or, if it
+  /// is, it's not from this VFS). The reason for that is that this VFS manages
+  /// name-to-file mappings in a roundabout way in order to maintain its list of
+  /// SAHs.
+  Uint8List exportFile(String filename) {
+    return _exportFile(filename).toDart;
+  }
 
   @JS('getFileCount')
   external int _getFileCount();
