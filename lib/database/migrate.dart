@@ -103,20 +103,25 @@ class Migrate {
       'Migrating from version $currentVersion to version $targetVersion...',
     );
 
-    for (final migration in pendingMigrations) {
-      await database.transaction((tx) {
-        // Run each migration in a batch (transaction-like behavior)
-        // Execute all statements in the migration
-        for (final statement in migration.upStatements) {
-          tx.execute(statement);
-        }
+    await database.execute('PRAGMA foreign_keys = OFF;');
+    try {
+      for (final migration in pendingMigrations) {
+        await database.transaction((tx) {
+          // Run each migration in a batch (transaction-like behavior)
+          // Execute all statements in the migration
+          for (final statement in migration.upStatements) {
+            tx.execute(statement);
+          }
 
-        // Record that this migration was applied
-        tx.execute('INSERT INTO schema_migrations (version) VALUES (?)', [
-          migration.version,
-        ]);
-      });
-      logger?.info('Applied migration ${migration.version}');
+          // Record that this migration was applied
+          tx.execute('INSERT INTO schema_migrations (version) VALUES (?)', [
+            migration.version,
+          ]);
+        });
+        logger?.info('Applied migration ${migration.version}');
+      }
+    } finally {
+      await database.execute('PRAGMA foreign_keys = ON;');
     }
 
     logger?.info(
@@ -179,27 +184,31 @@ class Migrate {
       'Rolling back from version $currentVersion to version $targetVersion...',
     );
 
-    for (final migration in migrationsToRollback) {
-      if (migration.downStatements.isEmpty) {
-        throw StateError(
-          'Migration ${migration.version} has no down statements. Cannot roll back.',
-        );
-      }
-
-      await database.transaction((tx) {
-        // Execute all down statements in the migration
-        for (final statement in migration.downStatements) {
-          tx.execute(statement);
+    await database.execute('PRAGMA foreign_keys = OFF;');
+    try {
+      for (final migration in migrationsToRollback) {
+        if (migration.downStatements.isEmpty) {
+          throw StateError(
+            'Migration ${migration.version} has no down statements. Cannot roll back.',
+          );
         }
 
-        // Remove the migration record
-        tx.execute('DELETE FROM schema_migrations WHERE version = ?', [
-          migration.version,
-        ]);
-      });
-      logger?.info('Rolled back migration ${migration.version}');
-    }
+        await database.transaction((tx) {
+          // Execute all down statements in the migration
+          for (final statement in migration.downStatements) {
+            tx.execute(statement);
+          }
 
+          // Remove the migration record
+          tx.execute('DELETE FROM schema_migrations WHERE version = ?', [
+            migration.version,
+          ]);
+        });
+        logger?.info('Rolled back migration ${migration.version}');
+      }
+    } finally {
+      await database.execute('PRAGMA foreign_keys = ON;');
+    }
     logger?.info(
       'Rollback complete. Database is now at version $targetVersion.',
     );

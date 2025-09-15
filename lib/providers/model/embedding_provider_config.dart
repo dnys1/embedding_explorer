@@ -241,7 +241,7 @@ class EmbeddingProviderConfigCollection
   String get prefix => 'mp';
 
   @override
-  String get tableName => 'model_provider_configs';
+  String get tableName => 'provider_configs';
 
   /// Add a new model provider configuration for built-in providers
   Future<String> addConfig({

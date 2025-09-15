@@ -222,7 +222,7 @@ class ConfigurationService with ChangeNotifier {
     await database.transaction((tx) {
       tx.execute(
         '''
-      INSERT OR REPLACE INTO model_provider_configs 
+      INSERT OR REPLACE INTO provider_configs 
       (id, name, description, type, custom_template_id, settings, enabled_models, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
@@ -243,18 +243,17 @@ class ConfigurationService with ChangeNotifier {
         if (config.credential case final credential?) {
           tx.execute(
             '''
-      INSERT OR REPLACE INTO model_provider_credentials
-      (model_provider_id, credential)
+      INSERT OR REPLACE INTO provider_credentials
+      (provider_id, credential)
       VALUES (?, ?)
     ''',
             [config.id, jsonEncode(credential.toJson())],
           );
         } else {
           // Remove existing credentials if credential is null
-          tx.execute(
-            'DELETE FROM model_provider_credentials WHERE model_provider_id = ?',
-            [config.id],
-          );
+          tx.execute('DELETE FROM provider_credentials WHERE provider_id = ?', [
+            config.id,
+          ]);
         }
       }
     });
@@ -267,9 +266,9 @@ class ConfigurationService with ChangeNotifier {
     final result = await database.select(
       '''
 SELECT *
-FROM model_provider_configs
-LEFT JOIN model_provider_credentials
-  ON model_provider_configs.id = model_provider_credentials.model_provider_id
+FROM provider_configs
+LEFT JOIN provider_credentials
+  ON provider_configs.id = provider_credentials.provider_id
 WHERE id = ?
 ''',
       [id],
@@ -285,9 +284,9 @@ WHERE id = ?
   Future<List<EmbeddingProviderConfig>> getAllModelProviderConfigs() async {
     final result = await database.select('''
 SELECT *
-FROM model_provider_configs
-LEFT JOIN model_provider_credentials
-  ON model_provider_configs.id = model_provider_credentials.model_provider_id
+FROM provider_configs
+LEFT JOIN provider_credentials
+  ON provider_configs.id = provider_credentials.provider_id
 ORDER BY created_at DESC
 ''');
 
@@ -298,13 +297,12 @@ ORDER BY created_at DESC
   Future<void> deleteModelProviderConfig(String id) async {
     await database.transaction((tx) {
       // Delete associated credentials first
-      tx.execute(
-        'DELETE FROM model_provider_credentials WHERE model_provider_id = ?',
-        [id],
-      );
+      tx.execute('DELETE FROM provider_credentials WHERE provider_id = ?', [
+        id,
+      ]);
 
       // Delete the provider config
-      tx.execute('DELETE FROM model_provider_configs WHERE id = ?', [id]);
+      tx.execute('DELETE FROM provider_configs WHERE id = ?', [id]);
     });
 
     _logger.fine('Deleted model provider config and credentials: $id');
@@ -381,8 +379,8 @@ ORDER BY created_at DESC
       // Insert or update the main job record
       tx.execute(
         '''
-        INSERT OR REPLACE INTO embedding_jobs 
-        (id, name, description, data_source_id, embedding_template_id, model_provider_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
+        INSERT OR REPLACE INTO jobs 
+        (id, name, description, data_source_id, embedding_template_id, provider_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
         [
@@ -404,14 +402,12 @@ ORDER BY created_at DESC
       );
 
       // Update the junction table for job-provider relationships
-      tx.execute('DELETE FROM embedding_job_providers WHERE job_id = ?', [
-        job.id,
-      ]);
+      tx.execute('DELETE FROM job_providers WHERE job_id = ?', [job.id]);
 
       for (final providerId in job.modelProviderIds) {
         tx.execute(
           '''
-          INSERT INTO embedding_job_providers (job_id, provider_id)
+          INSERT INTO job_providers (job_id, provider_id)
           VALUES (?, ?)
         ''',
           [job.id, providerId],
@@ -424,10 +420,9 @@ ORDER BY created_at DESC
 
   /// Get an embedding job by ID
   Future<EmbeddingJob?> getEmbeddingJob(String id) async {
-    final result = await database.select(
-      'SELECT * FROM embedding_jobs WHERE id = ?',
-      [id],
-    );
+    final result = await database.select('SELECT * FROM jobs WHERE id = ?', [
+      id,
+    ]);
 
     if (result.isEmpty) return null;
 
@@ -438,7 +433,7 @@ ORDER BY created_at DESC
   /// Get all embedding jobs
   Future<List<EmbeddingJob>> getAllEmbeddingJobs() async {
     final result = await database.select(
-      'SELECT * FROM embedding_jobs ORDER BY created_at DESC',
+      'SELECT * FROM jobs ORDER BY created_at DESC',
     );
 
     return result.map(EmbeddingJob.fromDatabase).nonNulls.toList();
@@ -447,7 +442,7 @@ ORDER BY created_at DESC
   /// Get embedding jobs by status
   Future<List<EmbeddingJob>> getEmbeddingJobsByStatus(String status) async {
     final result = await database.select(
-      'SELECT * FROM embedding_jobs WHERE status = ? ORDER BY created_at DESC',
+      'SELECT * FROM jobs WHERE status = ? ORDER BY created_at DESC',
       [status],
     );
 
@@ -456,7 +451,7 @@ ORDER BY created_at DESC
 
   /// Delete an embedding job
   Future<void> deleteEmbeddingJob(String id) async {
-    await database.execute('DELETE FROM embedding_jobs WHERE id = ?', [id]);
+    await database.execute('DELETE FROM jobs WHERE id = ?', [id]);
     _logger.fine('Deleted embedding job: $id');
   }
 
@@ -543,7 +538,7 @@ ORDER BY created_at DESC
       tx.execute(
         '''
         INSERT INTO embedding_column_registry 
-        (id, table_id, column_name, model_provider_id, model_name, vector_type, dimensions, created_at)
+        (id, table_id, column_name, provider_id, model_name, vector_type, dimensions, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ''',
         [

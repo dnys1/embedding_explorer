@@ -18,6 +18,152 @@ import 'package:test/test.dart';
 
 import '../../common.dart';
 
+// Test helper functions to reduce code duplication
+class TestHelpers {
+  static DataSourceConfig createDataSourceConfig({
+    String id = 'ds_1',
+    String name = 'Data Source 1',
+    String description = 'Test data source',
+    DataSourceType type = DataSourceType.csv,
+    String filename = 'test.csv',
+    DateTime? createdAt,
+  }) {
+    final now = createdAt ?? DateTime.now();
+    return DataSourceConfig(
+      id: id,
+      name: name,
+      description: description,
+      type: type,
+      filename: filename,
+      settings: type == DataSourceType.csv
+          ? CsvDataSourceSettings(delimiter: ',')
+          : SqliteDataSourceSettings(),
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  static EmbeddingTemplateConfig createTemplateConfig({
+    String id = 'template_1',
+    String name = 'Template 1',
+    String description = 'Test template',
+    String template = '{{content}}',
+    String dataSourceId = 'ds_1',
+    List<String> availableFields = const ['content'],
+    DateTime? createdAt,
+  }) {
+    final now = createdAt ?? DateTime.now();
+    return EmbeddingTemplateConfig(
+      id: id,
+      name: name,
+      description: description,
+      template: template,
+      dataSourceId: dataSourceId,
+      availableFields: availableFields,
+      metadata: <String, dynamic>{},
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  static EmbeddingProviderConfig createProviderConfig({
+    String id = 'provider_1',
+    String name = 'Test Provider 1',
+    String description = 'Test provider',
+    EmbeddingProviderType type = EmbeddingProviderType.openai,
+    DateTime? createdAt,
+  }) {
+    final now = createdAt ?? DateTime.now();
+    return EmbeddingProviderConfig(
+      id: id,
+      name: name,
+      description: description,
+      type: type,
+      customTemplateId: null,
+      settings: <String, dynamic>{},
+      credential: null,
+      persistCredentials: false,
+      enabledModels: <String>{},
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  static EmbeddingJob createJob({
+    String id = 'job_1',
+    String name = 'Test Job',
+    String description = 'Test job',
+    String dataSourceId = 'ds_1',
+    String embeddingTemplateId = 'template_1',
+    List<String> modelProviderIds = const [],
+    JobStatus status = JobStatus.pending,
+    DateTime? createdAt,
+  }) {
+    final now = createdAt ?? DateTime.now();
+    return EmbeddingJob(
+      id: id,
+      name: name,
+      description: description,
+      dataSourceId: dataSourceId,
+      embeddingTemplateId: embeddingTemplateId,
+      modelProviderIds: modelProviderIds,
+      status: status,
+      totalRecords: 0,
+      processedRecords: 0,
+      createdAt: now,
+      startedAt: null,
+      completedAt: null,
+      errorMessage: null,
+      results: null,
+    );
+  }
+
+  /// Creates a full test setup by creating data source, template, provider, and job
+  static Future<void> createFullTestSetup(
+    ConfigurationService service, {
+    String dataSourceId = 'ds_1',
+    String templateId = 'template_1',
+    String providerId = 'provider_1',
+    String jobId = 'job_1',
+    DateTime? createdAt,
+  }) async {
+    final now = createdAt ?? DateTime.now();
+
+    // Create data source
+    final dsConfig = createDataSourceConfig(id: dataSourceId, createdAt: now);
+    await service.saveDataSourceConfig(dsConfig);
+
+    // Create template
+    final templateConfig = createTemplateConfig(
+      id: templateId,
+      dataSourceId: dataSourceId,
+      createdAt: now,
+    );
+    await service.saveEmbeddingTemplateConfig(templateConfig);
+
+    // Create provider (if specified)
+    if (providerId.isNotEmpty) {
+      final providerConfig = createProviderConfig(
+        id: providerId,
+        createdAt: now,
+      );
+      await service.saveModelProviderConfig(providerConfig);
+    }
+
+    // Create job (if specified)
+    if (jobId.isNotEmpty) {
+      final job = createJob(
+        id: jobId,
+        dataSourceId: dataSourceId,
+        embeddingTemplateId: templateId,
+        modelProviderIds: providerId.isNotEmpty ? [providerId] : [],
+        createdAt: now,
+      );
+      await service.saveEmbeddingJob(job);
+    }
+  }
+}
+
 void main() {
   setupTests();
 
@@ -168,13 +314,23 @@ void main() {
 
     group('Embedding Template Configuration', () {
       test('should save and retrieve embedding template config', () async {
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
         final now = DateTime.now();
         final config = EmbeddingTemplateConfig(
           id: 'template_1',
           name: 'Test Template',
           description: 'A test embedding template',
           template: 'Embed this content: {{content}}',
-          dataSourceId: 'ds_1',
+          dataSourceId: dsConfig.id,
           availableFields: ['content', 'title', 'metadata'],
           metadata: <String, dynamic>{'category': 'test', 'priority': 'high'},
           createdAt: now,
@@ -200,6 +356,32 @@ void main() {
 
       test('should get templates by data source ID', () async {
         final now = DateTime.now();
+
+        // Create data source configs first to satisfy foreign key constraints
+        final dsConfig1 = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        final dsConfig2 = DataSourceConfig(
+          id: 'ds_2',
+          name: 'Data Source 2',
+          description: 'Second data source',
+          type: DataSourceType.sqlite,
+          filename: 'data_source_2.db',
+          settings: SqliteDataSourceSettings(),
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        await service.saveDataSourceConfig(dsConfig1);
+        await service.saveDataSourceConfig(dsConfig2);
 
         final template1 = EmbeddingTemplateConfig(
           id: 'template_1',
@@ -259,6 +441,21 @@ void main() {
 
       test('should delete embedding template config', () async {
         final now = DateTime.now();
+
+        // Create data source config first to satisfy foreign key constraint
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        await service.saveDataSourceConfig(dsConfig);
+
         final config = EmbeddingTemplateConfig(
           id: 'to_delete',
           name: 'To Delete',
@@ -514,6 +711,65 @@ void main() {
     group('Embedding Job', () {
       test('should save and retrieve embedding job', () async {
         final now = DateTime.now();
+
+        // Create prerequisite data source config
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
+        // Create prerequisite embedding template config
+        final templateConfig = EmbeddingTemplateConfig(
+          id: 'template_1',
+          name: 'Template 1',
+          description: 'First template',
+          template: '{{content}}',
+          dataSourceId: 'ds_1',
+          availableFields: ['content'],
+          metadata: <String, dynamic>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveEmbeddingTemplateConfig(templateConfig);
+
+        // Create prerequisite provider configs
+        final provider1Config = EmbeddingProviderConfig(
+          id: 'provider_1',
+          name: 'Test Provider 1',
+          description: 'Test provider 1',
+          type: EmbeddingProviderType.openai,
+          customTemplateId: null,
+          settings: <String, dynamic>{},
+          credential: null,
+          persistCredentials: false,
+          enabledModels: <String>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveModelProviderConfig(provider1Config);
+
+        final provider2Config = EmbeddingProviderConfig(
+          id: 'provider_2',
+          name: 'Test Provider 2',
+          description: 'Test provider 2',
+          type: EmbeddingProviderType.gemini,
+          customTemplateId: null,
+          settings: <String, dynamic>{},
+          credential: null,
+          persistCredentials: false,
+          enabledModels: <String>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveModelProviderConfig(provider2Config);
+
         final job = EmbeddingJob(
           id: 'job_1',
           name: 'Test Embedding Job',
@@ -553,6 +809,49 @@ void main() {
 
       test('should get jobs by status', () async {
         final now = DateTime.now();
+
+        // Create prerequisite data source config
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
+        // Create prerequisite embedding template config
+        final templateConfig = EmbeddingTemplateConfig(
+          id: 'template_1',
+          name: 'Template 1',
+          description: 'First template',
+          template: '{{content}}',
+          dataSourceId: 'ds_1',
+          availableFields: ['content'],
+          metadata: <String, dynamic>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveEmbeddingTemplateConfig(templateConfig);
+
+        // Create prerequisite provider config
+        final providerConfig = EmbeddingProviderConfig(
+          id: 'provider_1',
+          name: 'Test Provider 1',
+          description: 'Test provider 1',
+          type: EmbeddingProviderType.openai,
+          customTemplateId: null,
+          settings: <String, dynamic>{},
+          credential: null,
+          persistCredentials: false,
+          enabledModels: <String>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveModelProviderConfig(providerConfig);
 
         final pendingJob = EmbeddingJob(
           id: 'pending_job',
@@ -629,6 +928,50 @@ void main() {
 
       test('should delete embedding job', () async {
         final now = DateTime.now();
+
+        // Create prerequisite data source config
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
+        // Create prerequisite embedding template config
+        final templateConfig = EmbeddingTemplateConfig(
+          id: 'template_1',
+          name: 'Template 1',
+          description: 'First template',
+          template: '{{content}}',
+          dataSourceId: 'ds_1',
+          availableFields: ['content'],
+          metadata: <String, dynamic>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveEmbeddingTemplateConfig(templateConfig);
+
+        // Create prerequisite provider config
+        final providerConfig = EmbeddingProviderConfig(
+          id: 'provider_1',
+          name: 'Test Provider 1',
+          description: 'Test provider 1',
+          type: EmbeddingProviderType.openai,
+          customTemplateId: null,
+          settings: <String, dynamic>{},
+          credential: null,
+          persistCredentials: false,
+          enabledModels: <String>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveModelProviderConfig(providerConfig);
+
         final job = EmbeddingJob(
           id: 'to_delete',
           name: 'Job to Delete',
@@ -759,6 +1102,54 @@ void main() {
 
     group('Embedding Table Management', () {
       test('should create embedding table', () async {
+        final now = DateTime.now();
+
+        // Create prerequisite data source config
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
+        // Create prerequisite embedding template config
+        final templateConfig = EmbeddingTemplateConfig(
+          id: 'template_1',
+          name: 'Template 1',
+          description: 'First template',
+          template: '{{content}}',
+          dataSourceId: 'ds_1',
+          availableFields: ['content'],
+          metadata: <String, dynamic>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveEmbeddingTemplateConfig(templateConfig);
+
+        // Create prerequisite job
+        final job = EmbeddingJob(
+          id: 'job_1',
+          name: 'Test Job',
+          description: 'Test job',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+          modelProviderIds: [],
+          status: JobStatus.pending,
+          totalRecords: 0,
+          processedRecords: 0,
+          createdAt: now,
+          startedAt: null,
+          completedAt: null,
+          errorMessage: null,
+          results: null,
+        );
+        await service.saveEmbeddingJob(job);
+
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
           dataSourceId: 'ds_1',
@@ -780,6 +1171,70 @@ void main() {
       });
 
       test('should add vector column to embedding table', () async {
+        final now = DateTime.now();
+
+        // Create prerequisite data source config
+        final dsConfig = DataSourceConfig(
+          id: 'ds_1',
+          name: 'Data Source 1',
+          description: 'First data source',
+          type: DataSourceType.csv,
+          filename: 'data_source_1.csv',
+          settings: CsvDataSourceSettings(delimiter: ','),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveDataSourceConfig(dsConfig);
+
+        // Create prerequisite embedding template config
+        final templateConfig = EmbeddingTemplateConfig(
+          id: 'template_1',
+          name: 'Template 1',
+          description: 'First template',
+          template: '{{content}}',
+          dataSourceId: 'ds_1',
+          availableFields: ['content'],
+          metadata: <String, dynamic>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveEmbeddingTemplateConfig(templateConfig);
+
+        // Create prerequisite job
+        final job = EmbeddingJob(
+          id: 'job_1',
+          name: 'Test Job',
+          description: 'Test job',
+          dataSourceId: 'ds_1',
+          embeddingTemplateId: 'template_1',
+          modelProviderIds: [],
+          status: JobStatus.pending,
+          totalRecords: 0,
+          processedRecords: 0,
+          createdAt: now,
+          startedAt: null,
+          completedAt: null,
+          errorMessage: null,
+          results: null,
+        );
+        await service.saveEmbeddingJob(job);
+
+        // Create prerequisite provider config
+        final providerConfig = EmbeddingProviderConfig(
+          id: 'provider_1',
+          name: 'Test Provider 1',
+          description: 'Test provider 1',
+          type: EmbeddingProviderType.openai,
+          customTemplateId: null,
+          settings: <String, dynamic>{},
+          credential: null,
+          persistCredentials: false,
+          enabledModels: <String>{},
+          createdAt: now,
+          updatedAt: now,
+        );
+        await service.saveModelProviderConfig(providerConfig);
+
         // Create a table first
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -808,6 +1263,9 @@ void main() {
       });
 
       test('should insert embedding data', () async {
+        // Create full test setup
+        await TestHelpers.createFullTestSetup(service);
+
         // Create table and add vector column
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -866,6 +1324,9 @@ void main() {
       });
 
       test('should create vector index', () async {
+        // Create full test setup
+        await TestHelpers.createFullTestSetup(service);
+
         // Create table and add vector column
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -897,6 +1358,9 @@ void main() {
       });
 
       test('should search similar vectors', () async {
+        // Create full test setup
+        await TestHelpers.createFullTestSetup(service);
+
         // Create table and add vector column
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -953,6 +1417,21 @@ void main() {
       });
 
       test('should get embedding tables with filters', () async {
+        // Create test setups for different combinations
+        await TestHelpers.createFullTestSetup(
+          service,
+          dataSourceId: 'ds_1',
+          templateId: 'template_1',
+          jobId: 'job_1',
+        );
+
+        await TestHelpers.createFullTestSetup(
+          service,
+          dataSourceId: 'ds_2',
+          templateId: 'template_2',
+          jobId: 'job_2',
+        );
+
         // Create tables for different jobs and data sources
         final table1 = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -1001,6 +1480,9 @@ void main() {
       });
 
       test('should delete embedding table', () async {
+        // Create full test setup
+        await TestHelpers.createFullTestSetup(service);
+
         // Create a table
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',
@@ -1075,6 +1557,17 @@ void main() {
       });
 
       test('should handle multiple vector columns', () async {
+        // Create full test setup with provider_1
+        await TestHelpers.createFullTestSetup(service);
+
+        // Create additional provider_2
+        final provider2Config = TestHelpers.createProviderConfig(
+          id: 'provider_2',
+          name: 'Test Provider 2',
+          type: EmbeddingProviderType.gemini,
+        );
+        await service.saveModelProviderConfig(provider2Config);
+
         // Create table
         final tableId = await service.createEmbeddingTable(
           jobId: 'job_1',

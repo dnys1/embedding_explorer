@@ -82,7 +82,7 @@ class EmbeddingColumn {
         id: row['id'] as String,
         tableId: row['table_id'] as String,
         columnName: row['column_name'] as String,
-        modelProviderId: row['model_provider_id'] as String,
+        modelProviderId: row['provider_id'] as String,
         modelName: row['model_name'] as String,
         vectorType: VectorType.values.byName(row['vector_type'] as String),
         dimensions: row['dimensions'] as int,

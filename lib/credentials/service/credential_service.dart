@@ -15,9 +15,9 @@ final class CredentialService {
 }
 
 sealed class CredentialStore {
-  Future<Credential?> getCredential(String modelProviderId);
-  Future<void> setCredential(String modelProviderId, Credential? credential);
-  Future<void> deleteCredential(String modelProviderId);
+  Future<Credential?> getCredential(String providerId);
+  Future<void> setCredential(String providerId, Credential? credential);
+  Future<void> deleteCredential(String providerId);
 }
 
 final class InMemoryCredentialStore implements CredentialStore {
@@ -26,24 +26,21 @@ final class InMemoryCredentialStore implements CredentialStore {
   final Map<String, Credential> _credentials;
 
   @override
-  Future<Credential?> getCredential(String modelProviderId) async {
-    return _credentials[modelProviderId];
+  Future<Credential?> getCredential(String providerId) async {
+    return _credentials[providerId];
   }
 
   @override
-  Future<void> setCredential(
-    String modelProviderId,
-    Credential? credential,
-  ) async {
+  Future<void> setCredential(String providerId, Credential? credential) async {
     if (credential == null) {
-      return deleteCredential(modelProviderId);
+      return deleteCredential(providerId);
     }
-    _credentials[modelProviderId] = credential;
+    _credentials[providerId] = credential;
   }
 
   @override
-  Future<void> deleteCredential(String modelProviderId) async {
-    _credentials.remove(modelProviderId);
+  Future<void> deleteCredential(String providerId) async {
+    _credentials.remove(providerId);
   }
 }
 
@@ -55,10 +52,10 @@ final class DatabaseCredentialStore implements CredentialStore {
   static final Logger _logger = Logger('DatabaseCredentialStore');
 
   @override
-  Future<Credential?> getCredential(String modelProviderId) async {
+  Future<Credential?> getCredential(String providerId) async {
     final result = await _db.select(
-      'SELECT credential FROM model_provider_credentials WHERE model_provider_id = ?',
-      [modelProviderId],
+      'SELECT credential FROM provider_credentials WHERE provider_id = ?',
+      [providerId],
     );
 
     if (result.isEmpty) return null;
@@ -69,42 +66,39 @@ final class DatabaseCredentialStore implements CredentialStore {
       return Credential.fromJson(credentialMap);
     } catch (e) {
       _logger.warning(
-        'Failed to parse credential for provider $modelProviderId: $e',
+        'Failed to parse credential for provider $providerId: $e',
       );
       return null;
     }
   }
 
   @override
-  Future<void> setCredential(
-    String modelProviderId,
-    Credential? credential,
-  ) async {
+  Future<void> setCredential(String providerId, Credential? credential) async {
     if (credential == null) {
-      return deleteCredential(modelProviderId);
+      return deleteCredential(providerId);
     }
 
     await _db.execute(
       '''
-      INSERT OR REPLACE INTO model_provider_credentials 
-      (model_provider_id, credential)
+      INSERT OR REPLACE INTO provider_credentials 
+      (provider_id, credential)
       VALUES (?, ?)
     ''',
       [
-        modelProviderId, // Use provider ID as credential ID for 1:1 relationship
+        providerId, // Use provider ID as credential ID for 1:1 relationship
         jsonEncode(credential.toJson()),
       ],
     );
 
-    _logger.fine('Saved credentials for model provider: $modelProviderId');
+    _logger.fine('Saved credentials for provider: $providerId');
   }
 
   @override
-  Future<void> deleteCredential(String modelProviderId) async {
+  Future<void> deleteCredential(String providerId) async {
     await _db.execute(
-      'DELETE FROM model_provider_credentials WHERE model_provider_id = ?',
-      [modelProviderId],
+      'DELETE FROM provider_credentials WHERE provider_id = ?',
+      [providerId],
     );
-    _logger.fine('Deleted credentials for model provider: $modelProviderId');
+    _logger.fine('Deleted credentials for provider: $providerId');
   }
 }

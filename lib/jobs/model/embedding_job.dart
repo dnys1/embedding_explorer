@@ -143,8 +143,8 @@ class EmbeddingJob implements ConfigurationItem {
       description: row['description'] as String,
       dataSourceId: row['data_source_id'] as String,
       embeddingTemplateId: row['embedding_template_id'] as String,
-      modelProviderIds: row['model_provider_ids'] != null
-          ? (jsonDecode(row['model_provider_ids'] as String) as List).cast()
+      modelProviderIds: row['provider_ids'] != null
+          ? (jsonDecode(row['provider_ids'] as String) as List).cast()
           : const [],
       status: JobStatus.values.byName(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),

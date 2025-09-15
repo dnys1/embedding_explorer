@@ -9,7 +9,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
   String get prefix => 'job';
 
   @override
-  String get tableName => 'embedding_jobs';
+  String get tableName => 'jobs';
 
   /// Get jobs by status
   List<EmbeddingJob> getByStatus(JobStatus status) {
