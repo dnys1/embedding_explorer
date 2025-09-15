@@ -5,14 +5,10 @@ import '../../credentials/model/credential.dart';
 import '../model/embedding_provider.dart';
 
 final class EmbeddingProviderCredentialsView extends StatefulComponent {
-  const EmbeddingProviderCredentialsView({
-    super.key,
-    required this.provider,
-    this.initialCredential,
-  });
+  const EmbeddingProviderCredentialsView({super.key, required this.provider});
 
   final EmbeddingProvider provider;
-  final Credential? initialCredential;
+
   @override
   State<StatefulComponent> createState() =>
       _EmbeddingProviderCredentialsViewState();
@@ -31,15 +27,9 @@ class _EmbeddingProviderCredentialsViewState
   }
 
   Component _buildApiKeyInput() {
-    // Extract initial API key from credential if available
-    final initialApiKey = switch (component.initialCredential) {
-      final ApiKeyCredential apiKey => apiKey,
-      _ => null,
-    };
-
     return FormField<ApiKeyCredential>(
       name: 'api-key',
-      initialValue: initialApiKey,
+      initialValue: component.provider.config?.credential as ApiKeyCredential?,
       onSaved: (credential) {
         // Form will handle the saved credential value
       },
@@ -57,7 +47,7 @@ class _EmbeddingProviderCredentialsViewState
               id: 'api-key',
               type: _credentialsVisible ? InputType.text : InputType.password,
               className: 'pr-12',
-              placeholder: 'AIza...',
+              placeholder: component.provider.definition.credentialPlaceholder,
               value: state.value?.apiKey ?? '',
               onChange: (event, target) {
                 final newCredential = ApiKeyCredential(apiKey: target.value);

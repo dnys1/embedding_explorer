@@ -6,190 +6,156 @@ import 'package:logging/logging.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../model/embedding_provider.dart';
 import '../model/embedding_provider_config.dart';
-import 'gemini_provider.dart';
-import 'openai_provider.dart';
+import '../model/provider_factory.dart';
+import 'factories/gemini_factory.dart';
+import 'factories/openai_factory.dart';
 
-/// Registry that manages embedding provider templates and configured instances.
+/// Registry that manages embedding provider instances.
 ///
-/// This class maintains a registry of available provider templates and manages
-/// configured provider instances. It listens to the ConfigurationManager and ensures
+/// This class maintains a registry of available provider factories and manages
+/// provider instances. It listens to the ConfigurationManager and ensures
 /// providers are properly connected, updated, and disposed when needed.
 class EmbeddingProviderRegistry with ChangeNotifier {
   static final Logger _logger = Logger('EmbeddingProviderRegistry');
 
   final ConfigurationManager _configManager;
-  final Map<String, ConfiguredEmbeddingProvider> _configuredProviders = {};
+  final Map<String, EmbeddingProvider> _providers = {};
   final Map<String, Future<Map<String, EmbeddingModel>>> _availableModels = {};
 
-  static const Map<EmbeddingProviderType, EmbeddingProviderTemplate>
-  _providerTemplates = {
-    EmbeddingProviderType.openai: OpenAIProvider(),
-    EmbeddingProviderType.gemini: GeminiProvider(),
+  static final Map<EmbeddingProviderType, ProviderFactory> _factories = {
+    EmbeddingProviderType.openai: const OpenAIFactory(),
+    EmbeddingProviderType.gemini: const GeminiFactory(),
   };
 
   EmbeddingProviderRegistry(this._configManager) {
-    _configManager.embeddingProviderConfigs.addListener(
-      _onProviderConfigChanged,
-    );
+    _configManager.embeddingProviderConfigs.addListener(_onConfigChanged);
   }
 
   /// Initialize the registry by loading existing configurations
   Future<void> initialize() async {
     final configs = _configManager.embeddingProviderConfigs.all;
-    await Future.wait<void>([
-      for (final config in configs) _tryConnect(config),
-    ]);
+    await Future.wait(configs.map(_tryLoadProvider));
   }
 
-  /// Get all configured provider instances
+  /// Get all provider instances (configured and unconfigured)
   Iterable<EmbeddingProvider> get all sync* {
-    final availableForConfig = Map.of(_providerTemplates);
-    for (final provider in _configuredProviders.values) {
-      yield provider;
-      availableForConfig.remove(provider.type);
+    // First yield all configured providers
+    yield* _providers.values;
+
+    // Then yield unconfigured providers for types that aren't configured
+    final configuredTypes = _providers.values.map((p) => p.type).toSet();
+    for (final factory in _factories.values) {
+      if (!configuredTypes.contains(factory.definition.type)) {
+        yield factory.createUnconfigured();
+      }
     }
-    yield* availableForConfig.values;
   }
 
-  /// Get a configured provider by ID
-  ConfiguredEmbeddingProvider? get(String id) => _configuredProviders[id];
+  /// Get a provider by ID (returns null if not found)
+  EmbeddingProvider? get(String id) => _providers[id];
 
-  /// Get a configured provider by ID, throwing if not found
-  ConfiguredEmbeddingProvider expect(String id) {
-    final provider = get(id);
-    if (provider == null) {
-      throw StateError('Configured provider not found: $id');
-    }
-    return provider;
-  }
+  /// Get connected providers only
+  Iterable<EmbeddingProvider> get connected =>
+      _providers.values.where((p) => p.isConnected);
 
-  /// Connect to a provider using its configuration
-  Future<ConfiguredEmbeddingProvider> configure(
-    EmbeddingProviderConfig config,
-  ) async {
-    if (_configuredProviders[config.id] case final existing?) {
-      return existing;
+  /// Configure a provider
+  Future<EmbeddingProvider> configure(
+    EmbeddingProviderConfig config, {
+    bool saveConfig = true,
+  }) async {
+    final factory = _factories[config.type];
+    if (factory == null) {
+      throw StateError('No factory found for provider type: ${config.type}');
     }
 
-    final template = _providerTemplates[config.type];
-    if (template == null) {
-      throw StateError('No template found for provider type: ${config.type}');
-    }
-
-    final provider = await template.configure(config);
-    // await provider.testConnection(); // TODO: Add button for testing
-
-    _configuredProviders[config.id] = provider;
-    scheduleMicrotask(() {
-      unawaited(_configManager.embeddingProviderConfigs.upsert(config));
-    });
-
-    return provider;
-  }
-
-  Future<Map<String, EmbeddingModel>> listAvailableModels(String providerId) {
-    if (_availableModels[providerId] case final cache?) {
-      return cache;
-    }
-    final provider = expect(providerId);
-    final future = provider.listAvailableModels().catchError((_) {
-      _availableModels.remove(providerId);
-      return provider.knownModels;
-    });
-    _availableModels[providerId] = future;
-    return future;
-  }
-
-  /// Attempt to connect to a provider, logging errors
-  Future<void> _tryConnect(EmbeddingProviderConfig config) async {
     try {
-      _logger.fine(
-        'Connecting to provider: ${config.id} (${config.type.name})',
-      );
-      await configure(config);
-    } catch (e, st) {
-      _logger.warning('Failed to connect to provider: ${config.id}', e, st);
-    }
-  }
+      final provider = await factory.createFromConfig(config);
+      _providers[config.id] = provider;
 
-  /// Remove a configured provider
-  Future<void> delete(String id) async {
-    final provider = _configuredProviders.remove(id);
-    _availableModels.remove(id)?.ignore();
-    if (provider != null) {
-      await _configManager.embeddingProviderConfigs.remove(id);
-      _logger.info('Deleted configured provider: $id');
+      // Save configuration if successfully connected and saveConfig is true
+      if (saveConfig && provider.isConnected) {
+        await _configManager.embeddingProviderConfigs.upsert(config);
+      }
+
       notifyListeners();
+      return provider;
+    } catch (e, st) {
+      _logger.warning('Failed to configure provider ${config.id}', e, st);
+
+      // Create an error state provider
+      final errorProvider = factory.createUnconfigured().copyWith(
+        connectionState: ProviderConnectionState.error(
+          config: config,
+          error: e.toString(),
+        ),
+      );
+      _providers[config.id] = errorProvider;
+      notifyListeners();
+      rethrow;
     }
   }
 
-  /// Clear all configured providers
-  Future<void> clear() async {
-    _configuredProviders.clear();
-    _availableModels.clear();
+  /// Remove a provider
+  Future<void> remove(String id) async {
+    _providers.remove(id);
+    _availableModels.remove(id)?.ignore();
+    await _configManager.embeddingProviderConfigs.remove(id);
     notifyListeners();
   }
 
+  /// Get available models for a provider
+  Future<Map<String, EmbeddingModel>> getAvailableModels(String providerId) {
+    if (_availableModels[providerId] case final cached?) {
+      return cached;
+    }
+
+    final provider = _providers[providerId];
+    if (provider?.operationsOrNull case final ops?) {
+      final future = ops.listAvailableModels().catchError((_) {
+        _availableModels.remove(providerId);
+        return provider?.knownModels ?? {};
+      });
+      _availableModels[providerId] = future;
+      return future;
+    }
+
+    return Future.value(provider?.knownModels ?? {});
+  }
+
+  Future<void> _tryLoadProvider(EmbeddingProviderConfig config) async {
+    try {
+      // Don't save config when loading from config changes to avoid infinite loop
+      await configure(config, saveConfig: false);
+    } catch (e) {
+      _logger.fine('Provider ${config.id} loaded with error: $e');
+    }
+  }
+
   @override
-  Future<void> dispose() async {
-    _configManager.embeddingProviderConfigs.removeListener(
-      _onProviderConfigChanged,
-    );
-    await clear();
+  void dispose() {
+    _configManager.embeddingProviderConfigs.removeListener(_onConfigChanged);
+    _providers.clear();
+    _availableModels.clear();
     super.dispose();
   }
 
-  /// Handle changes to provider configurations
-  void _onProviderConfigChanged() {
+  void _onConfigChanged() {
+    // Handle configuration changes
     final currentConfigs = _configManager.embeddingProviderConfigs.all;
     final currentIds = currentConfigs.map((c) => c.id).toSet();
-    final cachedIds = _configuredProviders.keys.toSet();
+    final providerIds = _providers.keys.toSet();
 
-    final connects = <Future<void> Function()>[];
-    final disconnects = <Future<void> Function()>[];
-
-    // Remove providers that no longer exist in config
-    final removedIds = cachedIds.difference(currentIds);
-    for (final id in removedIds) {
-      _logger.info('Provider config removed: $id');
-      disconnects.add(() => _tryDisconnect(id));
+    // Remove deleted providers
+    for (final id in providerIds.difference(currentIds)) {
+      _providers.remove(id);
+      _availableModels.remove(id)?.ignore();
     }
 
-    // Add new providers that are in config but not yet cached
-    final newIds = currentIds.difference(cachedIds);
-    for (final id in newIds) {
-      _logger.info('Provider config added: $id');
-      final config = currentConfigs.firstWhere((c) => c.id == id);
-      connects.add(() => _tryConnect(config));
-    }
-
-    // Update existing providers if their config changed
+    // Add or update providers
     for (final config in currentConfigs) {
-      if (_configuredProviders.containsKey(config.id)) {
-        final existing = _configuredProviders[config.id]!;
-        if (existing.config != config) {
-          _logger.info('Configuration changed for provider: ${config.id}');
-          // Disconnect and recreate the provider with new config
-          disconnects.add(() => _tryDisconnect(config.id));
-          connects.add(() => _tryConnect(config));
-        }
-      }
+      unawaited(_tryLoadProvider(config));
     }
 
-    Future.wait(
-      disconnects.map((f) => f()),
-    ).then((_) => Future.wait(connects.map((f) => f()))).whenComplete(() {
-      _logger.fine('Provider configurations synchronized');
-      notifyListeners();
-    });
-  }
-
-  /// Remove a provider from cache and disconnect it
-  Future<void> _tryDisconnect(String id) async {
-    final provider = _configuredProviders.remove(id);
-    _availableModels.remove(id)?.ignore();
-    if (provider != null) {
-      _logger.info('Removing provider from cache: $id');
-    }
+    notifyListeners();
   }
 }

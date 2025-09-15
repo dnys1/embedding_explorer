@@ -1,110 +1,189 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
 import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
 import 'embedding_provider_config.dart';
 
-/// Base interface for embedding providers (both configured and unconfigured)
-abstract interface class EmbeddingProvider {
-  /// Type of this provider
-  EmbeddingProviderType get type;
+part 'embedding_provider.freezed.dart';
+part 'embedding_provider.g.dart';
 
-  /// Display name for the provider
-  String get displayName;
-
-  /// Description of the provider
-  String get description;
-
-  /// Icon for the provider in the UI
-  FaIconData get icon;
-
-  /// Known models without requiring API calls
-  Map<String, EmbeddingModel> get knownModels;
-
-  /// Default settings for this provider
-  Map<String, dynamic> get defaultSettings;
-
-  /// Type of credential required for this provider, or null if none required
-  CredentialType? get requiredCredential;
+/// Represents the connection state of a provider
+@freezed
+sealed class ProviderConnectionState with _$ProviderConnectionState {
+  const factory ProviderConnectionState.unconfigured() = _Unconfigured;
+  const factory ProviderConnectionState.partiallyConfigured({
+    required EmbeddingProviderConfig config,
+    required List<String> missingRequirements,
+  }) = _PartiallyConfigured;
+  const factory ProviderConnectionState.connected({
+    required EmbeddingProviderConfig config,
+  }) = _Connected;
+  const factory ProviderConnectionState.error({
+    required EmbeddingProviderConfig config,
+    required String error,
+  }) = _Error;
 }
 
-/// An unconfigured embedding provider - represents a provider template that can be configured
-abstract interface class EmbeddingProviderTemplate
-    implements EmbeddingProvider {
-  /// Create a configured instance of this provider with the given configuration
-  Future<ConfiguredEmbeddingProvider> configure(EmbeddingProviderConfig config);
+/// Static information about a provider type
+@freezed
+abstract class ProviderDefinition with _$ProviderDefinition {
+  const factory ProviderDefinition({
+    required EmbeddingProviderType type,
+    required String displayName,
+    required String description,
+    required FaIconData icon,
+    required Map<String, EmbeddingModel> knownModels,
+    required Map<String, dynamic> defaultSettings,
+    CredentialType? requiredCredential,
+    String? credentialPlaceholder,
+    required List<ConfigurationField> configurationFields,
+  }) = _ProviderDefinition;
+
+  factory ProviderDefinition.fromJson(Map<String, dynamic> json) =>
+      _$ProviderDefinitionFromJson(json);
 }
 
-/// A configured embedding provider - has access to configuration and can perform operations
-abstract interface class ConfiguredEmbeddingProvider
-    implements EmbeddingProvider {
-  /// The configuration for this provider instance
-  EmbeddingProviderConfig get config;
+/// Represents a configuration field for a provider
+@freezed
+abstract class ConfigurationField with _$ConfigurationField {
+  const factory ConfigurationField({
+    required String key,
+    required String label,
+    required ConfigurationFieldType type,
+    @Default(false) bool required,
+    String? description,
+    String? defaultValue,
+    List<String>? options, // For dropdown fields
+    String? validation, // Regex pattern for validation
+  }) = _ConfigurationField;
 
-  /// List of available models for this provider
+  factory ConfigurationField.fromJson(Map<String, dynamic> json) =>
+      _$ConfigurationFieldFromJson(json);
+}
+
+/// Types of configuration fields
+enum ConfigurationFieldType { text, password, dropdown, number, boolean }
+
+/// A provider instance that encapsulates all functionality
+class EmbeddingProvider {
+  final ProviderDefinition definition;
+  final ProviderConnectionState connectionState;
+  final ProviderOperations? _operations;
+
+  const EmbeddingProvider({
+    required this.definition,
+    required this.connectionState,
+    ProviderOperations? operations,
+  }) : _operations = operations;
+
+  // Convenience getters
+  EmbeddingProviderType get type => definition.type;
+  String get displayName => definition.displayName;
+  String get description => definition.description;
+  FaIconData get icon => definition.icon;
+  Map<String, EmbeddingModel> get knownModels => definition.knownModels;
+  CredentialType? get requiredCredential => definition.requiredCredential;
+
+  /// Whether this provider is ready to perform operations
+  bool get isConnected => connectionState is _Connected;
+
+  /// Whether this provider has some configuration but is missing requirements
+  bool get isPartiallyConfigured => connectionState is _PartiallyConfigured;
+
+  /// Whether this provider is unconfigured
+  bool get isUnconfigured => connectionState is _Unconfigured;
+
+  /// Whether this provider has an error
+  bool get hasError => connectionState is _Error;
+
+  /// Get the current config, if any
+  EmbeddingProviderConfig? get config => connectionState.when(
+    unconfigured: () => null,
+    partiallyConfigured: (config, _) => config,
+    connected: (config) => config,
+    error: (config, _) => config,
+  );
+
+  /// Get missing requirements for partially configured providers
+  List<String> get missingRequirements => connectionState.when(
+    unconfigured: () => [],
+    partiallyConfigured: (_, missing) => missing,
+    connected: (_) => [],
+    error: (_, _) => [],
+  );
+
+  /// Get the error message if in error state
+  String? get errorMessage => connectionState.when(
+    unconfigured: () => null,
+    partiallyConfigured: (_, _) => null,
+    connected: (_) => null,
+    error: (_, error) => error,
+  );
+
+  /// Create a new provider with updated connection state
+  EmbeddingProvider copyWith({
+    ProviderConnectionState? connectionState,
+    ProviderOperations? operations,
+  }) => EmbeddingProvider(
+    definition: definition,
+    connectionState: connectionState ?? this.connectionState,
+    operations: operations ?? _operations,
+  );
+
+  /// Perform operations (only available when connected)
+  ProviderOperations get operations {
+    if (!isConnected || _operations == null) {
+      throw StateError('Provider is not connected or operations not available');
+    }
+    return _operations;
+  }
+
+  /// Try to get operations without throwing
+  ProviderOperations? get operationsOrNull => isConnected ? _operations : null;
+}
+
+/// Interface for provider operations (only available when connected)
+abstract interface class ProviderOperations {
+  /// List available models (may fetch from API)
   Future<Map<String, EmbeddingModel>> listAvailableModels();
 
   /// Test the provider connection
-  Future<bool> testConnection();
+  Future<ValidationResult> testConnection();
 
   /// Generate embeddings for the given texts
   Future<List<List<double>>> generateEmbeddings({
     required String modelId,
     required List<String> texts,
   });
+
+  /// Validate the current configuration
+  Future<ValidationResult> validateConfiguration();
 }
 
-extension ConfiguredEmbeddingProviderImpl on ConfiguredEmbeddingProvider {
-  /// Unique identifier for this provider
-  String get id => config.id;
+/// Embedding model with freezed
+@freezed
+abstract class EmbeddingModel with _$EmbeddingModel {
+  const factory EmbeddingModel({
+    required String id,
+    required String name,
+    required String description,
+    required int dimensions,
+    int? maxInputTokens,
+    double? costPer1kTokens,
+  }) = _EmbeddingModel;
+
+  factory EmbeddingModel.fromJson(Map<String, dynamic> json) =>
+      _$EmbeddingModelFromJson(json);
 }
 
-/// Represents an embedding model offered by a provider
-class EmbeddingModel {
-  final String id;
-  final String name;
-  final String description;
-  final int dimensions;
-  final int? maxInputTokens;
-  final double? costPer1kTokens;
-
-  const EmbeddingModel({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.dimensions,
-    this.maxInputTokens,
-    this.costPer1kTokens,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'dimensions': dimensions,
-    'maxInputTokens': ?maxInputTokens,
-    'costPer1kTokens': ?costPer1kTokens,
-  };
-
-  factory EmbeddingModel.fromJson(Map<String, dynamic> json) => EmbeddingModel(
-    id: json['id'] as String,
-    name: json['name'] as String,
-    description: json['description'] as String,
-    dimensions: (json['dimensions'] as num).toInt(),
-    maxInputTokens: (json['maxInputTokens'] as num?)?.toInt(),
-    costPer1kTokens: (json['costPer1kTokens'] as num?)?.toDouble(),
-  );
-}
-
-/// Result of provider configuration validation
-class ValidationResult {
-  final bool isValid;
-  final List<String> errors;
-  final List<String> warnings;
-
-  const ValidationResult({
-    required this.isValid,
-    this.errors = const [],
-    this.warnings = const [],
-  });
+/// Validation result with freezed
+@freezed
+abstract class ValidationResult with _$ValidationResult {
+  const factory ValidationResult({
+    required bool isValid,
+    @Default([]) List<String> errors,
+    @Default([]) List<String> warnings,
+  }) = _ValidationResult;
 
   factory ValidationResult.valid() => const ValidationResult(isValid: true);
 
@@ -113,4 +192,7 @@ class ValidationResult {
 
   factory ValidationResult.withWarnings(List<String> warnings) =>
       ValidationResult(isValid: true, warnings: warnings);
+
+  factory ValidationResult.fromJson(Map<String, dynamic> json) =>
+      _$ValidationResultFromJson(json);
 }

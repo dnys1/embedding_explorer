@@ -5,12 +5,17 @@ import '../../util/clsx.dart';
 class FaIconData {
   const FaIconData(this.type, this.name);
 
+  factory FaIconData.fromJson(Map<String, dynamic> json) =>
+      FaIconData(json['type'] as String, json['name'] as String);
+
   final String type;
   final String name;
 
   const FaIconData.solid(this.name) : type = 'solid';
   const FaIconData.regular(this.name) : type = 'regular';
   const FaIconData.brand(this.name) : type = 'brands';
+
+  Map<String, dynamic> toJson() => {'type': type, 'name': name};
 }
 
 class FaIcon extends StatelessComponent {

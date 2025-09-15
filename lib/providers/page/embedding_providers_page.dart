@@ -49,21 +49,22 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
 
     // Pre-fill form with provider defaults
     _name = provider.displayName;
-    _settings = Map.of(provider.defaultSettings);
+    _settings = Map.of(provider.definition.defaultSettings);
 
     setState(() {
       // _configuringProvider is already set above
     });
   }
 
-  void _showEditConfigDialog(ConfiguredEmbeddingProvider provider) {
+  void _showEditConfigDialog(EmbeddingProvider provider) {
+    final config = provider.config!;
     setState(() {
       _configuringProvider = provider;
-      _name = provider.config.name;
-      _credential = provider.config.credential;
-      _settings = Map<String, dynamic>.of(provider.config.settings);
-      _persistCredentials = provider.config.persistCredentials;
-      _editingProviderId = provider.id;
+      _name = config.name;
+      _credential = config.credential;
+      _settings = Map<String, dynamic>.of(config.settings);
+      _persistCredentials = config.persistCredentials;
+      _editingProviderId = config.id;
     });
   }
 
@@ -130,9 +131,9 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
                 EmbeddingProviderView(
                   provider: provider,
                   onConfigure: () => _showConfigureProvider(provider),
-                  onEdit: () => _showEditConfigDialog(
-                    provider as ConfiguredEmbeddingProvider,
-                  ),
+                  onEdit: provider.config != null
+                      ? () => _showEditConfigDialog(provider)
+                      : null,
                 ),
             ]),
           ]),

@@ -1,9 +1,8 @@
 @TestOn('browser')
 library;
 
-import 'package:embeddings_explorer/credentials/model/credential.dart';
 import 'package:embeddings_explorer/providers/component/embedding_provider_credentials_view.dart';
-import 'package:embeddings_explorer/providers/service/openai_provider.dart';
+import 'package:embeddings_explorer/providers/service/factories/openai_factory.dart';
 import 'package:web/web.dart' as web;
 
 import '../../common.dart';
@@ -16,13 +15,11 @@ void main() {
     testBrowser(
       'renders API key input with properly positioned toggle button',
       (tester) async {
-        const provider = OpenAIProvider();
+        const factory = OpenAIFactory();
+        final provider = factory.createUnconfigured();
 
         tester.pumpComponent(
-          EmbeddingProviderCredentialsView(
-            provider: provider,
-            initialCredential: ApiKeyCredential(apiKey: 'test-key'),
-          ),
+          EmbeddingProviderCredentialsView(provider: provider),
         );
 
         await tester.pump();
@@ -54,13 +51,11 @@ void main() {
     testBrowser('toggles password visibility when button is clicked', (
       tester,
     ) async {
-      const provider = OpenAIProvider();
+      const factory = OpenAIFactory();
+      final provider = factory.createUnconfigured();
 
       tester.pumpComponent(
-        EmbeddingProviderCredentialsView(
-          provider: provider,
-          initialCredential: ApiKeyCredential(apiKey: 'test-key-123'),
-        ),
+        EmbeddingProviderCredentialsView(provider: provider),
       );
 
       await tester.pump();

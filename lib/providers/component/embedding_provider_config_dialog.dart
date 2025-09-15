@@ -4,6 +4,7 @@ import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../../credentials/model/credential.dart';
 import '../model/embedding_provider.dart';
+import '../model/embedding_provider_config.dart';
 import 'embedding_provider_credentials_view.dart';
 
 class EmbeddingProviderConfigDialog extends StatefulComponent {
@@ -41,8 +42,7 @@ class _EmbeddingProviderConfigDialogState
 
   void _initializeFormValues() {
     // Initialize form with existing values if editing
-    if (provider case final ConfiguredEmbeddingProvider configuredProvider) {
-      final config = configuredProvider.config;
+    if (provider.config case final config?) {
       _name = config.name;
       _persistCredentials = config.persistCredentials;
     } else {
@@ -50,14 +50,6 @@ class _EmbeddingProviderConfigDialogState
       _name = '${provider.displayName} Configuration';
       _persistCredentials = false;
     }
-  }
-
-  Credential? _getInitialCredential() {
-    // Get initial credential from the configured provider if editing
-    if (provider case final ConfiguredEmbeddingProvider configuredProvider) {
-      return configuredProvider.config.credential;
-    }
-    return null;
   }
 
   @override
@@ -88,9 +80,12 @@ class _EmbeddingProviderConfigDialogState
             formKey: _formKey,
             onSubmit: _handleFormSubmit,
             child: div(classes: 'space-y-6', [
-              _buildNameSection(),
-              _buildCredentialsSection(),
-              _buildPersistenceSection(),
+              if (provider.type == EmbeddingProviderType.custom)
+                _buildNameSection(),
+              if (provider.requiredCredential != null) ...[
+                _buildCredentialsSection(),
+                _buildPersistenceSection(),
+              ],
             ]),
           ),
 
@@ -143,10 +138,7 @@ class _EmbeddingProviderConfigDialogState
       ]),
 
       // Use the existing credentials view for proper credential management
-      EmbeddingProviderCredentialsView(
-        provider: provider,
-        initialCredential: _getInitialCredential(),
-      ),
+      EmbeddingProviderCredentialsView(provider: provider),
     ]);
   }
 
@@ -241,9 +233,8 @@ class _EmbeddingProviderConfigDialogState
 
     final settings = <String, dynamic>{}; // Currently no additional settings
 
-    if (provider case final ConfiguredEmbeddingProvider provider) {
+    if (provider.config case final config?) {
       // Update existing configuration
-      final config = provider.config;
       configManager.embeddingProviderConfigs
           .updateConfig(
             config.id,

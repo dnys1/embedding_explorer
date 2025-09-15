@@ -10,22 +10,6 @@ import '../../credentials/service/credential_service.dart';
 /// Types of embedding providers
 enum EmbeddingProviderType { openai, gemini, custom }
 
-/// Configuration state for providers
-enum ConfigurationState {
-  /// No configuration exists
-  notConfigured,
-
-  /// Configuration exists but credentials not persisted
-  partiallyConfigured,
-
-  /// Configuration exists with persisted credentials
-  fullyConfigured;
-
-  bool get hasConfiguration => this != notConfigured;
-  bool get isPartiallyConfigured => this == partiallyConfigured;
-  bool get isFullyConfigured => this == fullyConfigured;
-}
-
 /// Configuration for a model provider with metadata
 class EmbeddingProviderConfig implements ConfigurationItem {
   @override
