@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:csv/csv.dart';
 import 'package:logging/logging.dart';
@@ -55,7 +54,7 @@ class CsvDataSource extends DataSource {
       }
 
       _logger.finest('Persisting to ${storage.name}');
-      await storage.write(config.filename, utf8.encode(content));
+      await storage.writeAsString(config.filename, content);
       _logger.finest(
         'CSV content persisted to ${storage.name} as ${config.filename}',
       );
@@ -82,7 +81,7 @@ class CsvDataSource extends DataSource {
     try {
       _logger.info('Connecting to CSV data source: ${config.name}');
 
-      final content = utf8.decode(await storage.read(config.filename));
+      final content = await storage.readAsString(config.filename);
 
       _logger.finest(
         'Read CSV content from ${storage.name}: '

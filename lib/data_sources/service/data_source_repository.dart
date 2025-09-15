@@ -26,9 +26,13 @@ class DataSourceRepository with ChangeNotifier {
   final DatabasePool _databasePool;
   final Map<String, DataSource> _dataSources = {};
 
-  final OpfsStorageService _opfsStorage = OpfsStorageService();
+  final OpfsStorageService _opfsStorage;
 
-  DataSourceRepository(this._configManager, this._databasePool) {
+  DataSourceRepository(
+    this._configManager,
+    this._databasePool,
+    this._opfsStorage,
+  ) {
     _configManager.dataSourceConfigs.addListener(_onDataSourceConfigChanged);
   }
 
@@ -142,7 +146,6 @@ class DataSourceRepository with ChangeNotifier {
   Future<void> clear() async {
     try {
       await Future.wait(_dataSources.values.map((ds) => ds.dispose()));
-      await _opfsStorage.clear();
     } finally {
       _dataSources.clear();
     }

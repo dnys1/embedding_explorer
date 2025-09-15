@@ -7,14 +7,12 @@ sealed class Credential {
     };
   }
 
-  factory Credential.apiKey(String apiKey) => ApiKeyCredential(apiKey: apiKey);
-
   CredentialType get type;
   Map<String, Object?> toJson();
 }
 
 final class ApiKeyCredential implements Credential {
-  ApiKeyCredential({required this.apiKey});
+  const ApiKeyCredential({required this.apiKey});
 
   final String apiKey;
 

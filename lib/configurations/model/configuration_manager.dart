@@ -8,6 +8,7 @@ import '../../jobs/model/embedding_job_collection.dart';
 import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/embedding_provider_config.dart';
 import '../../providers/service/embedding_provider_registry.dart';
+import '../../storage/service/storage_service.dart';
 import '../../templates/model/embedding_template_config.dart';
 import '../service/configuration_service.dart';
 
@@ -16,9 +17,15 @@ class ConfigurationManager with ChangeNotifier {
   static final ConfigurationManager _instance = ConfigurationManager._();
   static ConfigurationManager get instance => _instance;
 
-  ConfigurationManager._() : _configService = ConfigurationService();
+  ConfigurationManager._()
+    : _configService = ConfigurationService(),
+      _opfsStorage = OpfsStorageService();
+
+  @visibleForTesting
+  ConfigurationManager.test() : this._();
 
   final ConfigurationService _configService;
+  final OpfsStorageService _opfsStorage;
 
   // Configuration collections
 
@@ -65,7 +72,7 @@ class ConfigurationManager with ChangeNotifier {
       embeddingJobs.loadFromStorage(),
     ]);
 
-    dataSources = DataSourceRepository(this, _databasePool);
+    dataSources = DataSourceRepository(this, _databasePool, _opfsStorage);
     await dataSources.initialize();
     await embeddingProviders.initialize();
 
@@ -92,6 +99,9 @@ class ConfigurationManager with ChangeNotifier {
       embeddingJobs.clear(),
       embeddingProviders.clear(),
     ]);
+
+    await _databasePool.wipeAll();
+    await _opfsStorage.clear();
 
     notifyListeners();
   }

@@ -22,8 +22,8 @@ void main() {
     late DataSourceRepository repository;
     late StreamController<void> repositoryChanges;
 
-    setUpAll(() async {
-      configManager = ConfigurationManager.instance;
+    setUp(() async {
+      configManager = ConfigurationManager.test();
       await configManager.initialize(
         libsqlUri: testLibsqlUri,
         clearOnInit: true,

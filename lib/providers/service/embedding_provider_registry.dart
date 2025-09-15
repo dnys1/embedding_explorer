@@ -52,10 +52,10 @@ class EmbeddingProviderRegistry with ChangeNotifier {
   }
 
   /// Get a configured provider by ID
-  EmbeddingProvider? get(String id) => _configuredProviders[id];
+  ConfiguredEmbeddingProvider? get(String id) => _configuredProviders[id];
 
   /// Get a configured provider by ID, throwing if not found
-  EmbeddingProvider expect(String id) {
+  ConfiguredEmbeddingProvider expect(String id) {
     final provider = get(id);
     if (provider == null) {
       throw StateError('Configured provider not found: $id');
@@ -92,9 +92,6 @@ class EmbeddingProviderRegistry with ChangeNotifier {
       return cache;
     }
     final provider = expect(providerId);
-    if (provider is! ConfiguredEmbeddingProvider) {
-      return Future.value(provider.knownModels);
-    }
     final future = provider.listAvailableModels().catchError((_) {
       _availableModels.remove(providerId);
       return provider.knownModels;
