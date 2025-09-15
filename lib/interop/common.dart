@@ -25,6 +25,41 @@ extension type JSError._(JSObject _) implements JSObject {
   external String? get stack;
 }
 
+/// JavaScript TypeError - thrown when a value is not of the expected type
+@JS('TypeError')
+extension type JSTypeError._(JSObject _) implements JSError {
+  external JSTypeError([String message]);
+}
+
+/// JavaScript fetch-related network error - not a standard constructor but occurs in fetch rejections
+/// We'll create this for testing purposes but it's typically a DOMException
+extension type JSNetworkError._(JSObject _) implements JSError {
+  factory JSNetworkError([String? message]) =>
+      JSDOMException(message ?? 'Network error', 'NetworkError')
+          as JSNetworkError;
+}
+
+/// JavaScript AbortError - typically a DOMException with name 'AbortError'
+extension type JSAbortError._(JSObject _) implements JSError {
+  factory JSAbortError([String? message]) =>
+      JSDOMException(message ?? 'Request aborted', 'AbortError')
+          as JSAbortError;
+}
+
+/// JavaScript TimeoutError - typically a DOMException with name 'TimeoutError'
+extension type JSTimeoutError._(JSObject _) implements JSError {
+  factory JSTimeoutError([String? message]) =>
+      JSDOMException(message ?? 'Operation timed out', 'TimeoutError')
+          as JSTimeoutError;
+}
+
+/// JavaScript DOMException - base class for DOM-related exceptions
+@JS('DOMException')
+extension type JSDOMException._(JSObject _) implements JSError {
+  external JSDOMException([String message, String? name]);
+  external String get code;
+}
+
 extension JSBigIntExtensions on JSBigInt {
   int toInt() {
     return Int64.parseInt(toString()).toInt();
