@@ -6,8 +6,9 @@ import 'package:embeddings_explorer/interop/libsql.dart' as libsql;
 import 'package:embeddings_explorer/util/logging.dart';
 import 'package:logging/logging.dart';
 
-void setupTests() {
-  configureLogging(level: Level.ALL, isTest: true);
+StreamSubscription<LogRecord> setupTests() {
+  final sub = configureLogging(level: Level.ALL, isTest: true);
+  return sub;
 }
 
 Uri get testLibsqlUri => Uri.parse(

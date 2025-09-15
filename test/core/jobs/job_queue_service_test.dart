@@ -52,6 +52,8 @@ void main() {
         expect(service.containsJob('job1'), isTrue);
         expect(service.isJobRunning('job1'), isTrue);
 
+        service.completeJob('job1');
+
         await future;
         expect(service.totalJobCount, equals(0));
         expect(service.isProcessing, isFalse);
@@ -77,6 +79,9 @@ void main() {
         expect(queuedJobs[0].id, equals('job2')); // High priority
         expect(queuedJobs[1].id, equals('job3')); // Normal priority
 
+        for (final jobId in ['job1', 'job2', 'job3']) {
+          service.completeJob(jobId);
+        }
         await Future.wait([future1, future2, future3]);
         expect(service.totalJobCount, equals(0));
       });
@@ -222,6 +227,8 @@ void main() {
 
         expect(service.isProcessing, isTrue);
 
+        service.completeJob('job1');
+
         await future;
         expect(service.isProcessing, isFalse);
         expect(service.totalJobCount, equals(0));
@@ -293,34 +300,28 @@ void main() {
 
     group('events', () {
       test('emits correct events during job lifecycle', () async {
-        final events = <JobQueueEvent>[];
-        final subscription = service.events.listen(events.add);
-
         final job = _createTestJob('job1');
-        final future = service.enqueueJob(job);
+
+        scheduleMicrotask(() {
+          service.enqueueJob(job);
+          service.completeJob('job1');
+        });
 
         // Let events propagate
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-
-        expect(events.length, greaterThanOrEqualTo(2));
-        expect(events.any((e) => e is JobQueuedEvent), isTrue);
-        expect(events.any((e) => e is JobStartedEvent), isTrue);
-        expect(events.any((e) => e is ProcessingStartedEvent), isTrue);
-
-        await future;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-
-        expect(events.any((e) => e is JobCompletedEvent), isTrue);
-        expect(events.any((e) => e is ProcessingStoppedEvent), isTrue);
-
-        await subscription.cancel();
+        await expectLater(
+          service.events,
+          emitsInOrder([
+            isA<JobQueuedEvent>().having((e) => e.job.id, 'job id', 'job1'),
+            isA<ProcessingStartedEvent>(),
+            isA<JobStartedEvent>().having((e) => e.job.id, 'job id', 'job1'),
+            isA<JobCompletedEvent>().having((e) => e.job.id, 'job id', 'job1'),
+            isA<ProcessingStoppedEvent>(),
+          ]),
+        );
       });
 
       test('emits dequeue events', () async {
         service.setMaxConcurrentJobs(1);
-
-        final events = <JobQueueEvent>[];
-        final subscription = service.events.listen(events.add);
 
         final job1 = _createTestJob('job1');
         final job2 = _createTestJob('job2');
@@ -328,13 +329,14 @@ void main() {
         service.enqueueJob(job1); // Running
         service.enqueueJob(job2); // Queued
 
+        expect(
+          service.events,
+          emitsThrough(
+            isA<JobDequeuedEvent>().having((e) => e.job.id, 'job id', 'job2'),
+          ),
+        );
+
         service.dequeueJob('job2');
-
-        await Future<void>.delayed(Duration.zero);
-
-        expect(events.any((e) => e is JobDequeuedEvent), isTrue);
-
-        await subscription.cancel();
       });
     });
 

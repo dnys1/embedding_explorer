@@ -1,10 +1,20 @@
-platforms:
-  - chrome
+platforms: [chrome]
+
+presets:
+  all:
+    platforms: [chrome, firefox, safari]
 
 override_platforms:
   chrome:
     settings:
       headless: true
+  firefox:
+    settings:
+      arguments: --headless
+
+tags:
+  safari:
+    test_on: mac-os
 
 verbose_trace: false
 js_trace: true

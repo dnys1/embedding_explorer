@@ -237,8 +237,6 @@ mixin WorkerBeeImpl<Request extends Object, Response>
 
           void onMessage(MessageEvent event) {
             final eventData = event.data;
-            logger.finest('Got data: $eventData');
-
             if (eventData.typeofEquals('string')) {
               final state = (eventData as JSString).toDart;
 

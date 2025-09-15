@@ -95,10 +95,7 @@ final class OpfsStorageService implements StorageService {
       await root.remove(web.FileSystemRemoveOptions(recursive: true)).toDart;
       return;
     } catch (e) {
-      _logger.warning(
-        'OPFS remove() not supported, falling back to manual clear',
-        e,
-      );
+      _logger.finest('OPFS remove() not supported', e);
     }
 
     // Try to iterate over entries
@@ -106,13 +103,22 @@ final class OpfsStorageService implements StorageService {
     try {
       final keysIterator =
           root.callMethod('keys'.toJS) as JSAsyncIterator<JSString>;
-      final keys = await keysIterator.collect();
+      final keys = await keysIterator.collect().then(
+        (keys) => keys.map((e) => e.toDart).toList(growable: false),
+      );
+      _logger.finest('Removing OPFS entries: $keys');
       await Future.wait([
-        for (final path in keys) root.removeEntry(path.toDart).toDart,
+        for (final path in keys)
+          root
+              .removeEntry(path, web.FileSystemRemoveOptions(recursive: true))
+              .toDart,
       ]);
+      return;
     } catch (e) {
       // entries() not supported
-      _logger.warning('OPFS entries() not supported, cannot clear storage', e);
+      _logger.finest('OPFS entries() not supported', e);
     }
+
+    _logger.warning('Failed to clear OPFS storage');
   }
 }

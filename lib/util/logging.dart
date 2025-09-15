@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:logging/logging.dart';
 import 'package:web/web.dart';
 
-void configureLogging({required Level level, bool isTest = false}) {
+StreamSubscription<LogRecord> configureLogging({
+  required Level level,
+  bool isTest = false,
+}) {
   Logger.root.level = level;
-  Logger.root.onRecord.listen((record) {
+  return Logger.root.onRecord.listen((record) {
     final buffer = StringBuffer();
     buffer.write('[${record.loggerName}]: ${record.message}');
     if (record.error case final error?) {
