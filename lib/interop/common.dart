@@ -76,37 +76,24 @@ extension type JSIteratorResult<T extends JSAny?>._(JSObject _)
   external factory JSIteratorResult({bool done, T? value});
 
   external bool get done;
-  external T? get value;
+  external T get value;
 }
 
 extension type JSAsyncIterator<T extends JSAny?>._(JSObject _)
     implements JSObject {
   external JSPromise<JSIteratorResult<T>> next();
 
-  /// Collects all values from the async iterator into a list.
-  Future<List<T>> collect() async {
-    try {
-      final result = await _arrayFromAsync<T>(this).toDart;
-      return result.toDart;
-    } catch (e) {
-      final results = <T>[];
-      for (;;) {
-        final result = await next().toDart;
-        if (result.done) {
-          break;
-        }
-        results.add(result.value as T);
+  /// Convert the async iterator to a Dart Stream.
+  Stream<T> get stream async* {
+    for (;;) {
+      final result = await next().toDart;
+      if (result.done) {
+        break;
       }
-      return results;
+      yield result.value;
     }
   }
 }
-
-@experimental
-@JS('Array.fromAsync')
-external JSPromise<JSArray<T>> _arrayFromAsync<T extends JSAny?>(
-  JSObject asyncIterator,
-);
 
 /// Checks if the current context is a web worker.
 bool get kIsWorker {

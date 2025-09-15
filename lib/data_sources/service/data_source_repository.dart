@@ -26,7 +26,7 @@ class DataSourceRepository with ChangeNotifier {
   final DatabasePool _databasePool;
   final Map<String, DataSource> _dataSources = {};
 
-  final OpfsStorageService _opfsStorage;
+  final StorageService _opfsStorage;
 
   DataSourceRepository(
     this._configManager,

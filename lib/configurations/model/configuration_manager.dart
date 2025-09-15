@@ -1,4 +1,5 @@
 import 'package:jaspr/jaspr.dart';
+import 'package:web/web.dart' as web;
 
 import '../../credentials/service/credential_service.dart';
 import '../../data_sources/model/data_source_config.dart';
@@ -17,15 +18,13 @@ class ConfigurationManager with ChangeNotifier {
   static final ConfigurationManager _instance = ConfigurationManager._();
   static ConfigurationManager get instance => _instance;
 
-  ConfigurationManager._()
-    : _configService = ConfigurationService(),
-      _opfsStorage = OpfsStorageService();
+  ConfigurationManager._() : _configService = ConfigurationService();
 
   @visibleForTesting
   ConfigurationManager.test() : this._();
 
   final ConfigurationService _configService;
-  final OpfsStorageService _opfsStorage;
+  late final StorageService _opfsStorage;
 
   // Configuration collections
 
@@ -55,7 +54,11 @@ class ConfigurationManager with ChangeNotifier {
   }) async {
     _databasePool = await DatabasePool.create(
       libsqlUri: libsqlUri,
-      clearOnInit: clearOnInit,
+      clearOnInit:
+          clearOnInit ??
+          Uri.parse(
+            web.window.location.href,
+          ).queryParameters.containsKey('clear'),
       name: poolName,
     );
     final configurationDb = await _databasePool.open('configurations.db');
@@ -72,6 +75,7 @@ class ConfigurationManager with ChangeNotifier {
       embeddingJobs.loadFromStorage(),
     ]);
 
+    _opfsStorage = await StorageService.opfs();
     dataSources = DataSourceRepository(this, _databasePool, _opfsStorage);
     await dataSources.initialize();
     await embeddingProviders.initialize();
@@ -97,7 +101,6 @@ class ConfigurationManager with ChangeNotifier {
       embeddingProviderConfigs.clear(),
       customProviderTemplates.clear(),
       embeddingJobs.clear(),
-      embeddingProviders.clear(),
     ]);
 
     await _databasePool.wipeAll();
