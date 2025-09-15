@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
+import '../../util/retryable_exception.dart';
 import '../model/embedding_provider.dart';
 import '../model/embedding_provider_config.dart';
 
@@ -84,32 +85,13 @@ final class _ConfiguredGeminiProvider extends GeminiProvider
 
   @override
   Future<Map<String, EmbeddingModel>> listAvailableModels() async {
-    final url = '$_baseUrl/models';
+    final response = await _makeRequest(
+      apiKey: credential.apiKey,
+      endpoint: '/models',
+      method: 'GET',
+    );
 
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'x-goog-api-key': credential.apiKey,
-    };
-
-    final response = await web.window
-        .fetch(
-          url.toJS,
-          web.RequestInit(method: 'GET', headers: headers.jsify()! as JSObject),
-        )
-        .toDart;
-
-    if (!response.ok) {
-      final errorText = await response.text().toDart;
-      throw Exception(
-        'OpenAI API request failed (${response.status}): ${errorText.toDart}',
-      );
-    }
-
-    final responseText = await response.text().toDart;
-    final responseData =
-        jsonDecode(responseText.toDart) as Map<String, dynamic>;
-
-    final models = (responseData['models'] as List)
+    final models = (response['models'] as List)
         .cast<Map<String, dynamic>>()
         .where(
           (model) =>
@@ -150,10 +132,25 @@ final class _ConfiguredGeminiProvider extends GeminiProvider
     for (int i = 0; i < texts.length; i += batchSize) {
       final batch = texts.skip(i).take(batchSize).toList();
 
+      final body = {
+        'requests': batch
+            .map(
+              (text) => {
+                'model': 'models/$modelId',
+                'content': {
+                  'parts': [
+                    {'text': text},
+                  ],
+                },
+              },
+            )
+            .toList(),
+      };
+
       final response = await _makeRequest(
         apiKey: credential.apiKey,
-        modelId: modelId,
-        texts: batch,
+        endpoint: '/models/$modelId:batchEmbedContents',
+        body: body,
       );
 
       final embeddings = response['embeddings'] as List;
@@ -192,49 +189,108 @@ final class _ConfiguredGeminiProvider extends GeminiProvider
     );
   }
 
+  /// Parses retry-after information from Gemini error response headers or body
+  Duration _parseRetryAfterFromResponse(
+    web.Response response,
+    String errorText,
+  ) {
+    // Default to 60 seconds if parsing fails
+    const defaultRetry = Duration(seconds: 60);
+
+    // First check for Retry-After header
+    final retryAfterHeader = response.headers.get('Retry-After');
+    if (retryAfterHeader != null) {
+      final seconds = int.tryParse(retryAfterHeader);
+      if (seconds != null) {
+        return Duration(seconds: seconds);
+      }
+    }
+
+    // Check for quota information in response body
+    try {
+      final errorData = jsonDecode(errorText) as Map<String, dynamic>;
+      final error = errorData['error'];
+      if (error is Map<String, dynamic>) {
+        // Check for quota reset time or similar fields
+        final status = error['status'] as String?;
+        if (status == 'RESOURCE_EXHAUSTED') {
+          // Return a longer delay for quota exhaustion
+          return const Duration(minutes: 1);
+        }
+      }
+    } catch (e) {
+      _logger.warning('Failed to parse retry-after from response body', e);
+    }
+
+    return defaultRetry;
+  }
+
   Future<Map<String, dynamic>> _makeRequest({
     required String apiKey,
-    required String modelId,
-    required List<String> texts,
+    required String endpoint,
+    Map<String, dynamic>? body,
+    String method = 'POST',
   }) async {
-    final url = '$_baseUrl/models/$modelId:batchEmbedContents';
+    final url = '$_baseUrl$endpoint';
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
     };
 
-    final body = {
-      'requests': texts
-          .map(
-            (text) => {
-              'model': 'models/$modelId',
-              'content': {
-                'parts': [
-                  {'text': text},
-                ],
-              },
-            },
-          )
-          .toList(),
-    };
+    final requestInit = web.RequestInit(
+      method: method,
+      headers: headers.jsify()! as JSObject,
+    );
 
-    final response = await web.window
-        .fetch(
-          url.toJS,
-          web.RequestInit(
-            method: 'POST',
-            headers: headers.jsify()! as JSObject,
-            body: jsonEncode(body).toJS,
-          ),
-        )
-        .toDart;
+    // Only add body for non-GET requests
+    if (method != 'GET') {
+      assert(body != null);
+      requestInit.body = jsonEncode(body).toJS;
+    }
+
+    final response = await web.window.fetch(url.toJS, requestInit).toDart;
 
     if (!response.ok) {
-      final errorText = await response.text().toDart;
-      throw Exception(
-        'Gemini API request failed (${response.status}): ${errorText.toDart}',
-      );
+      final errorText = await response.text().toDart.then((e) => e.toDart);
+      final statusCode = response.status;
+
+      // Handle rate limiting (429) as retryable
+      if (statusCode == 429) {
+        // Parse retry information from response headers or body
+        final retryAfter = _parseRetryAfterFromResponse(response, errorText);
+
+        throw RetryableException.rateLimited(
+          message: 'Gemini API rate limited',
+          retryAfterSeconds: retryAfter.inSeconds,
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle temporary server errors (5xx) as retryable
+      if (statusCode >= 500 && statusCode < 600) {
+        throw RetryableException.serviceUnavailable(
+          message: 'Gemini API server error ($statusCode)',
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle timeout errors as retryable
+      if (errorText.toLowerCase().contains('timeout')) {
+        throw RetryableException.timeout(
+          message: 'Gemini API timeout',
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // All other errors are non-retryable
+      throw Exception('Gemini API request failed ($statusCode): $errorText');
     }
 
     final responseText = await response.text().toDart;

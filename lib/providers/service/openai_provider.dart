@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import '../../common/ui/fa_icon.dart';
 import '../../credentials/model/credential.dart';
+import '../../util/retryable_exception.dart';
 import '../model/embedding_provider.dart';
 import '../model/embedding_provider_config.dart';
 
@@ -173,6 +174,50 @@ final class _ConfiguredOpenAIProvider extends OpenAIProvider
     );
   }
 
+  /// Parses retry-after information from OpenAI error response body
+  Duration _parseRetryAfterFromBody(String errorText) {
+    // Default to 60 seconds if parsing fails
+    const defaultRetry = Duration(seconds: 60);
+
+    try {
+      final errorData = jsonDecode(errorText) as Map<String, dynamic>;
+      final error = errorData['error'];
+      if (error is! Map<String, dynamic>) {
+        return defaultRetry;
+      }
+
+      // Check for resets_in_seconds field
+      final resetsInSeconds = (error['resets_in_seconds'] as num?)?.toInt();
+      if (resetsInSeconds != null) {
+        return Duration(seconds: resetsInSeconds);
+      }
+
+      final message = error['message'] as String?;
+      if (message == null) {
+        return defaultRetry;
+      }
+
+      // Parse from message using regex like "Please try again in 1.898s"
+      final retryMatch = RegExp(
+        r'Please try again in (\d+(?:\.\d+)?)(s|ms)',
+      ).firstMatch(message);
+      if (retryMatch != null) {
+        final value = double.parse(retryMatch.group(1)!);
+        final unit = retryMatch.group(2)!;
+
+        if (unit == 's') {
+          return Duration(milliseconds: (value * 1000).round());
+        } else if (unit == 'ms') {
+          return Duration(milliseconds: value.round());
+        }
+      }
+    } catch (e) {
+      _logger.warning('Failed to parse retry-after from response body', e);
+    }
+
+    return defaultRetry;
+  }
+
   Future<Map<String, dynamic>> _makeRequest({
     required String apiKey,
     required String endpoint,
@@ -199,10 +244,45 @@ final class _ConfiguredOpenAIProvider extends OpenAIProvider
     final response = await web.window.fetch(url.toJS, requestInit).toDart;
 
     if (!response.ok) {
-      final errorText = await response.text().toDart;
-      throw Exception(
-        'OpenAI API request failed (${response.status}): ${errorText.toDart}',
-      );
+      final errorText = await response.text().toDart.then((e) => e.toDart);
+      final statusCode = response.status;
+
+      // Handle rate limiting (429) as retryable
+      if (statusCode == 429) {
+        // Parse retry information from response body
+        final retryAfter = _parseRetryAfterFromBody(errorText);
+
+        throw RetryableException.rateLimited(
+          message: 'OpenAI API rate limited',
+          retryAfterSeconds: retryAfter.inSeconds,
+          originalException: Exception(
+            'OpenAI API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle temporary server errors (5xx) as retryable
+      if (statusCode >= 500 && statusCode < 600) {
+        throw RetryableException.serviceUnavailable(
+          message: 'OpenAI API server error ($statusCode)',
+          originalException: Exception(
+            'OpenAI API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle timeout errors as retryable
+      if (errorText.toLowerCase().contains('timeout')) {
+        throw RetryableException.timeout(
+          message: 'OpenAI API timeout',
+          originalException: Exception(
+            'OpenAI API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // All other errors are non-retryable
+      throw Exception('OpenAI API request failed ($statusCode): $errorText');
     }
 
     final responseText = await response.text().toDart;
