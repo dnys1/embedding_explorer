@@ -10,7 +10,7 @@ import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/embedding_provider_config.dart';
 import '../../providers/service/embedding_provider_registry.dart';
 import '../../storage/service/storage_service.dart';
-import '../../templates/model/embedding_template_config.dart';
+import '../../templates/model/embedding_template.dart';
 import '../service/configuration_service.dart';
 
 /// Global state manager for all configuration collections

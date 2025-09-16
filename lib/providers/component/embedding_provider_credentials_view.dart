@@ -50,7 +50,7 @@ class _EmbeddingProviderCredentialsViewState
               placeholder: component.provider.definition.credentialPlaceholder,
               value: state.value?.apiKey ?? '',
               onChange: (event, target) {
-                final newCredential = ApiKeyCredential(apiKey: target.value);
+                final newCredential = ApiKeyCredential(target.value);
                 state.didChange(newCredential);
               },
             ),

@@ -1,6 +1,10 @@
 import 'dart:convert';
 
+import 'package:freezed_annotation/freezed_annotation.dart';
+
 import '../../configurations/model/configuration_item.dart';
+
+part 'embedding_job.freezed.dart';
 
 /// Represents a job status
 enum JobStatus {
@@ -42,98 +46,26 @@ enum JobStatus {
 }
 
 /// Represents an embedding job configuration
-class EmbeddingJob implements ConfigurationItem {
-  @override
-  final String id;
-  final String name;
-  final String description;
-  final String dataSourceId;
-  final String embeddingTemplateId;
-  final List<String> providerIds;
-  final JobStatus status;
-  final DateTime createdAt;
-  final DateTime? startedAt;
-  final DateTime? completedAt;
-  final String? errorMessage;
-  final Map<String, dynamic>? results;
-  final int? totalRecords;
-  final int? processedRecords;
-
-  const EmbeddingJob({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.dataSourceId,
-    required this.embeddingTemplateId,
-    required this.providerIds,
-    this.status = JobStatus.pending,
-    required this.createdAt,
-    this.startedAt,
-    this.completedAt,
-    this.errorMessage,
-    this.results,
-    this.totalRecords,
-    this.processedRecords,
-  });
-
-  /// Get progress percentage (0-100)
-  double get progress {
-    if (totalRecords == null || totalRecords == 0) return 0.0;
-    if (processedRecords == null) return 0.0;
-    return (processedRecords! / totalRecords!) * 100.0;
-  }
-
-  /// Get duration if job has started
-  Duration? get duration {
-    if (startedAt == null) return null;
-    final endTime = completedAt ?? DateTime.now();
-    return endTime.difference(startedAt!);
-  }
-
-  /// Check if job is in a terminal state
-  bool get isCompleted =>
-      status == JobStatus.completed ||
-      status == JobStatus.failed ||
-      status == JobStatus.cancelled;
-
-  /// Check if job can be cancelled
-  bool get canCancel =>
-      status == JobStatus.pending || status == JobStatus.running;
-
-  /// Create a copy with updated properties
-  EmbeddingJob copyWith({
-    String? id,
-    String? name,
-    String? description,
-    String? dataSourceId,
-    String? embeddingTemplateId,
-    List<String>? providerIds,
-    JobStatus? status,
-    DateTime? createdAt,
+@freezed
+abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
+  const factory EmbeddingJob({
+    required String id,
+    required String name,
+    required String description,
+    required String dataSourceId,
+    required String embeddingTemplateId,
+    required List<String> providerIds,
+    @Default(JobStatus.pending) JobStatus status,
+    required DateTime createdAt,
     DateTime? startedAt,
     DateTime? completedAt,
     String? errorMessage,
     Map<String, dynamic>? results,
     int? totalRecords,
     int? processedRecords,
-  }) {
-    return EmbeddingJob(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      dataSourceId: dataSourceId ?? this.dataSourceId,
-      embeddingTemplateId: embeddingTemplateId ?? this.embeddingTemplateId,
-      providerIds: providerIds ?? this.providerIds,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      startedAt: startedAt ?? this.startedAt,
-      completedAt: completedAt ?? this.completedAt,
-      errorMessage: errorMessage ?? this.errorMessage,
-      results: results ?? this.results,
-      totalRecords: totalRecords ?? this.totalRecords,
-      processedRecords: processedRecords ?? this.processedRecords,
-    );
-  }
+  }) = _EmbeddingJob;
+
+  const EmbeddingJob._();
 
   /// Create from database result
   factory EmbeddingJob.fromDatabase(Map<String, Object?> row) {
@@ -142,7 +74,7 @@ class EmbeddingJob implements ConfigurationItem {
       name: row['name'] as String,
       description: row['description'] as String,
       dataSourceId: row['data_source_id'] as String,
-      embeddingTemplateId: row['embedding_template_id'] as String,
+      embeddingTemplateId: row['template_id'] as String,
       providerIds: row['provider_ids'] != null
           ? (jsonDecode(row['provider_ids'] as String) as List).cast()
           : const [],
@@ -163,17 +95,27 @@ class EmbeddingJob implements ConfigurationItem {
     );
   }
 
-  @override
-  String toString() {
-    return 'EmbeddingJob(id: $id, name: $name, status: $status)';
+  /// Get progress percentage (0-100)
+  double get progress {
+    if (this.totalRecords == null || this.totalRecords == 0) return 0.0;
+    if (this.processedRecords == null) return 0.0;
+    return (this.processedRecords! / this.totalRecords!) * 100.0;
   }
 
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is EmbeddingJob && other.id == id;
+  /// Get duration if job has started
+  Duration? get duration {
+    if (this.startedAt == null) return null;
+    final endTime = this.completedAt ?? DateTime.now();
+    return endTime.difference(this.startedAt!);
   }
 
-  @override
-  int get hashCode => id.hashCode;
+  /// Check if job is in a terminal state
+  bool get isCompleted =>
+      this.status == JobStatus.completed ||
+      this.status == JobStatus.failed ||
+      this.status == JobStatus.cancelled;
+
+  /// Check if job can be cancelled
+  bool get canCancel =>
+      this.status == JobStatus.pending || this.status == JobStatus.running;
 }

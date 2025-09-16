@@ -9,7 +9,7 @@ import '../../database/migrate.dart';
 import '../../jobs/model/embedding_job.dart';
 import '../../providers/model/custom_provider_template.dart';
 import '../../providers/model/embedding_provider_config.dart';
-import '../../templates/model/embedding_template_config.dart';
+import '../../templates/model/embedding_template.dart';
 import '../../util/type_id.dart';
 import '../model/embedding_tables.dart';
 import '../model/vector_search_result.dart';
@@ -91,7 +91,7 @@ class ConfigurationService with ChangeNotifier {
 
     await database.execute(
       '''
-      INSERT OR REPLACE INTO data_source_configs 
+      INSERT OR REPLACE INTO data_sources 
       (id, name, description, type, filename, settings, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''',
@@ -113,7 +113,7 @@ class ConfigurationService with ChangeNotifier {
   /// Get a data source configuration by ID
   Future<DataSourceConfig?> getDataSourceConfig(String id) async {
     final result = await database.select(
-      'SELECT * FROM data_source_configs WHERE id = ?',
+      'SELECT * FROM data_sources WHERE id = ?',
       [id],
     );
 
@@ -126,7 +126,7 @@ class ConfigurationService with ChangeNotifier {
   /// Get all data source configurations
   Future<List<DataSourceConfig>> getAllDataSourceConfigs() async {
     final result = await database.select(
-      'SELECT * FROM data_source_configs ORDER BY created_at DESC',
+      'SELECT * FROM data_sources ORDER BY created_at DESC',
     );
 
     return result.map(DataSourceConfig.fromDatabase).nonNulls.toList();
@@ -134,23 +134,19 @@ class ConfigurationService with ChangeNotifier {
 
   /// Delete a data source configuration
   Future<void> deleteDataSourceConfig(String id) async {
-    await database.execute('DELETE FROM data_source_configs WHERE id = ?', [
-      id,
-    ]);
+    await database.execute('DELETE FROM data_sources WHERE id = ?', [id]);
     _logger.fine('Deleted data source config: $id');
   }
 
   // Embedding Template Configuration Methods
 
   /// Save an embedding template configuration to the database
-  Future<void> saveEmbeddingTemplateConfig(
-    EmbeddingTemplateConfig config,
-  ) async {
+  Future<void> saveEmbeddingTemplateConfig(EmbeddingTemplate config) async {
     final now = DateTime.now().toIso8601String();
 
     await database.execute(
       '''
-      INSERT OR REPLACE INTO embedding_template_configs 
+      INSERT OR REPLACE INTO templates 
       (id, name, description, template, data_source_id, available_fields, metadata, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
@@ -171,45 +167,42 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get an embedding template configuration by ID
-  Future<EmbeddingTemplateConfig?> getEmbeddingTemplateConfig(String id) async {
+  Future<EmbeddingTemplate?> getEmbeddingTemplateConfig(String id) async {
     final result = await database.select(
-      'SELECT * FROM embedding_template_configs WHERE id = ?',
+      'SELECT * FROM templates WHERE id = ?',
       [id],
     );
 
     if (result.isEmpty) return null;
 
     final row = result.first;
-    return EmbeddingTemplateConfig.fromDatabase(row);
+    return EmbeddingTemplate.fromDatabase(row);
   }
 
   /// Get all embedding template configurations
-  Future<List<EmbeddingTemplateConfig>> getAllEmbeddingTemplateConfigs() async {
+  Future<List<EmbeddingTemplate>> getAllEmbeddingTemplateConfigs() async {
     final result = await database.select(
-      'SELECT * FROM embedding_template_configs ORDER BY created_at DESC',
+      'SELECT * FROM templates ORDER BY created_at DESC',
     );
 
-    return result.map(EmbeddingTemplateConfig.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingTemplate.fromDatabase).nonNulls.toList();
   }
 
   /// Get embedding templates by data source ID
-  Future<List<EmbeddingTemplateConfig>> getEmbeddingTemplatesByDataSource(
+  Future<List<EmbeddingTemplate>> getEmbeddingTemplatesByDataSource(
     String dataSourceId,
   ) async {
     final result = await database.select(
-      'SELECT * FROM embedding_template_configs WHERE data_source_id = ? ORDER BY created_at DESC',
+      'SELECT * FROM templates WHERE data_source_id = ? ORDER BY created_at DESC',
       [dataSourceId],
     );
 
-    return result.map(EmbeddingTemplateConfig.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingTemplate.fromDatabase).nonNulls.toList();
   }
 
   /// Delete an embedding template configuration
   Future<void> deleteEmbeddingTemplateConfig(String id) async {
-    await database.execute(
-      'DELETE FROM embedding_template_configs WHERE id = ?',
-      [id],
-    );
+    await database.execute('DELETE FROM templates WHERE id = ?', [id]);
     _logger.fine('Deleted embedding template config: $id');
   }
 
@@ -222,7 +215,7 @@ class ConfigurationService with ChangeNotifier {
     await database.transaction((tx) {
       tx.execute(
         '''
-      INSERT OR REPLACE INTO provider_configs 
+      INSERT OR REPLACE INTO providers 
       (id, name, description, type, custom_template_id, settings, enabled_models, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''',
@@ -266,9 +259,9 @@ class ConfigurationService with ChangeNotifier {
     final result = await database.select(
       '''
 SELECT *
-FROM provider_configs
+FROM providers
 LEFT JOIN provider_credentials
-  ON provider_configs.id = provider_credentials.provider_id
+  ON providers.id = provider_credentials.provider_id
 WHERE id = ?
 ''',
       [id],
@@ -284,9 +277,9 @@ WHERE id = ?
   Future<List<EmbeddingProviderConfig>> getAllModelProviderConfigs() async {
     final result = await database.select('''
 SELECT *
-FROM provider_configs
+FROM providers
 LEFT JOIN provider_credentials
-  ON provider_configs.id = provider_credentials.provider_id
+  ON providers.id = provider_credentials.provider_id
 ORDER BY created_at DESC
 ''');
 
@@ -302,7 +295,7 @@ ORDER BY created_at DESC
       ]);
 
       // Delete the provider config
-      tx.execute('DELETE FROM provider_configs WHERE id = ?', [id]);
+      tx.execute('DELETE FROM providers WHERE id = ?', [id]);
     });
 
     _logger.fine('Deleted model provider config and credentials: $id');
@@ -380,7 +373,7 @@ ORDER BY created_at DESC
       tx.execute(
         '''
         INSERT OR REPLACE INTO jobs 
-        (id, name, description, data_source_id, embedding_template_id, provider_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
+        (id, name, description, data_source_id, template_id, provider_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
         [
@@ -482,7 +475,7 @@ ORDER BY created_at DESC
       tx.execute(
         '''
         INSERT INTO embedding_table_registry 
-        (id, table_name, job_id, data_source_id, embedding_template_id, description, created_at, updated_at)
+        (id, table_name, job_id, data_source_id, template_id, description, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ''',
         [

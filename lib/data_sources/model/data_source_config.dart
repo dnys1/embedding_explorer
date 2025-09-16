@@ -1,24 +1,20 @@
 import 'dart:convert';
 
+import 'package:freezed_annotation/freezed_annotation.dart';
+
 import '../../configurations/model/configuration_collection.dart';
 import '../../configurations/model/configuration_item.dart';
 import '../../util/type_id.dart';
 import 'data_source_settings.dart';
 
-/// Configuration for a data source with metadata
-class DataSourceConfig<T extends DataSourceSettings>
-    implements ConfigurationItem {
-  @override
-  final String id;
-  final String name;
-  final String description;
-  final DataSourceType type;
-  final T settings;
-  final String filename;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+part 'data_source_config.freezed.dart';
 
-  factory DataSourceConfig({
+/// Configuration for a data source with metadata
+@freezed
+abstract class DataSourceConfig<T extends DataSourceSettings>
+    with _$DataSourceConfig<T>
+    implements ConfigurationItem {
+  factory DataSourceConfig.create({
     String? id,
     required String name,
     String description = '',
@@ -29,7 +25,7 @@ class DataSourceConfig<T extends DataSourceSettings>
     DateTime? updatedAt,
   }) {
     final now = DateTime.now();
-    return DataSourceConfig._(
+    return DataSourceConfig(
       id: id ?? typeId('ds'),
       name: name,
       description: description,
@@ -41,46 +37,23 @@ class DataSourceConfig<T extends DataSourceSettings>
     );
   }
 
-  const DataSourceConfig._({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.type,
-    required this.settings,
-    required this.filename,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  /// Create a copy with updated fields
-  DataSourceConfig<T> copyWith({
-    String? id,
-    String? name,
-    String? description,
-    DataSourceType? type,
-    T? settings,
-    String? filename,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return DataSourceConfig<T>._(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      type: type ?? this.type,
-      settings: settings ?? this.settings,
-      filename: filename ?? this.filename,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
+  const factory DataSourceConfig({
+    required String id,
+    required String name,
+    required String description,
+    required DataSourceType type,
+    required T settings,
+    required String filename,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) = _DataSourceConfig<T>;
 
   /// Create from database result set
   static DataSourceConfig<DataSourceSettings> fromDatabase(
     Map<String, Object?> row,
   ) {
     final type = DataSourceType.values.byName(row['type'] as String);
-    return DataSourceConfig<DataSourceSettings>._(
+    return DataSourceConfig<DataSourceSettings>.create(
       id: row['id'] as String,
       name: row['name'] as String,
       description: row['description'] as String? ?? '',
@@ -93,11 +66,6 @@ class DataSourceConfig<T extends DataSourceSettings>
       createdAt: DateTime.parse(row['created_at'] as String),
       updatedAt: DateTime.parse(row['updated_at'] as String),
     );
-  }
-
-  @override
-  String toString() {
-    return 'DataSourceConfig(id: $id, name: $name, type: ${type.name})';
   }
 }
 
@@ -125,7 +93,7 @@ class DataSourceConfigCollection
   String get prefix => 'ds';
 
   @override
-  String get tableName => 'data_source_configs';
+  String get tableName => 'data_sources';
 
   @override
   Future<void> saveItem(DataSourceConfig<DataSourceSettings> item) async {

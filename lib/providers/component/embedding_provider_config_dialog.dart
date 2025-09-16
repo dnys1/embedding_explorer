@@ -255,7 +255,6 @@ class _EmbeddingProviderConfigDialogState
             credential: credential,
             settings: settings,
             persistCredentials: _persistCredentials,
-            isActive: true,
           )
           .ignore();
     }

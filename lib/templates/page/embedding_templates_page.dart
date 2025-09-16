@@ -5,7 +5,7 @@ import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../component/template_editor.dart';
 import '../component/template_editor_model.dart';
-import '../model/embedding_template_config.dart';
+import '../model/embedding_template.dart';
 
 class EmbeddingTemplatesPage extends StatefulComponent {
   const EmbeddingTemplatesPage({super.key});
@@ -20,9 +20,9 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
   bool _showEditDialog = false;
   bool _showDeleteDialog = false;
   bool _showPreviewDialog = false;
-  EmbeddingTemplateConfig? _editingTemplate;
-  EmbeddingTemplateConfig? _deletingTemplate;
-  EmbeddingTemplateConfig? _previewingTemplate;
+  EmbeddingTemplate? _editingTemplate;
+  EmbeddingTemplate? _deletingTemplate;
+  EmbeddingTemplate? _previewingTemplate;
 
   void _showCreate() {
     setState(() {
@@ -31,21 +31,21 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
     });
   }
 
-  void _showEdit(EmbeddingTemplateConfig template) {
+  void _showEdit(EmbeddingTemplate template) {
     setState(() {
       _editingTemplate = template;
       _showEditDialog = true;
     });
   }
 
-  void _showDelete(EmbeddingTemplateConfig template) {
+  void _showDelete(EmbeddingTemplate template) {
     setState(() {
       _deletingTemplate = template;
       _showDeleteDialog = true;
     });
   }
 
-  void _showPreview(EmbeddingTemplateConfig template) {
+  void _showPreview(EmbeddingTemplate template) {
     setState(() {
       _previewingTemplate = template;
       _showPreviewDialog = true;
@@ -150,13 +150,13 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
     ]);
   }
 
-  Component _buildTemplatesList(List<EmbeddingTemplateConfig> templates) {
+  Component _buildTemplatesList(List<EmbeddingTemplate> templates) {
     return div(classes: 'space-y-4', [
       for (final template in templates) _buildTemplateCard(template),
     ]);
   }
 
-  Component _buildTemplateCard(EmbeddingTemplateConfig template) {
+  Component _buildTemplateCard(EmbeddingTemplate template) {
     final dataSource = configManager.dataSourceConfigs.getById(
       template.dataSourceId,
     );
@@ -264,7 +264,7 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
 final class _CreateEditDialog extends StatefulComponent {
   _CreateEditDialog({required this.template, required this.onClose});
 
-  final EmbeddingTemplateConfig? template;
+  final EmbeddingTemplate? template;
   final VoidCallback onClose;
 
   bool get isEditing => template != null;
@@ -413,7 +413,7 @@ final class _CreateEditDialogState extends State<_CreateEditDialog>
 final class _DeleteDialog extends StatefulComponent {
   _DeleteDialog({required this.template, required this.onClose});
 
-  final EmbeddingTemplateConfig? template;
+  final EmbeddingTemplate? template;
   final VoidCallback onClose;
 
   @override
@@ -474,7 +474,7 @@ final class _DeleteDialogState extends State<_DeleteDialog>
 final class _PreviewDialog extends StatefulComponent {
   _PreviewDialog({required this.template, required this.onClose});
 
-  final EmbeddingTemplateConfig? template;
+  final EmbeddingTemplate? template;
   final VoidCallback onClose;
 
   @override
@@ -483,7 +483,7 @@ final class _PreviewDialog extends StatefulComponent {
 
 final class _PreviewDialogState extends State<_PreviewDialog>
     with ConfigurationManagerListener {
-  String _generateSampleOutput(EmbeddingTemplateConfig template) {
+  String _generateSampleOutput(EmbeddingTemplate template) {
     final sampleData = <String, String>{};
     for (final field in template.availableFields) {
       switch (field.toLowerCase()) {

@@ -22,7 +22,7 @@ import '../../interop/monaco.dart'
         Position,
         Range;
 import '../../util/change_notifier.dart';
-import '../model/embedding_template_config.dart';
+import '../model/embedding_template.dart';
 
 final class TemplateEditorModel extends ChangeNotifierX
     implements
@@ -31,7 +31,7 @@ final class TemplateEditorModel extends ChangeNotifierX
         MonacoHoverProvider {
   TemplateEditorModel({
     required ConfigurationManager configManager,
-    EmbeddingTemplateConfig? initialTemplate,
+    EmbeddingTemplate? initialTemplate,
   }) : _configManager = configManager,
        _initialTemplate = initialTemplate,
        _name = ValueNotifier(initialTemplate?.name ?? ''),
@@ -43,7 +43,7 @@ final class TemplateEditorModel extends ChangeNotifierX
   static final Logger _logger = Logger('TemplateEditor');
 
   final ConfigurationManager _configManager;
-  final EmbeddingTemplateConfig? _initialTemplate;
+  final EmbeddingTemplate? _initialTemplate;
 
   ConfigurationManager get configManager => _configManager;
 
@@ -186,8 +186,8 @@ final class TemplateEditorModel extends ChangeNotifierX
         _selectedDataSourceId.value.isNotEmpty;
   }
 
-  EmbeddingTemplateConfig createConfig(String id) {
-    return EmbeddingTemplateConfig(
+  EmbeddingTemplate createConfig(String id) {
+    return EmbeddingTemplate(
       id: id,
       name: _name.value,
       description: _description.value,

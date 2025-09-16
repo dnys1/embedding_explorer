@@ -1,51 +1,28 @@
 import 'dart:convert';
 
 import 'package:collection/collection.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../configurations/model/configuration_collection.dart';
 import '../../configurations/model/configuration_item.dart';
 import '../../credentials/model/credential.dart';
 import '../../credentials/service/credential_service.dart';
 
+part 'embedding_provider_config.freezed.dart';
+
 /// Types of embedding providers
 enum EmbeddingProviderType { openai, gemini, custom }
 
 /// Configuration for a model provider with metadata
-class EmbeddingProviderConfig implements ConfigurationItem {
-  @override
-  final String id;
-  final String name;
-  final String description;
-  final EmbeddingProviderType type; // null for custom providers
-  final String?
-  customTemplateId; // Reference to CustomProviderTemplate for custom providers
-  final Map<String, dynamic> settings;
-  final Credential? credential;
-  final bool persistCredentials; // Whether to persist credentials in storage
-  final Set<String> enabledModels; // Track which models are enabled
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const EmbeddingProviderConfig({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.type,
-    this.customTemplateId,
-    required this.settings,
-    required this.credential,
-    required this.persistCredentials,
-    required this.enabledModels,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  /// Create a copy with updated fields
-  EmbeddingProviderConfig copyWith({
-    String? id,
+@freezed
+abstract class EmbeddingProviderConfig
+    with _$EmbeddingProviderConfig
+    implements ConfigurationItem {
+  factory EmbeddingProviderConfig.create({
+    required String id,
     String? name,
     String? description,
-    EmbeddingProviderType? type,
+    required EmbeddingProviderType type,
     String? customTemplateId,
     Map<String, dynamic>? settings,
     Credential? credential,
@@ -55,31 +32,45 @@ class EmbeddingProviderConfig implements ConfigurationItem {
     DateTime? updatedAt,
   }) {
     return EmbeddingProviderConfig(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      type: type ?? this.type,
-      customTemplateId: customTemplateId ?? this.customTemplateId,
-      settings: settings ?? this.settings,
-      credential: credential ?? this.credential,
-      persistCredentials: persistCredentials ?? this.persistCredentials,
-      enabledModels: enabledModels ?? this.enabledModels,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      id: id,
+      name: name ?? type.name,
+      description: description ?? '',
+      type: EmbeddingProviderType.custom,
+      settings: settings ?? const {},
+      credential: credential,
+      customTemplateId: customTemplateId,
+      persistCredentials: persistCredentials ?? false,
+      enabledModels: enabledModels ?? const {},
+      createdAt: createdAt ?? DateTime.now(),
+      updatedAt: updatedAt ?? DateTime.now(),
     );
   }
 
+  const factory EmbeddingProviderConfig({
+    required String id,
+    required String name,
+    required String description,
+    required EmbeddingProviderType type,
+    String? customTemplateId,
+    required Map<String, dynamic> settings,
+    required Credential? credential,
+    required bool persistCredentials,
+    required Set<String> enabledModels,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+  }) = _EmbeddingProviderConfig;
+
   /// Create from database result
   factory EmbeddingProviderConfig.fromDatabase(Map<String, Object?> row) {
-    return EmbeddingProviderConfig(
+    return EmbeddingProviderConfig.create(
       id: row['id'] as String,
       name: row['name'] as String,
-      description: row['description'] as String? ?? '',
+      description: row['description'] as String?,
       type: EmbeddingProviderType.values.byName(row['type'] as String),
       customTemplateId: row['custom_template_id'] as String?,
       settings: row['settings'] != null
           ? jsonDecode(row['settings'] as String) as Map<String, dynamic>
-          : <String, dynamic>{},
+          : const {},
       credential: row['credential'] != null
           ? Credential.fromJson(
               jsonDecode(row['credential'] as String) as Map<String, dynamic>,
@@ -90,119 +81,11 @@ class EmbeddingProviderConfig implements ConfigurationItem {
           ? Set<String>.from(
               jsonDecode(row['enabled_models'] as String) as List,
             )
-          : <String>{},
+          : const {},
       createdAt: DateTime.parse(row['created_at'] as String),
       updatedAt: DateTime.parse(row['updated_at'] as String),
     );
   }
-
-  /// Create a default configuration for built-in providers
-  factory EmbeddingProviderConfig.createDefault({
-    required String name,
-    required EmbeddingProviderType type,
-    String? description,
-    Map<String, dynamic>? settings,
-    Credential? credential,
-    bool? isActive,
-    bool? persistCredentials,
-    Set<String>? enabledModels,
-  }) {
-    final now = DateTime.now();
-    return EmbeddingProviderConfig(
-      id: 'temp_id', // Will be replaced when added to collection
-      name: name,
-      description: description ?? '',
-      type: type,
-      customTemplateId: null,
-      settings: settings ?? {},
-      credential: credential,
-      persistCredentials: persistCredentials ?? false,
-      enabledModels: enabledModels ?? <String>{},
-      createdAt: now,
-      updatedAt: now,
-    );
-  }
-
-  /// Create a default configuration for custom providers
-  factory EmbeddingProviderConfig.createDefaultCustom({
-    required String name,
-    required String customTemplateId,
-    String? description,
-    Map<String, dynamic>? settings,
-    Credential? credential,
-    bool? isActive,
-    bool? persistCredentials,
-    Set<String>? enabledModels,
-  }) {
-    final now = DateTime.now();
-    return EmbeddingProviderConfig(
-      id: 'temp_id', // Will be replaced when added to collection
-      name: name,
-      description: description ?? '',
-      type: EmbeddingProviderType.custom,
-      customTemplateId: customTemplateId,
-      settings: settings ?? {},
-      credential: credential,
-      persistCredentials: persistCredentials ?? false,
-      enabledModels: enabledModels ?? <String>{},
-      createdAt: now,
-      updatedAt: now,
-    );
-  }
-
-  /// Validate the configuration
-  bool get isValid {
-    return name.isNotEmpty && _hasRequiredCredentials();
-  }
-
-  /// Check if required credentials are present
-  bool _hasRequiredCredentials() {
-    // Built-in provider validation
-    switch (type) {
-      case EmbeddingProviderType.openai:
-        return credential is ApiKeyCredential;
-      case EmbeddingProviderType.gemini:
-        return credential is ApiKeyCredential;
-      case EmbeddingProviderType.custom:
-        return true; // TODO
-    }
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-
-    return other is EmbeddingProviderConfig &&
-        other.id == id &&
-        other.name == name &&
-        other.description == description &&
-        other.type == type &&
-        other.customTemplateId == customTemplateId &&
-        const DeepCollectionEquality().equals(other.settings, settings) &&
-        other.credential == credential &&
-        other.persistCredentials == persistCredentials &&
-        const DeepCollectionEquality().equals(
-          other.enabledModels,
-          enabledModels,
-        ) &&
-        other.createdAt == createdAt &&
-        other.updatedAt == updatedAt;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    name,
-    description,
-    type,
-    customTemplateId,
-    const DeepCollectionEquality().hash(settings),
-    credential,
-    persistCredentials,
-    const DeepCollectionEquality().hash(enabledModels),
-    createdAt,
-    updatedAt,
-  );
 }
 
 /// Collection for managing embedding provider configurations
@@ -222,10 +105,10 @@ class EmbeddingProviderConfigCollection
   }
 
   @override
-  String get prefix => 'mp';
+  String get prefix => 'ep';
 
   @override
-  String get tableName => 'provider_configs';
+  String get tableName => 'providers';
 
   /// Add a new model provider configuration for built-in providers
   Future<String> addConfig({
@@ -234,45 +117,17 @@ class EmbeddingProviderConfigCollection
     String? description,
     Map<String, dynamic>? settings,
     Credential? credential,
-    bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
   }) async {
     final id = generateId();
-    final config = EmbeddingProviderConfig.createDefault(
+    final config = EmbeddingProviderConfig.create(
+      id: id,
       name: name,
       type: type,
       description: description,
       settings: settings,
       credential: credential,
-      isActive: isActive,
-      persistCredentials: persistCredentials,
-      enabledModels: enabledModels,
-    ).copyWith(id: id);
-
-    await upsert(config);
-    return id;
-  }
-
-  /// Add a new custom provider configuration
-  Future<String> addCustomConfig({
-    required String name,
-    required String customTemplateId,
-    String? description,
-    Map<String, dynamic>? settings,
-    Credential? credential,
-    bool? isActive,
-    bool? persistCredentials,
-    Set<String>? enabledModels,
-  }) async {
-    final id = generateId();
-    final config = EmbeddingProviderConfig.createDefaultCustom(
-      name: name,
-      customTemplateId: customTemplateId,
-      description: description,
-      settings: settings,
-      credential: credential,
-      isActive: isActive,
       persistCredentials: persistCredentials,
       enabledModels: enabledModels,
     ).copyWith(id: id);
@@ -290,7 +145,6 @@ class EmbeddingProviderConfigCollection
     String? customTemplateId,
     Map<String, dynamic>? settings,
     Credential? credential,
-    bool? isActive,
     bool? persistCredentials,
     Set<String>? enabledModels,
   }) async {
@@ -298,14 +152,14 @@ class EmbeddingProviderConfigCollection
     if (existing == null) return false;
 
     final updated = existing.copyWith(
-      name: name,
-      description: description,
-      type: type,
-      customTemplateId: customTemplateId,
-      settings: settings,
-      credential: credential,
-      persistCredentials: persistCredentials,
-      enabledModels: enabledModels,
+      name: name ?? existing.name,
+      description: description ?? existing.description,
+      type: type ?? existing.type,
+      customTemplateId: customTemplateId ?? existing.customTemplateId,
+      settings: settings ?? existing.settings,
+      credential: credential ?? existing.credential,
+      persistCredentials: persistCredentials ?? existing.persistCredentials,
+      enabledModels: enabledModels ?? existing.enabledModels,
       updatedAt: DateTime.now(),
     );
 
@@ -313,47 +167,11 @@ class EmbeddingProviderConfigCollection
     return true;
   }
 
-  /// Get configurations by type
-  EmbeddingProviderConfig? getByType(EmbeddingProviderType type) {
-    return all.firstWhereOrNull((config) => config.type == type);
-  }
-
   /// Get configurations by custom template
   EmbeddingProviderConfig? getByCustomTemplate(String templateId) {
     return all.firstWhereOrNull(
       (config) => config.customTemplateId == templateId,
     );
-  }
-
-  /// Get all custom provider configurations
-  List<EmbeddingProviderConfig> getCustomConfigs() {
-    return all
-        .where((config) => config.type == EmbeddingProviderType.custom)
-        .toList();
-  }
-
-  /// Get all built-in provider configurations
-  List<EmbeddingProviderConfig> getBuiltInConfigs() {
-    return all
-        .where((config) => config.type != EmbeddingProviderType.custom)
-        .toList();
-  }
-
-  /// Get only valid configurations
-  List<EmbeddingProviderConfig> getValidConfigs() {
-    return all.where((config) => config.isValid).toList();
-  }
-
-  /// Search configurations by name
-  List<EmbeddingProviderConfig> searchByName(String query) {
-    final lowerQuery = query.toLowerCase();
-    return all
-        .where(
-          (config) =>
-              config.name.toLowerCase().contains(lowerQuery) ||
-              config.description.toLowerCase().contains(lowerQuery),
-        )
-        .toList();
   }
 
   /// Toggle model enabled status for a provider
@@ -369,12 +187,6 @@ class EmbeddingProviderConfigCollection
     }
 
     return await updateConfig(providerId, enabledModels: newEnabledModels);
-  }
-
-  /// Check if a specific model is enabled for a provider
-  bool isModelEnabled(String providerId, String modelId) {
-    final config = getById(providerId);
-    return config?.enabledModels.contains(modelId) ?? false;
   }
 
   @override

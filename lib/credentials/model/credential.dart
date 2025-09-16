@@ -1,28 +1,18 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'credential.freezed.dart';
+part 'credential.g.dart';
+
 enum CredentialType { apiKey }
 
-sealed class Credential {
-  factory Credential.fromJson(Map<String, Object?> json) {
-    return switch (CredentialType.values.byName(json['type'] as String)) {
-      CredentialType.apiKey => ApiKeyCredential.fromJson(json),
-    };
-  }
+@freezed
+sealed class Credential with _$Credential {
+  const factory Credential.apiKey(String apiKey) = ApiKeyCredential;
 
-  CredentialType get type;
-  Map<String, Object?> toJson();
-}
+  const Credential._();
 
-final class ApiKeyCredential implements Credential {
-  const ApiKeyCredential({required this.apiKey});
+  CredentialType get type => map(apiKey: (_) => CredentialType.apiKey);
 
-  final String apiKey;
-
-  factory ApiKeyCredential.fromJson(Map<String, Object?> json) {
-    return ApiKeyCredential(apiKey: json['apiKey'] as String);
-  }
-
-  @override
-  CredentialType get type => CredentialType.apiKey;
-
-  @override
-  Map<String, Object?> toJson() => {'type': type.name, 'apiKey': apiKey};
+  factory Credential.fromJson(Map<String, Object?> json) =>
+      _$CredentialFromJson(json);
 }

@@ -28,7 +28,7 @@ void main() {
             ),
             FormField<ApiKeyCredential>(
               name: 'api-key',
-              initialValue: ApiKeyCredential(apiKey: 'test-key-123'),
+              initialValue: ApiKeyCredential('test-key-123'),
               onSaved: (value) => savedCredential = value,
               builder: (state) => div([text('API Key Field')]),
             ),

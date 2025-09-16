@@ -265,7 +265,7 @@ $Res call({
 });
 
 
-
+$EmbeddingProviderConfigCopyWith<$Res> get config;
 
 }
 /// @nodoc
@@ -286,7 +286,16 @@ as List<String>,
   ));
 }
 
-
+/// Create a copy of ProviderConnectionState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$EmbeddingProviderConfigCopyWith<$Res> get config {
+  
+  return $EmbeddingProviderConfigCopyWith<$Res>(_self.config, (value) {
+    return _then(_self.copyWith(config: value));
+  });
+}
 }
 
 /// @nodoc
@@ -332,7 +341,7 @@ $Res call({
 });
 
 
-
+$EmbeddingProviderConfigCopyWith<$Res> get config;
 
 }
 /// @nodoc
@@ -352,7 +361,16 @@ as EmbeddingProviderConfig,
   ));
 }
 
-
+/// Create a copy of ProviderConnectionState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$EmbeddingProviderConfigCopyWith<$Res> get config {
+  
+  return $EmbeddingProviderConfigCopyWith<$Res>(_self.config, (value) {
+    return _then(_self.copyWith(config: value));
+  });
+}
 }
 
 /// @nodoc
@@ -399,7 +417,7 @@ $Res call({
 });
 
 
-
+$EmbeddingProviderConfigCopyWith<$Res> get config;
 
 }
 /// @nodoc
@@ -420,7 +438,16 @@ as String,
   ));
 }
 
-
+/// Create a copy of ProviderConnectionState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$EmbeddingProviderConfigCopyWith<$Res> get config {
+  
+  return $EmbeddingProviderConfigCopyWith<$Res>(_self.config, (value) {
+    return _then(_self.copyWith(config: value));
+  });
+}
 }
 
 

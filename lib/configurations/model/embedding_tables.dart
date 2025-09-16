@@ -28,7 +28,7 @@ class EmbeddingTable {
         tableName: row['table_name'] as String,
         jobId: row['job_id'] as String,
         dataSourceId: row['data_source_id'] as String,
-        embeddingTemplateId: row['embedding_template_id'] as String,
+        embeddingTemplateId: row['template_id'] as String,
         description: row['description'] as String? ?? '',
         createdAt: DateTime.parse(row['created_at'] as String),
         updatedAt: DateTime.parse(row['updated_at'] as String),

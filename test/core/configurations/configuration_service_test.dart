@@ -13,7 +13,7 @@ import 'package:embeddings_explorer/database/database.dart';
 import 'package:embeddings_explorer/jobs/model/embedding_job.dart';
 import 'package:embeddings_explorer/providers/model/custom_provider_template.dart';
 import 'package:embeddings_explorer/providers/model/embedding_provider_config.dart';
-import 'package:embeddings_explorer/templates/model/embedding_template_config.dart';
+import 'package:embeddings_explorer/templates/model/embedding_template.dart';
 import 'package:test/test.dart';
 
 import '../../common.dart';
@@ -43,7 +43,7 @@ class TestHelpers {
     );
   }
 
-  static EmbeddingTemplateConfig createTemplateConfig({
+  static EmbeddingTemplate createTemplateConfig({
     String id = 'template_1',
     String name = 'Template 1',
     String description = 'Test template',
@@ -53,7 +53,7 @@ class TestHelpers {
     DateTime? createdAt,
   }) {
     final now = createdAt ?? DateTime.now();
-    return EmbeddingTemplateConfig(
+    return EmbeddingTemplate(
       id: id,
       name: name,
       description: description,
@@ -314,7 +314,7 @@ void main() {
 
     group('Embedding Template Configuration', () {
       test('should save and retrieve embedding template config', () async {
-        final dsConfig = DataSourceConfig(
+        final dsConfig = DataSourceConfig.create(
           id: 'ds_1',
           name: 'Data Source 1',
           description: 'First data source',
@@ -325,7 +325,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         final now = DateTime.now();
-        final config = EmbeddingTemplateConfig(
+        final config = EmbeddingTemplate(
           id: 'template_1',
           name: 'Test Template',
           description: 'A test embedding template',
@@ -383,7 +383,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig1);
         await service.saveDataSourceConfig(dsConfig2);
 
-        final template1 = EmbeddingTemplateConfig(
+        final template1 = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
@@ -395,7 +395,7 @@ void main() {
           updatedAt: now,
         );
 
-        final template2 = EmbeddingTemplateConfig(
+        final template2 = EmbeddingTemplate(
           id: 'template_2',
           name: 'Template 2',
           description: 'Second template',
@@ -407,7 +407,7 @@ void main() {
           updatedAt: now.add(Duration(minutes: 1)),
         );
 
-        final template3 = EmbeddingTemplateConfig(
+        final template3 = EmbeddingTemplate(
           id: 'template_3',
           name: 'Template 3',
           description: 'Third template for different DS',
@@ -456,7 +456,7 @@ void main() {
 
         await service.saveDataSourceConfig(dsConfig);
 
-        final config = EmbeddingTemplateConfig(
+        final config = EmbeddingTemplate(
           id: 'to_delete',
           name: 'To Delete',
           description: 'Template to delete',
@@ -499,7 +499,7 @@ void main() {
               'model': 'text-embedding-3-small',
               'dimensions': 1536,
             },
-            credential: ApiKeyCredential(apiKey: 'sk-test-key-123'),
+            credential: ApiKeyCredential('sk-test-key-123'),
             persistCredentials: false,
             enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
             createdAt: now,
@@ -537,7 +537,7 @@ void main() {
               'model': 'text-embedding-3-small',
               'dimensions': 1536,
             },
-            credential: ApiKeyCredential(apiKey: 'sk-test-key-123'),
+            credential: ApiKeyCredential('sk-test-key-123'),
             persistCredentials: true,
             enabledModels: {'text-embedding-3-small', 'text-embedding-3-large'},
             createdAt: now,
@@ -726,7 +726,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplateConfig(
+        final templateConfig = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
@@ -821,7 +821,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplateConfig(
+        final templateConfig = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
@@ -940,7 +940,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplateConfig(
+        final templateConfig = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
@@ -1006,7 +1006,7 @@ void main() {
         // Insert test data
         await service.database.execute(
           '''
-          INSERT INTO data_source_configs 
+          INSERT INTO data_sources 
           (id, name, description, type, filename, settings, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''',
@@ -1024,7 +1024,7 @@ void main() {
 
         // Query the data
         final result = await service.database.select(
-          'SELECT * FROM data_source_configs WHERE id = ?',
+          'SELECT * FROM data_sources WHERE id = ?',
           ['raw_test'],
         );
 
@@ -1038,7 +1038,7 @@ void main() {
           final emptySettings = jsonEncode(SqliteDataSourceSettings().toJson());
           tx.execute(
             '''
-            INSERT INTO data_source_configs 
+            INSERT INTO data_sources 
             (id, name, description, type, filename, settings, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ''',
@@ -1056,7 +1056,7 @@ void main() {
 
           tx.execute(
             '''
-            INSERT INTO data_source_configs 
+            INSERT INTO data_sources 
             (id, name, description, type, filename, settings, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ''',
@@ -1115,7 +1115,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplateConfig(
+        final templateConfig = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
@@ -1184,7 +1184,7 @@ void main() {
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplateConfig(
+        final templateConfig = EmbeddingTemplate(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',

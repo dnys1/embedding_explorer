@@ -409,7 +409,7 @@ void main() {
         await database.execute(
           '''
           INSERT INTO jobs (
-            id, name, description, data_source_id, embedding_template_id,
+            id, name, description, data_source_id, template_id,
             provider_ids, status, created_at, total_records
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
@@ -581,7 +581,7 @@ void main() {
           await database.execute(
             '''
             INSERT INTO jobs (
-              id, name, description, data_source_id, embedding_template_id,
+              id, name, description, data_source_id, template_id,
               provider_ids, status, created_at, total_records
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ''',
@@ -625,7 +625,7 @@ void main() {
         await database.execute(
           '''
           INSERT INTO jobs (
-            id, name, description, data_source_id, embedding_template_id,
+            id, name, description, data_source_id, template_id,
             provider_ids, status, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''',
@@ -663,7 +663,7 @@ void main() {
         await database.execute(
           '''
           INSERT INTO jobs (
-            id, name, description, data_source_id, embedding_template_id,
+            id, name, description, data_source_id, template_id,
             provider_ids, status, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''',
@@ -730,7 +730,7 @@ void main() {
         await database.execute(
           '''
           INSERT INTO jobs (
-            id, name, description, data_source_id, embedding_template_id,
+            id, name, description, data_source_id, template_id,
             provider_ids, status, created_at, completed_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
@@ -782,7 +782,7 @@ void main() {
         await database.execute(
           '''
           INSERT INTO jobs (
-            id, name, description, data_source_id, embedding_template_id,
+            id, name, description, data_source_id, template_id,
             provider_ids, status, created_at, completed_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',

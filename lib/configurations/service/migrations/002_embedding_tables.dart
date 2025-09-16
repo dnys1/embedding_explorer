@@ -10,13 +10,13 @@ CREATE TABLE IF NOT EXISTS embedding_table_registry (
     table_name TEXT NOT NULL UNIQUE,
     job_id TEXT NOT NULL,
     data_source_id TEXT NOT NULL,
-    embedding_template_id TEXT NOT NULL,
+    template_id TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL, -- ISO 8601 datetime
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
-    FOREIGN KEY (data_source_id) REFERENCES data_source_configs(id) ON DELETE CASCADE,
-    FOREIGN KEY (embedding_template_id) REFERENCES embedding_template_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (data_source_id) REFERENCES data_sources(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
 );
 
 -- Create embedding column registry to track vector columns in embedding tables
@@ -31,13 +31,13 @@ CREATE TABLE IF NOT EXISTS embedding_column_registry (
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     UNIQUE(table_id, column_name),
     FOREIGN KEY (table_id) REFERENCES embedding_table_registry(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES provider_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 );
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_embedding_table_registry_job_id ON embedding_table_registry(job_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_table_registry_data_source_id ON embedding_table_registry(data_source_id);
-CREATE INDEX IF NOT EXISTS idx_embedding_table_registry_embedding_template_id ON embedding_table_registry(embedding_template_id);
+CREATE INDEX IF NOT EXISTS idx_embedding_table_registry_template_id ON embedding_table_registry(template_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_column_registry_table_id ON embedding_column_registry(table_id);
 CREATE INDEX IF NOT EXISTS idx_embedding_column_registry_provider_id ON embedding_column_registry(provider_id);
 ''',
@@ -45,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_embedding_column_registry_provider_id ON embeddin
 -- Drop indexes
 DROP INDEX IF EXISTS idx_embedding_column_registry_provider_id;
 DROP INDEX IF EXISTS idx_embedding_column_registry_table_id;
-DROP INDEX IF EXISTS idx_embedding_table_registry_embedding_template_id;
+DROP INDEX IF EXISTS idx_embedding_table_registry_template_id;
 DROP INDEX IF EXISTS idx_embedding_table_registry_data_source_id;
 DROP INDEX IF EXISTS idx_embedding_table_registry_job_id;
 

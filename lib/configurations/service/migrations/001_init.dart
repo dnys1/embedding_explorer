@@ -5,7 +5,7 @@ Migration get migration {
     version: 1,
     up: '''
 -- Create data source configurations table
-CREATE TABLE IF NOT EXISTS data_source_configs (
+CREATE TABLE IF NOT EXISTS data_sources (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS data_source_configs (
 );
 
 -- Create embedding template configurations table
-CREATE TABLE IF NOT EXISTS embedding_template_configs (
+CREATE TABLE IF NOT EXISTS templates (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS embedding_template_configs (
     metadata TEXT NOT NULL DEFAULT '{}', -- JSON object for additional metadata
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL, -- ISO 8601 datetime
-    FOREIGN KEY (data_source_id) REFERENCES data_source_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (data_source_id) REFERENCES data_sources(id) ON DELETE CASCADE
 );
 
 -- Create custom provider templates table
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS custom_provider_templates (
 );
 
 -- Create provider configurations table
-CREATE TABLE IF NOT EXISTS provider_configs (
+CREATE TABLE IF NOT EXISTS providers (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -61,9 +61,9 @@ CREATE TABLE IF NOT EXISTS provider_configs (
 
 -- Create credentials table (separate from provider configs)
 CREATE TABLE IF NOT EXISTS provider_credentials (
-    provider_id TEXT PRIMARY KEY NOT NULL, -- Reference to provider_configs
+    provider_id TEXT PRIMARY KEY NOT NULL, -- Reference to providers
     credential TEXT NOT NULL, -- JSON of Credential object
-    FOREIGN KEY (provider_id) REFERENCES provider_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 );
 
 -- Create jobs table
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     data_source_id TEXT NOT NULL,
-    embedding_template_id TEXT NOT NULL,
+    template_id TEXT NOT NULL,
     provider_ids TEXT NOT NULL, -- JSON array of provider IDs
     status TEXT NOT NULL DEFAULT 'pending', -- pending, running, completed, failed, cancelled
     created_at TEXT NOT NULL, -- ISO 8601 datetime
@@ -82,8 +82,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     results TEXT, -- JSON object containing job results
     total_records INTEGER, -- Total number of records to process
     processed_records INTEGER DEFAULT 0, -- Number of records processed so far
-    FOREIGN KEY (data_source_id) REFERENCES data_source_configs(id) ON DELETE CASCADE,
-    FOREIGN KEY (embedding_template_id) REFERENCES embedding_template_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (data_source_id) REFERENCES data_sources(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE CASCADE
 );
 
 -- Create junction table for job-provider relationships (many-to-many)
@@ -92,27 +92,27 @@ CREATE TABLE IF NOT EXISTS job_providers (
     provider_id TEXT NOT NULL,
     PRIMARY KEY (job_id, provider_id),
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES provider_configs(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 );
 
 -- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_embedding_template_configs_data_source_id ON embedding_template_configs(data_source_id);
-CREATE INDEX IF NOT EXISTS idx_provider_configs_type ON provider_configs(type);
-CREATE INDEX IF NOT EXISTS idx_provider_configs_custom_template_id ON provider_configs(custom_template_id);
+CREATE INDEX IF NOT EXISTS idx_templates_data_source_id ON templates(data_source_id);
+CREATE INDEX IF NOT EXISTS idx_providers_type ON providers(type);
+CREATE INDEX IF NOT EXISTS idx_providers_custom_template_id ON providers(custom_template_id);
 CREATE INDEX IF NOT EXISTS idx_provider_credentials_provider_id ON provider_credentials(provider_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_data_source_id ON jobs(data_source_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_embedding_template_id ON jobs(embedding_template_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_template_id ON jobs(template_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 ''',
     down: '''
 DROP TABLE IF EXISTS job_providers;
 DROP TABLE IF EXISTS jobs;
 DROP TABLE IF EXISTS provider_credentials;
-DROP TABLE IF EXISTS provider_configs;
+DROP TABLE IF EXISTS providers;
 DROP TABLE IF EXISTS custom_provider_templates;
-DROP TABLE IF EXISTS embedding_template_configs;
-DROP TABLE IF EXISTS data_source_configs;
+DROP TABLE IF EXISTS templates;
+DROP TABLE IF EXISTS data_sources;
 ''',
   );
 }
