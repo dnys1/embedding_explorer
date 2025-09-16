@@ -5,7 +5,7 @@ part 'credential.g.dart';
 
 enum CredentialType { apiKey }
 
-@freezed
+@Freezed(unionKey: 'type')
 sealed class Credential with _$Credential {
   const factory Credential.apiKey(String apiKey) = ApiKeyCredential;
 

@@ -39,6 +39,7 @@ class EmbeddingProviderRegistry with ChangeNotifier {
 
   /// Get all provider instances (configured and unconfigured)
   Iterable<EmbeddingProvider> get all sync* {
+    // TODO: Consistent ordering
     // First yield all configured providers
     yield* _providers.values;
 

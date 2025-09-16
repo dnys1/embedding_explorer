@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS embedding_table_registry (
     job_id TEXT NOT NULL,
     data_source_id TEXT NOT NULL,
     template_id TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL, -- ISO 8601 datetime
     FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,

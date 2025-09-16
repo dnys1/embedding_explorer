@@ -35,7 +35,7 @@ abstract class EmbeddingProviderConfig
       id: id,
       name: name ?? type.name,
       description: description ?? '',
-      type: EmbeddingProviderType.custom,
+      type: type,
       settings: settings ?? const {},
       credential: credential,
       customTemplateId: customTemplateId,
@@ -191,7 +191,7 @@ class EmbeddingProviderConfigCollection
 
   @override
   Future<void> saveItem(EmbeddingProviderConfig item) async {
-    await configService.saveModelProviderConfig(item);
+    await configService.saveProviderConfig(item);
     final credStore = _credStore(item);
     final persistent = item.persistCredentials;
     logger.fine(
@@ -202,7 +202,7 @@ class EmbeddingProviderConfigCollection
 
   @override
   Future<EmbeddingProviderConfig?> loadItem(String id) async {
-    final config = await configService.getModelProviderConfig(id);
+    final config = await configService.getProviderConfig(id);
     if (config == null) {
       return null;
     }
@@ -217,7 +217,7 @@ class EmbeddingProviderConfigCollection
 
   @override
   Future<List<EmbeddingProviderConfig>> loadAllItems() async {
-    final configs = await configService.getAllModelProviderConfigs();
+    final configs = await configService.getAllProviderConfigs();
     return Future.wait([
       for (final config in configs)
         if (!config.persistCredentials && config.credential == null)
@@ -233,7 +233,7 @@ class EmbeddingProviderConfigCollection
 
   @override
   Future<void> removeItem(EmbeddingProviderConfig item) async {
-    await configService.deleteModelProviderConfig(item.id);
+    await configService.deleteProviderConfig(item.id);
     final credStore = _credStore(item);
     await credStore.deleteCredential(item.id);
   }

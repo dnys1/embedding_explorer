@@ -21,10 +21,9 @@ CREATE TABLE IF NOT EXISTS templates (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    id_template TEXT NOT NULL, -- Template for generating unique IDs
     template TEXT NOT NULL,
     data_source_id TEXT NOT NULL,
-    available_fields TEXT NOT NULL, -- JSON array of field names
-    metadata TEXT NOT NULL DEFAULT '{}', -- JSON object for additional metadata
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     updated_at TEXT NOT NULL, -- ISO 8601 datetime
     FOREIGN KEY (data_source_id) REFERENCES data_sources(id) ON DELETE CASCADE

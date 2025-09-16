@@ -809,6 +809,7 @@ extension type Position._(JSObject _) implements IPosition, JSObject {
 
 /// A range in the editor. (startLineNumber,startColumn) is <=
 /// (endLineNumber,endColumn)
+@JS('monaco.Range')
 extension type Range._(JSObject _) implements IRange, JSObject {
   external Range(
     num startLineNumber,
@@ -1476,6 +1477,8 @@ extension type IQuickSuggestionsOptions._(JSObject _) implements JSObject {}
 
 /// Configuration options for editor padding
 extension type IEditorPaddingOptions._(JSObject _) implements JSObject {
+  external factory IEditorPaddingOptions({num? top, num? bottom});
+
   /// Spacing between top edge of editor and first line.
   external double? top;
 
@@ -3295,6 +3298,18 @@ extension type IStandaloneEditorConstructionOptions._(JSObject _)
     bool? scrollBeyondLastLine,
     IDimension? dimension,
     bool? useShadowDOM,
+    String? lineNumbers,
+    bool? glyphMargin,
+    num? lineDecorationsWidth,
+    num? lineNumbersMinChars,
+    bool? overviewRulerBorder,
+    num? overviewRulerLanes,
+    IEditorPaddingOptions? padding,
+    bool? fixedOverflowWidgets,
+    AnonymousUnion_1469778? renderLineHighlight,
+    num? wordWrapColumn,
+    AnonymousUnion_1450754? wrappingIndent,
+    AnonymousUnion_1536603? wrappingStrategy,
   });
 
   /// The initial model associated with this code editor.

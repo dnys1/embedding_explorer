@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:stream_transform/stream_transform.dart';
 import 'package:web/web.dart' as web;
 
+import '../../interop/common.dart';
 import '../../interop/monaco.dart' hide Uri, RegExp;
 import '../../util/change_notifier.dart';
 import 'custom_language.dart';
@@ -22,17 +23,33 @@ class MonacoEditorModel extends ChangeNotifierX {
   }) : _containerId = containerId,
        _language = language ?? 'plaintext',
        _theme = theme ?? 'vs',
-       _height = height ?? 300.0,
+       _height = height,
        _customLanguage = customLanguage,
        _options = options,
        _value = ValueNotifier(initialValue ?? '');
+
+  factory MonacoEditorModel.singleLine({
+    required String containerId,
+    String? language,
+    String? initialValue,
+    String? theme,
+    MonacoCustomLanguage? customLanguage,
+  }) => MonacoEditorModel(
+    containerId: containerId,
+    language: language,
+    initialValue: initialValue,
+    theme: theme,
+    height: 30,
+    customLanguage: customLanguage,
+    options: createSingleLineOptions(),
+  );
 
   static final Logger _logger = Logger('MonacoEditor');
 
   final String _containerId;
   final String _language;
   final String _theme;
-  final double _height;
+  final double? _height;
   final MonacoCustomLanguage? _customLanguage;
   final IStandaloneEditorConstructionOptions? _options;
 
@@ -47,7 +64,7 @@ class MonacoEditorModel extends ChangeNotifierX {
   String get containerId => _containerId;
   String get language => _language;
   String get theme => _theme;
-  double get height => _height;
+  double? get height => _height;
   MonacoCustomLanguage? get customLanguage => _customLanguage;
   IStandaloneEditorConstructionOptions? get options => _options;
 
@@ -84,33 +101,40 @@ class MonacoEditorModel extends ChangeNotifierX {
         _registerCustomLanguage(customLanguage);
       }
 
-      // Create editor with default options or custom options
-      final editorOptions =
-          _options ??
-          IStandaloneEditorConstructionOptions(
-            value: _value.value,
-            language: _language,
-            theme: _theme,
-            automaticLayout: true,
-            fontSize: 14,
-            minimap: IEditorMinimapOptions(enabled: false),
-            scrollbar: IEditorScrollbarOptions(
-              vertical: AnonymousUnion_1753152.hidden,
-              horizontal: AnonymousUnion_1753152.hidden,
-              handleMouseWheel: false,
-            ),
-            scrollBeyondLastLine: false,
-            wordWrap: AnonymousUnion_2810996.on$,
-            contextmenu: false,
-            acceptSuggestionOnEnter: true,
-            acceptSuggestionOnCommitCharacter: true,
-            tabCompletion: 'on',
-            tabFocusMode: true,
-            suggest: ISuggestOptions(
-              insertMode: AnonymousUnion_1259071.replace,
-              filterGraceful: true,
-            ),
-          );
+      // Create editor with merged options (custom options override defaults)
+      final defaultOptions = IStandaloneEditorConstructionOptions(
+        value: _value.value,
+        language: _language,
+        theme: _theme,
+        automaticLayout: true,
+        fontSize: 14,
+        lineNumbers: 'off',
+        lineNumbersMinChars: 0,
+        lineDecorationsWidth: 0,
+        minimap: IEditorMinimapOptions(enabled: false),
+        scrollbar: IEditorScrollbarOptions(
+          vertical: AnonymousUnion_1753152.hidden,
+          horizontal: AnonymousUnion_1753152.hidden,
+          handleMouseWheel: false,
+        ),
+        scrollBeyondLastLine: false,
+        wordWrap: AnonymousUnion_2810996.on$,
+        contextmenu: false,
+        acceptSuggestionOnEnter: true,
+        acceptSuggestionOnCommitCharacter: true,
+        tabCompletion: 'on',
+        tabFocusMode: true,
+        suggest: ISuggestOptions(
+          insertMode: AnonymousUnion_1259071.replace,
+          filterGraceful: true,
+        ),
+        renderLineHighlightOnlyWhenFocus: true,
+        fixedOverflowWidgets: true, // allow completion items to overflow
+      );
+
+      final editorOptions = _options != null
+          ? defaultOptions.merge(_options)
+          : defaultOptions;
 
       _editor = monaco.editor.create(container, editorOptions);
 
@@ -142,6 +166,12 @@ class MonacoEditorModel extends ChangeNotifierX {
 
   void _registerCustomLanguage(MonacoCustomLanguage language) {
     final languageId = language.languageId;
+    final registeredLanguages = monaco.languages.getLanguages().toDart.map(
+      (it) => it.id,
+    );
+    if (registeredLanguages.contains(languageId)) {
+      return;
+    }
 
     // Register the language
     monaco.languages.register(ILanguageExtensionPoint(id: languageId));
@@ -162,6 +192,23 @@ class MonacoEditorModel extends ChangeNotifierX {
         provideHover: hoverProvider.provideHover,
       );
     }
+  }
+
+  /// Create options for a single-line editor that looks like a text input
+  static IStandaloneEditorConstructionOptions createSingleLineOptions() {
+    final options = IStandaloneEditorConstructionOptions(
+      glyphMargin: false,
+      overviewRulerBorder: false,
+      overviewRulerLanes: 0,
+      lineHeight: 22,
+      padding: IEditorPaddingOptions(top: 4, bottom: 4),
+      hideCursorInOverviewRuler: true,
+      renderLineHighlight: AnonymousUnion_1469778.none,
+      wordWrapColumn: -1,
+      wrappingIndent: AnonymousUnion_1450754.none,
+      wrappingStrategy: AnonymousUnion_1536603.simple,
+    );
+    return options;
   }
 
   /// Update the editor content programmatically

@@ -47,7 +47,7 @@ class _EmbeddingProviderConfigDialogState
       _persistCredentials = config.persistCredentials;
     } else {
       // Default values for new configuration
-      _name = '${provider.displayName} Configuration';
+      _name = provider.displayName;
       _persistCredentials = false;
     }
   }

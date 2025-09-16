@@ -4,7 +4,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../configurations/model/configuration_collection.dart';
 import '../../configurations/model/configuration_item.dart';
-import '../../util/type_id.dart';
 import 'data_source_settings.dart';
 
 part 'data_source_config.freezed.dart';
@@ -15,7 +14,7 @@ abstract class DataSourceConfig<T extends DataSourceSettings>
     with _$DataSourceConfig<T>
     implements ConfigurationItem {
   factory DataSourceConfig.create({
-    String? id,
+    required String id,
     required String name,
     String description = '',
     required DataSourceType type,
@@ -26,7 +25,7 @@ abstract class DataSourceConfig<T extends DataSourceSettings>
   }) {
     final now = DateTime.now();
     return DataSourceConfig(
-      id: id ?? typeId('ds'),
+      id: id,
       name: name,
       description: description,
       type: type,

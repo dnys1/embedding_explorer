@@ -52,11 +52,18 @@ final class TemplateEditorModel extends ChangeNotifierX
   final ValueNotifier<String> _selectedDataSourceId;
   final ValueNotifier<String?> _error = ValueNotifier(null);
 
+  late final MonacoEditorModel idEditor = MonacoEditorModel.singleLine(
+    containerId: 'template-id-editor',
+    language: languageId,
+    customLanguage: this,
+    initialValue: _initialTemplate?.idTemplate,
+  );
+
   late final MonacoEditorModel editor = MonacoEditorModel(
     containerId: 'template-editor',
     language: languageId,
     customLanguage: this,
-    height: 400,
+    height: 300,
     initialValue: _initialTemplate?.template ?? _defaultTemplate,
   );
 
@@ -69,7 +76,7 @@ final class TemplateEditorModel extends ChangeNotifierX
 // Use {{field}} syntax to reference data fields
 // Example: "Title: {{title}} Content: {{content}}"
 
-{{title}} - {{description}}''';
+''';
 
   ValueListenable<String> get name => _name;
   ValueListenable<String> get description => _description;
@@ -97,6 +104,7 @@ final class TemplateEditorModel extends ChangeNotifierX
         if (_initialTemplate != null)
           _loadDataSourceById(_initialTemplate.dataSourceId),
         editor.init(),
+        idEditor.init(),
       ]);
     } catch (e) {
       _error.value = 'Initialization failed: $e';
@@ -118,8 +126,16 @@ final class TemplateEditorModel extends ChangeNotifierX
         _currentDataSource!.getSampleData(limit: 1),
       ).wait;
 
-      _schemaFields = (schema as Map<String, dynamic>).keys.toList();
+      _schemaFields = schema.keys.toList();
       _sampleRow = sampleData.isNotEmpty ? sampleData.first : null;
+
+      if (idEditor.value.value.isEmpty && _schemaFields.isNotEmpty) {
+        final placeholderIdField = _schemaFields.firstWhere(
+          (field) => field.toLowerCase().contains('id'),
+          orElse: () => _schemaFields.first,
+        );
+        idEditor.setValue('{{$placeholderIdField}}');
+      }
 
       setState(() {});
     } catch (e) {
@@ -134,6 +150,14 @@ final class TemplateEditorModel extends ChangeNotifierX
       return 'Preview will appear here once you define a template...';
     }
     return _renderTemplate(templateText, _sampleRow);
+  }
+
+  String get idPreviewText {
+    final idTemplateText = idEditor.value.value;
+    if (idTemplateText.isEmpty) {
+      return 'ID preview will appear here once you define an ID template...';
+    }
+    return _renderTemplate(idTemplateText, _sampleRow);
   }
 
   String _renderTemplate(String template, Map<String, dynamic>? data) {
@@ -183,20 +207,18 @@ final class TemplateEditorModel extends ChangeNotifierX
   bool validate() {
     return _name.value.isNotEmpty &&
         editor.value.value.isNotEmpty &&
+        idEditor.value.value.isNotEmpty &&
         _selectedDataSourceId.value.isNotEmpty;
   }
 
   EmbeddingTemplate createConfig(String id) {
-    return EmbeddingTemplate(
+    return EmbeddingTemplate.create(
       id: id,
       name: _name.value,
       description: _description.value,
       template: editor.value.value,
+      idTemplate: idEditor.value.value,
       dataSourceId: _selectedDataSourceId.value,
-      availableFields: List.of(_schemaFields),
-      metadata: {},
-      createdAt: _initialTemplate?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
     );
   }
 
@@ -209,6 +231,8 @@ final class TemplateEditorModel extends ChangeNotifierX
     _name.dispose();
     _description.dispose();
     _selectedDataSourceId.dispose();
+    _error.dispose();
+    idEditor.dispose();
     editor.dispose();
     super.dispose();
   }

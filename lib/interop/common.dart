@@ -9,6 +9,29 @@ import 'package:web/web.dart' as web;
 @JS()
 external Null get undefined;
 
+@JS('Object.getOwnPropertyNames')
+external JSArray<JSString> getOwnPropertyNames(JSObject obj);
+
+extension JSObjectExtensions<T extends JSObject> on T {
+  /// Returns a list of the object's own property names.
+  List<String> get ownPropertyNames {
+    return getOwnPropertyNames(this).toDart.map((e) => e.toDart).toList();
+  }
+
+  /// Merges this object with another, returning a new object with properties
+  /// from both.
+  ///
+  /// Properties from [other] will overwrite those in this object if they share
+  /// the same key
+  T merge(T other) {
+    final merged = web.window.structuredClone(this) as JSObject;
+    for (final key in getOwnPropertyNames(other).toDart) {
+      merged.setProperty(key, other.getProperty(key));
+    }
+    return merged as T;
+  }
+}
+
 extension type JSErrorOptions._(JSObject _) implements JSObject {
   external factory JSErrorOptions({JSAny? cause});
 

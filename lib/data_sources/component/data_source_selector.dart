@@ -481,6 +481,7 @@ class DataSourceSelectorState extends State<DataSourceSelector>
 
     try {
       final dataSourceConfig = DataSourceConfig.create(
+        id: configManager.dataSourceConfigs.generateId(),
         name: _dataSourceName,
         type: DataSourceType.csv,
         filename: _selectedFile!.name,
@@ -522,6 +523,7 @@ class DataSourceSelectorState extends State<DataSourceSelector>
 
     try {
       final config = DataSourceConfig.create(
+        id: configManager.dataSourceConfigs.generateId(),
         name: _dataSourceName,
         filename: _sqliteFilename ?? _selectedFile!.name,
         type: DataSourceType.sqlite,

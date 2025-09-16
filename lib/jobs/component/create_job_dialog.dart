@@ -32,14 +32,13 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
     }
 
     // Create the job
-    final job = EmbeddingJob(
+    final job = EmbeddingJob.create(
       id: configManager.embeddingJobs.generateId(),
       name: _jobName,
       description: _jobDescription,
       dataSourceId: _selectedDataSourceId!,
       embeddingTemplateId: _selectedTemplateId!,
       providerIds: _selectedProviderIds.toList(),
-      createdAt: DateTime.now(),
     );
 
     configManager.embeddingJobs.upsert(job);
@@ -107,7 +106,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
               DialogDescription(
                 children: [
                   text(
-                    'Configure a new embedding job by selecting data source, template, and model providers.',
+                    'Configure a new embedding job by selecting data source, template, and providers.',
                   ),
                 ],
               ),
@@ -206,7 +205,7 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
 
               // Provider Selection
               div(classes: 'space-y-2', [
-                Label(children: [text('Model Providers *')]),
+                Label(children: [text('Providers *')]),
                 if (providers.isEmpty)
                   div(
                     classes: 'text-sm text-muted-foreground p-2 border rounded',

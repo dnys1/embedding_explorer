@@ -147,17 +147,16 @@ class ConfigurationService with ChangeNotifier {
     await database.execute(
       '''
       INSERT OR REPLACE INTO templates 
-      (id, name, description, template, data_source_id, available_fields, metadata, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, name, description, id_template, template, data_source_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''',
       [
         config.id,
         config.name,
         config.description,
+        config.idTemplate,
         config.template,
         config.dataSourceId,
-        jsonEncode(config.availableFields),
-        jsonEncode(config.metadata),
         config.createdAt.toIso8601String(),
         now,
       ],
@@ -209,7 +208,7 @@ class ConfigurationService with ChangeNotifier {
   // Model Provider Configuration Methods
 
   /// Save a model provider configuration to the database
-  Future<void> saveModelProviderConfig(EmbeddingProviderConfig config) async {
+  Future<void> saveProviderConfig(EmbeddingProviderConfig config) async {
     final now = DateTime.now().toIso8601String();
 
     await database.transaction((tx) {
@@ -255,7 +254,7 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get a model provider configuration by ID
-  Future<EmbeddingProviderConfig?> getModelProviderConfig(String id) async {
+  Future<EmbeddingProviderConfig?> getProviderConfig(String id) async {
     final result = await database.select(
       '''
 SELECT *
@@ -274,7 +273,7 @@ WHERE id = ?
   }
 
   /// Get all model provider configurations
-  Future<List<EmbeddingProviderConfig>> getAllModelProviderConfigs() async {
+  Future<List<EmbeddingProviderConfig>> getAllProviderConfigs() async {
     final result = await database.select('''
 SELECT *
 FROM providers
@@ -287,7 +286,7 @@ ORDER BY created_at DESC
   }
 
   /// Delete a model provider configuration
-  Future<void> deleteModelProviderConfig(String id) async {
+  Future<void> deleteProviderConfig(String id) async {
     await database.transaction((tx) {
       // Delete associated credentials first
       tx.execute('DELETE FROM provider_credentials WHERE provider_id = ?', [
@@ -455,7 +454,6 @@ ORDER BY created_at DESC
     required String jobId,
     required String dataSourceId,
     required String embeddingTemplateId,
-    String? description,
   }) async {
     final tableId = typeId('et');
     final tableName = tableId;
@@ -475,8 +473,8 @@ ORDER BY created_at DESC
       tx.execute(
         '''
         INSERT INTO embedding_table_registry 
-        (id, table_name, job_id, data_source_id, template_id, description, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (id, table_name, job_id, data_source_id, template_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       ''',
         [
           tableId,
@@ -484,7 +482,6 @@ ORDER BY created_at DESC
           jobId,
           dataSourceId,
           embeddingTemplateId,
-          description ?? '',
           now,
           now,
         ],

@@ -25,7 +25,7 @@ extension AsAsyncResult<T> on AsyncSnapshot<T> {
   AsyncResult<T> get result {
     if (hasError) {
       return AsyncError<T>(error!, stackTrace);
-    } else if (connectionState == ConnectionState.waiting || !hasData) {
+    } else if (connectionState == ConnectionState.waiting) {
       return AsyncLoading<T>();
     } else {
       return AsyncData<T>(requireData);

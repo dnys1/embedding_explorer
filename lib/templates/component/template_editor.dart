@@ -1,7 +1,7 @@
 import 'package:jaspr/jaspr.dart';
-import 'package:web/web.dart';
 
 import '../../common/monaco/monaco_editor.dart';
+import '../../common/ui/ui.dart';
 import 'template_editor_model.dart';
 
 /// A component that provides a Monaco-based editor for embedding templates
@@ -37,63 +37,56 @@ class _TemplateEditorViewState extends State<TemplateEditorView> {
     return div(classes: 'space-y-6', [
       _buildBasicFields(),
       _buildFieldManagement(),
-      _buildTemplateEditor(),
-      _buildPreview(),
+      ValueListenableBuilder(
+        listenable: model.selectedDataSourceId,
+        builder: (_, dataSourceId) {
+          return div(classes: dataSourceId.isEmpty ? 'hidden' : null, [
+            _buildTemplateInput(),
+          ]);
+        },
+      ),
     ]);
   }
 
   Component _buildBasicFields() {
-    return div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-4', [
-      div(classes: 'space-y-2', [
-        label(
-          classes: 'text-sm font-medium text-foreground',
-          attributes: {'for': 'template-name'},
-          [text('Name *')],
-        ),
-        ValueListenableBuilder(
-          listenable: model.name,
-          builder: (context, name) {
-            return input(
-              id: 'template-name',
-              classes:
-                  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              attributes: {'placeholder': 'Enter template name', 'value': name},
-              events: {
-                'input': (event) {
-                  model.updateName((event.target as HTMLInputElement).value);
-                },
-              },
-            );
-          },
-        ),
-      ]),
-      div(classes: 'space-y-2', [
-        label(
-          classes: 'text-sm font-medium text-foreground',
-          attributes: {'for': 'template-desc'},
-          [text('Description')],
-        ),
-        ValueListenableBuilder(
-          listenable: model.description,
-          builder: (context, description) {
-            return input(
-              id: 'template-desc',
-              classes:
-                  'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              attributes: {
-                'placeholder': 'Brief description',
-                'value': description,
-              },
-              events: {
-                'input': (event) {
-                  model.updateDescription(
-                    (event.target as HTMLInputElement).value,
-                  );
-                },
-              },
-            );
-          },
-        ),
+    return div(classes: 'space-y-4', [
+      div(classes: 'grid grid-cols-1 md:grid-cols-2 gap-4', [
+        div(classes: 'space-y-2', [
+          Label(
+            htmlFor: 'template-name',
+            className: 'text-foreground',
+            children: [text('Name *')],
+          ),
+          ValueListenableBuilder(
+            listenable: model.name,
+            builder: (context, name) {
+              return Input.text(
+                id: 'template-name',
+                placeholder: 'Enter template name',
+                value: name,
+                onChange: (value) => model.updateName(value),
+              );
+            },
+          ),
+        ]),
+        div(classes: 'space-y-2', [
+          Label(
+            htmlFor: 'template-desc',
+            className: 'text-foreground',
+            children: [text('Description')],
+          ),
+          ValueListenableBuilder(
+            listenable: model.description,
+            builder: (context, description) {
+              return Input.text(
+                id: 'template-desc',
+                placeholder: 'Brief description',
+                value: description,
+                onChange: (value) => model.updateDescription(value),
+              );
+            },
+          ),
+        ]),
       ]),
     ]);
   }
@@ -113,32 +106,20 @@ class _TemplateEditorViewState extends State<TemplateEditorView> {
 
       // Data source selector
       div(classes: 'space-y-2', [
-        label(classes: 'text-sm font-medium text-foreground', [
-          text('Data Source *'),
-        ]),
+        Label(className: 'text-foreground', children: [text('Data Source *')]),
         ValueListenableBuilder(
           listenable: model.selectedDataSourceId,
           builder: (context, selectedId) {
             final dataSources = model.configManager.dataSourceConfigs.all;
-            return select(
-              classes:
-                  'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-              attributes: {'value': selectedId},
-              events: {
-                'change': (event) {
-                  final newValue = (event.target as HTMLSelectElement).value;
-                  model.updateDataSource(newValue);
-                },
-              },
-              [
-                option(
-                  attributes: {'value': ''},
-                  [text('Select a data source...')],
-                ),
+            return Select(
+              value: selectedId,
+              placeholder: 'Select a data source...',
+              onChange: (value) => model.updateDataSource(value),
+              children: [
                 for (final dataSource in dataSources)
-                  option(
-                    attributes: {'value': dataSource.id},
-                    [
+                  Option(
+                    value: dataSource.id,
+                    children: [
                       text(
                         '${dataSource.name} (${dataSource.type.name.toUpperCase()})',
                       ),
@@ -153,9 +134,10 @@ class _TemplateEditorViewState extends State<TemplateEditorView> {
       // Show data source fields if available
       if (model.schemaFields.isNotEmpty)
         div([
-          h4(classes: 'text-sm font-medium text-foreground mb-2', [
-            text('Available Fields'),
-          ]),
+          Label(
+            className: 'text-foreground mb-2',
+            children: [text('Available Fields')],
+          ),
           p(classes: 'text-xs text-muted-foreground mb-2', [
             text('These fields are available from your selected data source.'),
           ]),
@@ -171,35 +153,70 @@ class _TemplateEditorViewState extends State<TemplateEditorView> {
     ]);
   }
 
-  Component _buildTemplateEditor() {
-    return div([
+  Component _buildTemplateInput() {
+    return div(classes: 'space-y-4', [
       h3(classes: 'text-lg font-medium text-foreground mb-2', [
-        text('Template'),
+        text('Document Template'),
       ]),
       p(classes: 'text-sm text-muted-foreground mb-4', [
         text(
           'Use {{field}} syntax to reference fields. The editor provides auto-completion and syntax highlighting.',
         ),
       ]),
-      MonacoEditor(model: model.editor),
+      _buildIdTemplateEditor(),
+      _buildTemplateEditor(),
     ]);
   }
 
-  Component _buildPreview() {
-    return ValueListenableBuilder(
-      listenable: model.editor.value,
-      builder: (context, _) {
-        return div([
-          h3(classes: 'text-lg font-medium text-foreground mb-2', [
-            text('Preview'),
-          ]),
-          div(classes: 'bg-muted p-4 rounded-md border min-h-[120px]', [
-            pre(classes: 'text-sm whitespace-pre-wrap font-mono', [
-              text(model.previewText),
+  Component _buildIdTemplateEditor() {
+    return div([
+      Label(className: 'text-foreground mb-2', children: [text('ID *')]),
+      p(classes: 'text-sm text-muted-foreground mb-4', [
+        text('The unique identifier for documents generated by this template.'),
+      ]),
+      MonacoEditor(model: model.idEditor),
+      ValueListenableBuilder(
+        listenable: model.idEditor.value,
+        builder: (context, _) {
+          return div(classes: 'mt-4', [
+            h4(classes: 'text-sm font-medium text-foreground mb-2', [
+              text('ID Template Preview'),
             ]),
-          ]),
-        ]);
-      },
-    );
+            div(classes: 'bg-muted p-3 rounded-md border min-h-[50px]', [
+              pre(classes: 'text-sm whitespace-pre-wrap font-mono', [
+                text(model.idPreviewText),
+              ]),
+            ]),
+          ]);
+        },
+      ),
+    ]);
+  }
+
+  Component _buildTemplateEditor() {
+    return div([
+      Label(className: 'text-foreground mb-2', children: [text('Body *')]),
+      p(classes: 'text-sm text-muted-foreground mb-4', [
+        text(
+          'The main content template for documents, e.g. what gets embedded by the model.',
+        ),
+      ]),
+      MonacoEditor(model: model.editor),
+      ValueListenableBuilder(
+        listenable: model.editor.value,
+        builder: (context, _) {
+          return div(classes: 'mt-4', [
+            h4(classes: 'text-sm font-medium text-foreground mb-2', [
+              text('Body Template Preview'),
+            ]),
+            div(classes: 'bg-muted p-3 rounded-md border min-h-[50px]', [
+              pre(classes: 'text-sm whitespace-pre-wrap font-mono', [
+                text(model.previewText),
+              ]),
+            ]),
+          ]);
+        },
+      ),
+    ]);
   }
 }

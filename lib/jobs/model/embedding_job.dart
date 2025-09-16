@@ -48,6 +48,40 @@ enum JobStatus {
 /// Represents an embedding job configuration
 @freezed
 abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
+  factory EmbeddingJob.create({
+    required String id,
+    required String name,
+    String? description,
+    required String dataSourceId,
+    required String embeddingTemplateId,
+    required List<String> providerIds,
+    JobStatus? status,
+    DateTime? createdAt,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    String? errorMessage,
+    Map<String, dynamic>? results,
+    int? totalRecords,
+    int? processedRecords,
+  }) {
+    return EmbeddingJob(
+      id: id,
+      name: name,
+      description: description ?? '',
+      dataSourceId: dataSourceId,
+      embeddingTemplateId: embeddingTemplateId,
+      providerIds: providerIds,
+      status: status ?? JobStatus.pending,
+      createdAt: createdAt ?? DateTime.now(),
+      startedAt: startedAt,
+      completedAt: completedAt,
+      errorMessage: errorMessage,
+      results: results,
+      totalRecords: totalRecords,
+      processedRecords: processedRecords,
+    );
+  }
+
   const factory EmbeddingJob({
     required String id,
     required String name,
@@ -97,25 +131,25 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
 
   /// Get progress percentage (0-100)
   double get progress {
-    if (this.totalRecords == null || this.totalRecords == 0) return 0.0;
-    if (this.processedRecords == null) return 0.0;
-    return (this.processedRecords! / this.totalRecords!) * 100.0;
+    if (totalRecords == null || totalRecords == 0) return 0.0;
+    if (processedRecords == null) return 0.0;
+    return (processedRecords! / totalRecords!) * 100.0;
   }
 
   /// Get duration if job has started
   Duration? get duration {
-    if (this.startedAt == null) return null;
-    final endTime = this.completedAt ?? DateTime.now();
-    return endTime.difference(this.startedAt!);
+    if (startedAt == null) return null;
+    final endTime = completedAt ?? DateTime.now();
+    return endTime.difference(startedAt!);
   }
 
   /// Check if job is in a terminal state
   bool get isCompleted =>
-      this.status == JobStatus.completed ||
-      this.status == JobStatus.failed ||
-      this.status == JobStatus.cancelled;
+      status == JobStatus.completed ||
+      status == JobStatus.failed ||
+      status == JobStatus.cancelled;
 
   /// Check if job can be cancelled
   bool get canCancel =>
-      this.status == JobStatus.pending || this.status == JobStatus.running;
+      status == JobStatus.pending || status == JobStatus.running;
 }

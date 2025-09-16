@@ -30,7 +30,7 @@ class _MonacoEditorState extends State<MonacoEditor> {
       listenable: model.isLoading,
       builder: (context, isLoading) {
         return div(
-          styles: Styles(height: model.height.px),
+          styles: Styles(height: model.height?.px),
           classes:
               'relative w-full border border-input rounded-md overflow-hidden',
           [
