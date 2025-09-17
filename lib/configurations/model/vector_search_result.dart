@@ -22,18 +22,14 @@ class VectorSearchResult {
   });
 
   /// Create from database row
-  static VectorSearchResult? fromDatabase(Map<String, Object?> row) {
-    try {
-      return VectorSearchResult(
-        id: row['id'] as String,
-        sourceData:
-            jsonDecode(row['source_data'] as String) as Map<String, dynamic>,
-        createdAt: DateTime.parse(row['created_at'] as String),
-        distance: row['distance'] as double,
-      );
-    } catch (e) {
-      return null;
-    }
+  factory VectorSearchResult.fromDatabase(Map<String, Object?> row) {
+    return VectorSearchResult(
+      id: row['id'] as String,
+      sourceData:
+          jsonDecode(row['source_data'] as String) as Map<String, dynamic>,
+      createdAt: DateTime.parse(row['created_at'] as String),
+      distance: row['distance'] as double,
+    );
   }
 
   /// Convert to JSON for serialization

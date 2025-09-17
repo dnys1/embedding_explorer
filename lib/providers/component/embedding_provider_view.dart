@@ -47,21 +47,17 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
             div(classes: 'flex items-center space-x-4', [
               // Expand/collapse button (only show if configured)
               if (isFullyConfigured && provider.config != null)
-                button(
-                  classes:
+                IconButton(
+                  className:
                       'p-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
-                  events: {
-                    'click': (_) => setState(() {
-                      _isExpanded = !_isExpanded;
-                    }),
-                  },
-                  [
-                    FaIcon(
-                      _isExpanded
-                          ? FaIcons.solid.chevronDown
-                          : FaIcons.solid.chevronRight,
-                    ),
-                  ],
+                  onPressed: () => setState(() {
+                    _isExpanded = !_isExpanded;
+                  }),
+                  icon: FaIcon(
+                    _isExpanded
+                        ? FaIcons.solid.chevronDown
+                        : FaIcons.solid.chevronRight,
+                  ),
                 ),
               div(classes: 'text-3xl', [
                 if (provider.iconData case final iconData?)

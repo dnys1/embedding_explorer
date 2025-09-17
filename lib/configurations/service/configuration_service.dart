@@ -130,7 +130,7 @@ class ConfigurationService with ChangeNotifier {
       'SELECT * FROM data_sources ORDER BY created_at DESC',
     );
 
-    return result.map(DataSourceConfig.fromDatabase).nonNulls.toList();
+    return result.map(DataSourceConfig.fromDatabase).toList();
   }
 
   /// Delete a data source configuration
@@ -185,7 +185,7 @@ class ConfigurationService with ChangeNotifier {
       'SELECT * FROM templates ORDER BY created_at DESC',
     );
 
-    return result.map(EmbeddingTemplate.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingTemplate.fromDatabase).toList();
   }
 
   /// Get embedding templates by data source ID
@@ -197,7 +197,7 @@ class ConfigurationService with ChangeNotifier {
       [dataSourceId],
     );
 
-    return result.map(EmbeddingTemplate.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingTemplate.fromDatabase).toList();
   }
 
   /// Delete an embedding template configuration
@@ -352,7 +352,7 @@ ORDER BY created_at DESC
       'SELECT * FROM custom_provider_templates ORDER BY created_at DESC',
     );
 
-    return result.map(CustomProviderTemplate.fromDatabase).nonNulls.toList();
+    return result.map(CustomProviderTemplate.fromDatabase).toList();
   }
 
   /// Delete a custom provider template
@@ -430,7 +430,7 @@ ORDER BY created_at DESC
       'SELECT * FROM jobs ORDER BY created_at DESC',
     );
 
-    return result.map(EmbeddingJob.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingJob.fromDatabase).toList();
   }
 
   /// Get embedding jobs by status
@@ -440,7 +440,7 @@ ORDER BY created_at DESC
       [status],
     );
 
-    return result.map(EmbeddingJob.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingJob.fromDatabase).toList();
   }
 
   /// Delete an embedding job
@@ -706,10 +706,7 @@ ORDER BY created_at DESC
     sqlBuffer.write(' ORDER BY created_at DESC');
 
     final result = await database.select(sqlBuffer.toString(), params);
-    return result
-        .map((row) => EmbeddingTable.fromDatabase(row))
-        .nonNulls
-        .toList();
+    return result.map((row) => EmbeddingTable.fromDatabase(row)).toList();
   }
 
   /// Get embedding column registry entries for a table
@@ -725,7 +722,7 @@ ORDER BY created_at DESC
     sqlBuffer.write(' ORDER BY created_at');
 
     final result = await database.select(sqlBuffer.toString(), params);
-    return result.map(EmbeddingColumn.fromDatabase).nonNulls.toList();
+    return result.map(EmbeddingColumn.fromDatabase).toList();
   }
 
   /// Search for similar vectors in an embedding table
@@ -771,7 +768,7 @@ ORDER BY created_at DESC
         [jsonEncode(queryVector), indexName, jsonEncode(queryVector), limit],
       );
 
-      return result.map(VectorSearchResult.fromDatabase).nonNulls.toList();
+      return result.map(VectorSearchResult.fromDatabase).toList();
     } else {
       // Fall back to linear search without index
       _logger.fine('Vector index $indexName not found, using linear search');
@@ -788,7 +785,7 @@ ORDER BY created_at DESC
         [jsonEncode(queryVector), limit],
       );
 
-      return result.map(VectorSearchResult.fromDatabase).nonNulls.toList();
+      return result.map(VectorSearchResult.fromDatabase).toList();
     }
   }
 
