@@ -97,10 +97,18 @@ class DatabasePool {
     _localLogger.fine('Database pool initialized');
   }
 
+  void _ensureNotDisposed() {
+    if (_disposed) {
+      throw StateError('DatabasePool has been disposed');
+    }
+  }
+
   /// Exports an OPFS database to binary data.
   ///
   /// Throws [StateError] if the database doesn't exist or export fails.
   Future<Uint8List> export(String filename) async {
+    _ensureNotDisposed();
+
     // First, close any open instances of this database.
     final database = _databases.remove(filename);
     if (database != null) {
@@ -137,6 +145,8 @@ class DatabasePool {
     required String filename,
     required Uint8List data,
   }) async {
+    _ensureNotDisposed();
+
     if (_databases.containsKey(filename)) {
       throw StateError('Database already open: $filename');
     }
@@ -168,6 +178,8 @@ class DatabasePool {
   ///
   /// Returns true if the database was successfully deleted, false if it didn't exist.
   Future<bool> delete(String filename) async {
+    _ensureNotDisposed();
+
     // First, close any open instances of this database.
     final database = _databases.remove(filename);
     if (database != null) {
@@ -198,6 +210,8 @@ class DatabasePool {
 
   /// Opens a database and returns an [DatabaseHandle] instance.
   Future<DatabaseHandle> open(String filename, {bool verbose = false}) async {
+    _ensureNotDisposed();
+
     if (_databases[filename] case final database?) {
       return database;
     }
@@ -221,6 +235,8 @@ class DatabasePool {
   }
 
   Future<void> wipeAll() async {
+    _ensureNotDisposed();
+
     final databases = List.of(_databases.values);
     _databases.clear();
     // First, close all open databases. Wiping file storage is undefined if any
@@ -258,11 +274,24 @@ class _DatabasePoolDatabase implements DatabaseHandle {
   @override
   final String filename;
   final DatabasePool pool;
+  var _disposed = false;
 
   _DatabasePoolDatabase(this.pool, this.filename);
 
+  void _ensureNotDisposed() {
+    pool._ensureNotDisposed();
+    if (_disposed) {
+      throw StateError('DatabaseHandle has been disposed');
+    }
+  }
+
   @override
   Future<void> close() async {
+    if (_disposed) return;
+    _disposed = true;
+    pool._ensureNotDisposed();
+    pool._databases.remove(filename);
+
     final requestId = pool._nextRequestId++;
     pool._worker.add(
       DatabasePoolRequest.closeDatabase(
@@ -284,6 +313,8 @@ class _DatabasePoolDatabase implements DatabaseHandle {
     String sql, [
     List<Object?> parameters = const [],
   ]) async {
+    _ensureNotDisposed();
+
     final requestId = pool._nextRequestId++;
     pool._worker.add(
       DatabasePoolRequest.databaseOperation(
@@ -311,6 +342,8 @@ class _DatabasePoolDatabase implements DatabaseHandle {
     String sql, [
     List<Object?> parameters = const [],
   ]) async {
+    _ensureNotDisposed();
+
     final requestId = pool._nextRequestId++;
     pool._worker.add(
       DatabasePoolRequest.databaseOperation(
@@ -336,6 +369,8 @@ class _DatabasePoolDatabase implements DatabaseHandle {
 
   @override
   Future<void> transaction(void Function(TransactionExecutor tx) action) async {
+    _ensureNotDisposed();
+
     final builder = _TransactionBuilder();
     action(builder);
     final transaction = builder.build();

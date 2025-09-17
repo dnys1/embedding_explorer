@@ -427,6 +427,12 @@ class JobOrchestrator {
     await _progressTracker.deleteJobProgress(job.id);
     await _jobResumeService.deleteJobCheckpoints(job.id);
 
+    await _updateJobStatus(
+      job.id,
+      JobStatus.running,
+      startedAt: DateTime.now(),
+    );
+
     // Save job start checkpoint
     await _jobResumeService.saveJobStartCheckpoint(
       jobId: job.id,
@@ -651,9 +657,6 @@ class JobOrchestrator {
       JobStatus.completed,
       completedAt: DateTime.now(),
     );
-
-    // Complete progress tracking
-    await _progressTracker.completeJob(job.id);
 
     _logger.info('Job execution completed successfully: ${job.id}');
   }

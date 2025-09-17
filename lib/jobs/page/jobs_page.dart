@@ -273,6 +273,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
             if (_resumableJobs.map((it) => it.job.id).contains(job.id))
               _buildResumeButton(job),
             if (job.canCancel) _buildCancelButton(job),
+            if (job.isCompleted) _buildViewButton(job),
             _buildJobMenuButton(job),
           ]),
         ]),
@@ -294,16 +295,10 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
         // Additional info for completed/failed jobs
         if (job.status == JobStatus.completed) ...[
           div(classes: 'mt-4 pt-4 border-t', [
-            div(classes: 'flex justify-between items-center', [
-              div(classes: 'text-sm text-muted-foreground', [
-                text(
-                  'Completed in ${_formatDuration(job.duration!)} • ${job.processedRecords}/${job.totalRecords} records',
-                ),
-              ]),
-              Button(
-                variant: ButtonVariant.link,
-                children: [text('View Results →')],
-              ),
+            div(classes: 'text-sm text-muted-foreground', [
+              if (job.duration case final duration?)
+                text('Completed in ${_formatDuration(duration)} • '),
+              text('${job.processedRecords}/${job.totalRecords} records'),
             ]),
           ]),
         ] else if (job.status == JobStatus.failed) ...[
@@ -334,8 +329,8 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
 
     return div(classes: 'mb-4', [
       div(classes: 'flex justify-between text-sm text-neutral-600 mb-1', [
-        text('Processing embeddings...'),
-        text('${progress.toStringAsFixed(1)}%'),
+        span([text('Processing embeddings...')]),
+        span([text('${progress.toStringAsFixed(1)}%')]),
       ]),
       div(classes: 'w-full bg-neutral-200 rounded-full h-2', [
         div(
@@ -369,6 +364,15 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
       onPressed: () => _cancelJob(job.id),
       children: [text('Cancel')],
       className: 'text-destructive hover:text-destructive',
+    );
+  }
+
+  Component _buildViewButton(EmbeddingJob job) {
+    return Button(
+      variant: ButtonVariant.ghost,
+      size: ButtonSize.sm,
+      onPressed: () => _viewJobResults(job),
+      children: [text('View Results')],
     );
   }
 

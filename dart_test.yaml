@@ -17,6 +17,5 @@ tags:
     test_on: mac-os
 
 verbose_trace: false
-js_trace: true
 chain_stack_traces: true
 concurrency: 1

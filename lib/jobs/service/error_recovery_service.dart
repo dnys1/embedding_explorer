@@ -61,9 +61,6 @@ class ErrorRecoveryService {
         final result = await operation();
 
         stopwatch.stop();
-        _logger.info(
-          'Operation succeeded on attempt $attemptCount${context != null ? ' ($context)' : ''}',
-        );
 
         return RetryResult<T>(
           result: Result.value(result),

@@ -8,7 +8,6 @@ import 'configurations/model/configuration_manager.dart';
 import 'configurations/page/configuration_dashboard_page.dart';
 import 'configurations/page/configuration_view_data_page.dart';
 import 'data_sources/page/data_sources_page.dart';
-import 'editor_test_page.dart';
 import 'home_page.dart';
 import 'jobs/page/job_results_page.dart';
 import 'jobs/page/jobs_page.dart';
@@ -115,13 +114,6 @@ class _AppState extends State<App> {
                   return JobResultsPage(jobId: jobId);
                 },
               ),
-              if (kDebugMode) ...[
-                Route(
-                  path: '/editor-test',
-                  title: 'Editor Test',
-                  builder: (context, state) => const EditorTestPage(),
-                ),
-              ],
             ],
           ),
         ],
