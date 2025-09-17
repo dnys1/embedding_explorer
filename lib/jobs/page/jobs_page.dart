@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_router/jaspr_router.dart';
 import 'package:logging/logging.dart';
 import 'package:web/web.dart' as web;
 
@@ -157,12 +158,8 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
 
   Component _buildResumableJobsSection() {
     final interruptedJobs = _resumableJobs
-        .where(
-          (it) =>
-              it.job.status == JobStatus.paused ||
-              it.job.status == JobStatus.cancelled,
-        )
-        .toList();
+        .where((it) => it.job.status == JobStatus.paused)
+        .toList(growable: false);
     if (interruptedJobs.isEmpty) {
       return fragment([]);
     }
@@ -352,11 +349,16 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
   }
 
   Component _buildResumeButton(EmbeddingJob job) {
+    final label = switch (job.status) {
+      JobStatus.failed => 'Retry',
+      JobStatus.cancelled => 'Restart',
+      _ => 'Resume',
+    };
     return Button(
       variant: ButtonVariant.outline,
       size: ButtonSize.sm,
       onPressed: () => _resumeJob(job.id),
-      children: [text('Resume')],
+      children: [text(label)],
     );
   }
 
@@ -484,8 +486,8 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
   }
 
   void _viewJobResults(EmbeddingJob job) {
-    // TODO: Navigate to job results page or show results modal
-    print('Viewing results for job: ${job.name}');
+    // Navigate to job results page
+    Router.of(context).push('/jobs/${job.id}');
   }
 
   void _restartJob(EmbeddingJob job) async {

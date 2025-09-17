@@ -10,6 +10,7 @@ import 'configurations/page/configuration_view_data_page.dart';
 import 'data_sources/page/data_sources_page.dart';
 import 'editor_test_page.dart';
 import 'home_page.dart';
+import 'jobs/page/job_results_page.dart';
 import 'jobs/page/jobs_page.dart';
 import 'providers/page/embedding_providers_page.dart';
 import 'templates/page/embedding_templates_page.dart';
@@ -102,6 +103,17 @@ class _AppState extends State<App> {
                 path: '/jobs',
                 title: 'Jobs & Queries',
                 builder: (context, state) => const JobsPage(),
+              ),
+              Route(
+                path: '/jobs/:jobId',
+                title: 'Job Results',
+                builder: (context, state) {
+                  final jobId = state.params['jobId'];
+                  if (jobId == null) {
+                    return const JobsPage(); // Fallback if no jobId
+                  }
+                  return JobResultsPage(jobId: jobId);
+                },
               ),
               if (kDebugMode) ...[
                 Route(

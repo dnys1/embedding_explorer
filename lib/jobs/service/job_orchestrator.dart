@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
 import '../../configurations/service/configuration_service.dart';
@@ -383,33 +384,35 @@ class JobOrchestrator {
         job: job,
         cancellationToken: cancellationToken,
       );
-    } on CancellationException catch (e) {
-      _logger.info('Job ${job.id} was cancelled: $e');
+    } on Object catch (e, stackTrace) {
+      if (!cancellationToken.isCancelled) {
+        _logger.severe('Job execution failed: ${job.id}', e, stackTrace);
+
+        // Update job status to failed
+        return _jobRepository.updateJobStatus(
+          job.id,
+          JobStatus.failed,
+          completedAt: DateTime.now(),
+          errorMessage: e.toString(),
+        );
+      }
+
+      final ex = switch (e) {
+        CancellationException() => e,
+        http.RequestAbortedException() => CancellationException(
+          message: 'HTTP request aborted (job=${job.id})',
+        ),
+        _ => throw StateError('Unexpected exception type: ${e.runtimeType}'),
+      };
+      _logger.info('Job ${job.id} was cancelled: $ex');
 
       // Update job status to cancelled
-      await _jobRepository.updateJobStatus(
+      return _jobRepository.updateJobStatus(
         job.id,
-        e.reason == 'page_reload' ? JobStatus.paused : JobStatus.cancelled,
+        ex.reason == 'page_reload' ? JobStatus.paused : JobStatus.cancelled,
         completedAt: DateTime.now(),
         errorMessage: 'Job was cancelled',
       );
-
-      // Don't rethrow - cancellation is expected behavior
-    } catch (e, stackTrace) {
-      _logger.severe('Job execution failed: ${job.id}', e, stackTrace);
-
-      // Log error for job failure
-      _logger.info('Job ${job.id} failed with error: ${e.toString()}');
-
-      // Update job status to failed
-      await _jobRepository.updateJobStatus(
-        job.id,
-        JobStatus.failed,
-        completedAt: DateTime.now(),
-        errorMessage: e.toString(),
-      );
-
-      rethrow;
     } finally {
       // Clean up the cancellation token
       _activeCancellationTokens.remove(job.id);
