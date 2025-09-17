@@ -7,8 +7,9 @@ import '../../configurations/model/configuration_manager.dart';
 import '../model/embedding_provider.dart';
 import '../model/embedding_provider_config.dart';
 import '../model/provider_factory.dart';
-import 'factories/gemini_factory.dart';
-import 'factories/openai_factory.dart';
+import 'builtin_providers/gemini_provider.dart';
+import 'builtin_providers/ollama_provider.dart';
+import 'builtin_providers/openai_provider.dart';
 
 /// Registry that manages embedding provider instances.
 ///
@@ -25,6 +26,7 @@ class EmbeddingProviderRegistry with ChangeNotifier {
   static final Map<EmbeddingProviderType, ProviderFactory> _factories = {
     EmbeddingProviderType.openai: const OpenAIFactory(),
     EmbeddingProviderType.gemini: const GeminiFactory(),
+    EmbeddingProviderType.ollama: const OllamaFactory(),
   };
 
   EmbeddingProviderRegistry(this._configManager) {

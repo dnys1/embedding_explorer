@@ -29,6 +29,9 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
     with ConfigurationManagerListener {
   EmbeddingProvider get provider => component.provider;
 
+  // Collapsible state
+  late bool _isExpanded = provider.isConnected;
+
   bool get hasConfiguration => isPartiallyConfigured || isFullyConfigured;
   bool get isPartiallyConfigured => provider.isPartiallyConfigured;
   bool get isFullyConfigured => provider.isConnected;
@@ -42,10 +45,42 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
           // Provider header with name and gear switch
           div(classes: 'flex items-center justify-between', [
             div(classes: 'flex items-center space-x-4', [
-              div(classes: 'text-3xl', [FaIcon(provider.icon)]),
+              // Expand/collapse button (only show if configured)
+              if (isFullyConfigured && provider.config != null)
+                button(
+                  classes:
+                      'p-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
+                  events: {
+                    'click': (_) => setState(() {
+                      _isExpanded = !_isExpanded;
+                    }),
+                  },
+                  [
+                    FaIcon(
+                      _isExpanded
+                          ? FaIcons.solid.chevronDown
+                          : FaIcons.solid.chevronRight,
+                    ),
+                  ],
+                ),
+              div(classes: 'text-3xl', [
+                if (provider.iconData case final iconData?)
+                  FaIcon(iconData, size: 32)
+                else if (provider.iconUri case final iconUri?)
+                  img(
+                    src: iconUri.toString(),
+                    alt: provider.displayName,
+                    classes: 'h-8 w-8',
+                  ),
+              ]),
               div([
-                h2(classes: 'text-xl font-semibold text-foreground', [
-                  text(provider.displayName),
+                div(classes: 'flex items-center space-x-2', [
+                  h2(classes: 'text-xl font-semibold text-foreground', [
+                    text(provider.displayName),
+                  ]),
+                  // Show model count when configured
+                  if (isFullyConfigured && provider.config != null)
+                    _buildModelCountBadge(),
                 ]),
                 p(classes: 'text-sm text-muted-foreground', [
                   text(provider.description),
@@ -110,8 +145,8 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
               ],
             ),
 
-          // Model grid
-          if (isFullyConfigured && provider.config != null)
+          // Model grid (only show when expanded)
+          if (isFullyConfigured && provider.config != null && _isExpanded)
             div(classes: 'mt-4', [_buildModelsGrid(provider)]),
         ]),
       ],
@@ -214,6 +249,41 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
           ],
         ),
       ],
+    );
+  }
+
+  Component _buildModelCountBadge() {
+    return FutureBuilder<Map<String, EmbeddingModel>>(
+      future: configManager.embeddingProviders.getAvailableModels(
+        provider.config!.id,
+      ),
+      builder: (context, snapshot) {
+        switch (snapshot.result) {
+          case AsyncLoading():
+            return span(
+              classes:
+                  'text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full',
+              [text('Loading...')],
+            );
+          case AsyncError():
+            return span(
+              classes:
+                  'text-xs px-2 py-0.5 bg-red-100 text-red-600 rounded-full',
+              [text('Error')],
+            );
+          case AsyncData(data: final models):
+            final enabledCount = models.values
+                .where(
+                  (model) => provider.config!.enabledModels.contains(model.id),
+                )
+                .length;
+            return span(
+              classes:
+                  'text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full',
+              [text('$enabledCount/${models.length} models')],
+            );
+        }
+      },
     );
   }
 

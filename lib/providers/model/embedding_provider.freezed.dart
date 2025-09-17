@@ -454,7 +454,7 @@ $EmbeddingProviderConfigCopyWith<$Res> get config {
 /// @nodoc
 mixin _$ProviderDefinition {
 
- EmbeddingProviderType get type; String get displayName; String get description; FaIconData get icon; Map<String, EmbeddingModel> get knownModels; Map<String, dynamic> get defaultSettings; CredentialType? get requiredCredential; String? get credentialPlaceholder; List<ConfigurationField> get configurationFields;
+ EmbeddingProviderType get type; String get displayName; String get description; FaIconData? get iconData; Uri? get iconUri; Map<String, EmbeddingModel> get knownModels; Map<String, dynamic> get defaultSettings; CredentialType? get requiredCredential; String? get credentialPlaceholder; List<ConfigurationField> get configurationFields;
 /// Create a copy of ProviderDefinition
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -467,16 +467,16 @@ $ProviderDefinitionCopyWith<ProviderDefinition> get copyWith => _$ProviderDefini
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderDefinition&&(identical(other.type, type) || other.type == type)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.description, description) || other.description == description)&&(identical(other.icon, icon) || other.icon == icon)&&const DeepCollectionEquality().equals(other.knownModels, knownModels)&&const DeepCollectionEquality().equals(other.defaultSettings, defaultSettings)&&(identical(other.requiredCredential, requiredCredential) || other.requiredCredential == requiredCredential)&&(identical(other.credentialPlaceholder, credentialPlaceholder) || other.credentialPlaceholder == credentialPlaceholder)&&const DeepCollectionEquality().equals(other.configurationFields, configurationFields));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderDefinition&&(identical(other.type, type) || other.type == type)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.description, description) || other.description == description)&&(identical(other.iconData, iconData) || other.iconData == iconData)&&(identical(other.iconUri, iconUri) || other.iconUri == iconUri)&&const DeepCollectionEquality().equals(other.knownModels, knownModels)&&const DeepCollectionEquality().equals(other.defaultSettings, defaultSettings)&&(identical(other.requiredCredential, requiredCredential) || other.requiredCredential == requiredCredential)&&(identical(other.credentialPlaceholder, credentialPlaceholder) || other.credentialPlaceholder == credentialPlaceholder)&&const DeepCollectionEquality().equals(other.configurationFields, configurationFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,type,displayName,description,icon,const DeepCollectionEquality().hash(knownModels),const DeepCollectionEquality().hash(defaultSettings),requiredCredential,credentialPlaceholder,const DeepCollectionEquality().hash(configurationFields));
+int get hashCode => Object.hash(runtimeType,type,displayName,description,iconData,iconUri,const DeepCollectionEquality().hash(knownModels),const DeepCollectionEquality().hash(defaultSettings),requiredCredential,credentialPlaceholder,const DeepCollectionEquality().hash(configurationFields));
 
 @override
 String toString() {
-  return 'ProviderDefinition(type: $type, displayName: $displayName, description: $description, icon: $icon, knownModels: $knownModels, defaultSettings: $defaultSettings, requiredCredential: $requiredCredential, credentialPlaceholder: $credentialPlaceholder, configurationFields: $configurationFields)';
+  return 'ProviderDefinition(type: $type, displayName: $displayName, description: $description, iconData: $iconData, iconUri: $iconUri, knownModels: $knownModels, defaultSettings: $defaultSettings, requiredCredential: $requiredCredential, credentialPlaceholder: $credentialPlaceholder, configurationFields: $configurationFields)';
 }
 
 
@@ -487,7 +487,7 @@ abstract mixin class $ProviderDefinitionCopyWith<$Res>  {
   factory $ProviderDefinitionCopyWith(ProviderDefinition value, $Res Function(ProviderDefinition) _then) = _$ProviderDefinitionCopyWithImpl;
 @useResult
 $Res call({
- EmbeddingProviderType type, String displayName, String description, FaIconData icon, Map<String, EmbeddingModel> knownModels, Map<String, dynamic> defaultSettings, CredentialType? requiredCredential, String? credentialPlaceholder, List<ConfigurationField> configurationFields
+ EmbeddingProviderType type, String displayName, String description, FaIconData? iconData, Uri? iconUri, Map<String, EmbeddingModel> knownModels, Map<String, dynamic> defaultSettings, CredentialType? requiredCredential, String? credentialPlaceholder, List<ConfigurationField> configurationFields
 });
 
 
@@ -504,13 +504,14 @@ class _$ProviderDefinitionCopyWithImpl<$Res>
 
 /// Create a copy of ProviderDefinition
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? type = null,Object? displayName = null,Object? description = null,Object? icon = null,Object? knownModels = null,Object? defaultSettings = null,Object? requiredCredential = freezed,Object? credentialPlaceholder = freezed,Object? configurationFields = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? type = null,Object? displayName = null,Object? description = null,Object? iconData = freezed,Object? iconUri = freezed,Object? knownModels = null,Object? defaultSettings = null,Object? requiredCredential = freezed,Object? credentialPlaceholder = freezed,Object? configurationFields = null,}) {
   return _then(_self.copyWith(
 type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as EmbeddingProviderType,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
-as FaIconData,knownModels: null == knownModels ? _self.knownModels : knownModels // ignore: cast_nullable_to_non_nullable
+as String,iconData: freezed == iconData ? _self.iconData : iconData // ignore: cast_nullable_to_non_nullable
+as FaIconData?,iconUri: freezed == iconUri ? _self.iconUri : iconUri // ignore: cast_nullable_to_non_nullable
+as Uri?,knownModels: null == knownModels ? _self.knownModels : knownModels // ignore: cast_nullable_to_non_nullable
 as Map<String, EmbeddingModel>,defaultSettings: null == defaultSettings ? _self.defaultSettings : defaultSettings // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,requiredCredential: freezed == requiredCredential ? _self.requiredCredential : requiredCredential // ignore: cast_nullable_to_non_nullable
 as CredentialType?,credentialPlaceholder: freezed == credentialPlaceholder ? _self.credentialPlaceholder : credentialPlaceholder // ignore: cast_nullable_to_non_nullable
@@ -600,10 +601,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData icon,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData? iconData,  Uri? iconUri,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ProviderDefinition() when $default != null:
-return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
+return $default(_that.type,_that.displayName,_that.description,_that.iconData,_that.iconUri,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
   return orElse();
 
 }
@@ -621,10 +622,10 @@ return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData icon,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData? iconData,  Uri? iconUri,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)  $default,) {final _that = this;
 switch (_that) {
 case _ProviderDefinition():
-return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
+return $default(_that.type,_that.displayName,_that.description,_that.iconData,_that.iconUri,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -641,10 +642,10 @@ return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData icon,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( EmbeddingProviderType type,  String displayName,  String description,  FaIconData? iconData,  Uri? iconUri,  Map<String, EmbeddingModel> knownModels,  Map<String, dynamic> defaultSettings,  CredentialType? requiredCredential,  String? credentialPlaceholder,  List<ConfigurationField> configurationFields)?  $default,) {final _that = this;
 switch (_that) {
 case _ProviderDefinition() when $default != null:
-return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
+return $default(_that.type,_that.displayName,_that.description,_that.iconData,_that.iconUri,_that.knownModels,_that.defaultSettings,_that.requiredCredential,_that.credentialPlaceholder,_that.configurationFields);case _:
   return null;
 
 }
@@ -656,13 +657,14 @@ return $default(_that.type,_that.displayName,_that.description,_that.icon,_that.
 @JsonSerializable()
 
 class _ProviderDefinition implements ProviderDefinition {
-  const _ProviderDefinition({required this.type, required this.displayName, required this.description, required this.icon, required final  Map<String, EmbeddingModel> knownModels, required final  Map<String, dynamic> defaultSettings, this.requiredCredential, this.credentialPlaceholder, required final  List<ConfigurationField> configurationFields}): _knownModels = knownModels,_defaultSettings = defaultSettings,_configurationFields = configurationFields;
+  const _ProviderDefinition({required this.type, required this.displayName, required this.description, this.iconData, this.iconUri, required final  Map<String, EmbeddingModel> knownModels, required final  Map<String, dynamic> defaultSettings, this.requiredCredential, this.credentialPlaceholder, required final  List<ConfigurationField> configurationFields}): _knownModels = knownModels,_defaultSettings = defaultSettings,_configurationFields = configurationFields;
   factory _ProviderDefinition.fromJson(Map<String, dynamic> json) => _$ProviderDefinitionFromJson(json);
 
 @override final  EmbeddingProviderType type;
 @override final  String displayName;
 @override final  String description;
-@override final  FaIconData icon;
+@override final  FaIconData? iconData;
+@override final  Uri? iconUri;
  final  Map<String, EmbeddingModel> _knownModels;
 @override Map<String, EmbeddingModel> get knownModels {
   if (_knownModels is EqualUnmodifiableMapView) return _knownModels;
@@ -700,16 +702,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderDefinition&&(identical(other.type, type) || other.type == type)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.description, description) || other.description == description)&&(identical(other.icon, icon) || other.icon == icon)&&const DeepCollectionEquality().equals(other._knownModels, _knownModels)&&const DeepCollectionEquality().equals(other._defaultSettings, _defaultSettings)&&(identical(other.requiredCredential, requiredCredential) || other.requiredCredential == requiredCredential)&&(identical(other.credentialPlaceholder, credentialPlaceholder) || other.credentialPlaceholder == credentialPlaceholder)&&const DeepCollectionEquality().equals(other._configurationFields, _configurationFields));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderDefinition&&(identical(other.type, type) || other.type == type)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.description, description) || other.description == description)&&(identical(other.iconData, iconData) || other.iconData == iconData)&&(identical(other.iconUri, iconUri) || other.iconUri == iconUri)&&const DeepCollectionEquality().equals(other._knownModels, _knownModels)&&const DeepCollectionEquality().equals(other._defaultSettings, _defaultSettings)&&(identical(other.requiredCredential, requiredCredential) || other.requiredCredential == requiredCredential)&&(identical(other.credentialPlaceholder, credentialPlaceholder) || other.credentialPlaceholder == credentialPlaceholder)&&const DeepCollectionEquality().equals(other._configurationFields, _configurationFields));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,type,displayName,description,icon,const DeepCollectionEquality().hash(_knownModels),const DeepCollectionEquality().hash(_defaultSettings),requiredCredential,credentialPlaceholder,const DeepCollectionEquality().hash(_configurationFields));
+int get hashCode => Object.hash(runtimeType,type,displayName,description,iconData,iconUri,const DeepCollectionEquality().hash(_knownModels),const DeepCollectionEquality().hash(_defaultSettings),requiredCredential,credentialPlaceholder,const DeepCollectionEquality().hash(_configurationFields));
 
 @override
 String toString() {
-  return 'ProviderDefinition(type: $type, displayName: $displayName, description: $description, icon: $icon, knownModels: $knownModels, defaultSettings: $defaultSettings, requiredCredential: $requiredCredential, credentialPlaceholder: $credentialPlaceholder, configurationFields: $configurationFields)';
+  return 'ProviderDefinition(type: $type, displayName: $displayName, description: $description, iconData: $iconData, iconUri: $iconUri, knownModels: $knownModels, defaultSettings: $defaultSettings, requiredCredential: $requiredCredential, credentialPlaceholder: $credentialPlaceholder, configurationFields: $configurationFields)';
 }
 
 
@@ -720,7 +722,7 @@ abstract mixin class _$ProviderDefinitionCopyWith<$Res> implements $ProviderDefi
   factory _$ProviderDefinitionCopyWith(_ProviderDefinition value, $Res Function(_ProviderDefinition) _then) = __$ProviderDefinitionCopyWithImpl;
 @override @useResult
 $Res call({
- EmbeddingProviderType type, String displayName, String description, FaIconData icon, Map<String, EmbeddingModel> knownModels, Map<String, dynamic> defaultSettings, CredentialType? requiredCredential, String? credentialPlaceholder, List<ConfigurationField> configurationFields
+ EmbeddingProviderType type, String displayName, String description, FaIconData? iconData, Uri? iconUri, Map<String, EmbeddingModel> knownModels, Map<String, dynamic> defaultSettings, CredentialType? requiredCredential, String? credentialPlaceholder, List<ConfigurationField> configurationFields
 });
 
 
@@ -737,13 +739,14 @@ class __$ProviderDefinitionCopyWithImpl<$Res>
 
 /// Create a copy of ProviderDefinition
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? type = null,Object? displayName = null,Object? description = null,Object? icon = null,Object? knownModels = null,Object? defaultSettings = null,Object? requiredCredential = freezed,Object? credentialPlaceholder = freezed,Object? configurationFields = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? type = null,Object? displayName = null,Object? description = null,Object? iconData = freezed,Object? iconUri = freezed,Object? knownModels = null,Object? defaultSettings = null,Object? requiredCredential = freezed,Object? credentialPlaceholder = freezed,Object? configurationFields = null,}) {
   return _then(_ProviderDefinition(
 type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as EmbeddingProviderType,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String,icon: null == icon ? _self.icon : icon // ignore: cast_nullable_to_non_nullable
-as FaIconData,knownModels: null == knownModels ? _self._knownModels : knownModels // ignore: cast_nullable_to_non_nullable
+as String,iconData: freezed == iconData ? _self.iconData : iconData // ignore: cast_nullable_to_non_nullable
+as FaIconData?,iconUri: freezed == iconUri ? _self.iconUri : iconUri // ignore: cast_nullable_to_non_nullable
+as Uri?,knownModels: null == knownModels ? _self._knownModels : knownModels // ignore: cast_nullable_to_non_nullable
 as Map<String, EmbeddingModel>,defaultSettings: null == defaultSettings ? _self._defaultSettings : defaultSettings // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,requiredCredential: freezed == requiredCredential ? _self.requiredCredential : requiredCredential // ignore: cast_nullable_to_non_nullable
 as CredentialType?,credentialPlaceholder: freezed == credentialPlaceholder ? _self.credentialPlaceholder : credentialPlaceholder // ignore: cast_nullable_to_non_nullable

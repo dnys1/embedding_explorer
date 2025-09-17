@@ -53,28 +53,12 @@ class OpenAIFactory implements ProviderFactory {
     displayName: 'OpenAI',
     description:
         'OpenAI embedding models including text-embedding-3-small and text-embedding-3-large',
-    icon: FaIcons.brands.openai,
+    iconData: FaIcons.brands.openai,
     knownModels: knownModels,
-    defaultSettings: const {
-      'model': 'text-embedding-3-small',
-      'dimensions': 1536,
-      'encoding_format': 'float',
-    },
+    defaultSettings: const {'dimensions': 1536},
     requiredCredential: CredentialType.apiKey,
     credentialPlaceholder: 'sk-...',
     configurationFields: const [
-      ConfigurationField(
-        key: 'model',
-        label: 'Model',
-        type: ConfigurationFieldType.dropdown,
-        required: true,
-        options: [
-          'text-embedding-3-small',
-          'text-embedding-3-large',
-          'text-embedding-ada-002',
-        ],
-        defaultValue: 'text-embedding-3-small',
-      ),
       ConfigurationField(
         key: 'dimensions',
         label: 'Dimensions',

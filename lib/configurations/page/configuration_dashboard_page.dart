@@ -1,7 +1,12 @@
+import 'dart:js_interop';
+
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
+import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
+import '../../util/async_snapshot.dart';
+import '../../util/file_size.dart';
 import '../model/configuration_manager.dart';
 
 class DashboardPage extends StatefulComponent {
@@ -104,11 +109,23 @@ class _DashboardState extends State<DashboardPage>
               : '${_summary.modelProviderCount} active',
           icon: FaIcons.solid.server,
         ),
-        _buildSummaryCard(
-          title: 'Storage',
-          value: _getStorageInfo(),
-          subtitle: 'Local storage',
-          icon: FaIcons.solid.database,
+        FutureBuilder(
+          future: web.window.navigator.storage.estimate().toDart,
+          builder: (context, snapshot) {
+            final value = switch (snapshot.result) {
+              AsyncLoading() => 'Calculating...',
+              AsyncError() => 'N/A',
+              AsyncData(data: final usage) => humanReadableFileSize(
+                usage.usage,
+              ),
+            };
+            return _buildSummaryCard(
+              title: 'Storage',
+              value: value,
+              subtitle: 'Local storage',
+              icon: FaIcons.solid.database,
+            );
+          },
         ),
       ],
     );
@@ -317,11 +334,6 @@ class _DashboardState extends State<DashboardPage>
         ),
       ]),
     ]);
-  }
-
-  String _getStorageInfo() {
-    // TODO: This would need to be implemented with actual storage size calculation
-    return '< 1KB';
   }
 
   void _clearAllConfigurations() {

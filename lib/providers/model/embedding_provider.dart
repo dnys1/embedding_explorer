@@ -33,7 +33,8 @@ abstract class ProviderDefinition with _$ProviderDefinition {
     required EmbeddingProviderType type,
     required String displayName,
     required String description,
-    required FaIconData icon,
+    FaIconData? iconData,
+    Uri? iconUri,
     required Map<String, EmbeddingModel> knownModels,
     required Map<String, dynamic> defaultSettings,
     CredentialType? requiredCredential,
@@ -82,7 +83,8 @@ class EmbeddingProvider {
   EmbeddingProviderType get type => definition.type;
   String get displayName => definition.displayName;
   String get description => definition.description;
-  FaIconData get icon => definition.icon;
+  FaIconData? get iconData => definition.iconData;
+  Uri? get iconUri => definition.iconUri;
   Map<String, EmbeddingModel> get knownModels => definition.knownModels;
   CredentialType? get requiredCredential => definition.requiredCredential;
 

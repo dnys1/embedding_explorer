@@ -11,7 +11,12 @@ _ProviderDefinition _$ProviderDefinitionFromJson(Map<String, dynamic> json) =>
       type: $enumDecode(_$EmbeddingProviderTypeEnumMap, json['type']),
       displayName: json['displayName'] as String,
       description: json['description'] as String,
-      icon: FaIconData.fromJson(json['icon'] as Map<String, dynamic>),
+      iconData: json['iconData'] == null
+          ? null
+          : FaIconData.fromJson(json['iconData'] as Map<String, dynamic>),
+      iconUri: json['iconUri'] == null
+          ? null
+          : Uri.parse(json['iconUri'] as String),
       knownModels: (json['knownModels'] as Map<String, dynamic>).map(
         (k, e) =>
             MapEntry(k, EmbeddingModel.fromJson(e as Map<String, dynamic>)),
@@ -33,7 +38,8 @@ Map<String, dynamic> _$ProviderDefinitionToJson(
   'type': _$EmbeddingProviderTypeEnumMap[instance.type]!,
   'displayName': instance.displayName,
   'description': instance.description,
-  'icon': instance.icon,
+  'iconData': instance.iconData,
+  'iconUri': instance.iconUri?.toString(),
   'knownModels': instance.knownModels,
   'defaultSettings': instance.defaultSettings,
   'requiredCredential': _$CredentialTypeEnumMap[instance.requiredCredential],
@@ -44,6 +50,7 @@ Map<String, dynamic> _$ProviderDefinitionToJson(
 const _$EmbeddingProviderTypeEnumMap = {
   EmbeddingProviderType.openai: 'openai',
   EmbeddingProviderType.gemini: 'gemini',
+  EmbeddingProviderType.ollama: 'ollama',
   EmbeddingProviderType.custom: 'custom',
 };
 

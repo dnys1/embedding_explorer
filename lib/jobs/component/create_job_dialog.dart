@@ -134,7 +134,14 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
       for (final providerConfig in connectedProviders) ...[
         div(classes: 'border rounded-lg p-4', [
           div(classes: 'flex items-center space-x-2 mb-3', [
-            FaIcon(providerConfig.icon, className: 'text-primary w-4 h-4'),
+            if (providerConfig.iconData case final iconData?)
+              FaIcon(iconData, className: 'text-primary w-4 h-4')
+            else if (providerConfig.iconUri case final iconUri?)
+              img(
+                src: iconUri.toString(),
+                alt: providerConfig.displayName,
+                classes: 'h-4 w-4',
+              ),
             h4(classes: 'font-medium text-sm', [
               text(providerConfig.displayName),
             ]),

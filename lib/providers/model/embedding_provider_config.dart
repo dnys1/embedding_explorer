@@ -11,7 +11,7 @@ import '../../credentials/service/credential_service.dart';
 part 'embedding_provider_config.freezed.dart';
 
 /// Types of embedding providers
-enum EmbeddingProviderType { openai, gemini, custom }
+enum EmbeddingProviderType { openai, gemini, ollama, custom }
 
 /// Configuration for a model provider with metadata
 @freezed

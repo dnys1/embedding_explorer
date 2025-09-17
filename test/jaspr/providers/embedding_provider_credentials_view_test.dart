@@ -2,7 +2,7 @@
 library;
 
 import 'package:embeddings_explorer/providers/component/embedding_provider_credentials_view.dart';
-import 'package:embeddings_explorer/providers/service/factories/openai_factory.dart';
+import 'package:embeddings_explorer/providers/service/builtin_providers/openai_provider.dart';
 import 'package:web/web.dart' as web;
 
 import '../../common.dart';
