@@ -19,15 +19,17 @@ class FaIconData {
 }
 
 class FaIcon extends StatelessComponent {
-  const FaIcon(this.iconData, {super.key, this.className});
+  const FaIcon(this.iconData, {super.key, this.className, this.size = 16});
 
   final FaIconData iconData;
+  final int size;
   final String? className;
 
   @override
   Component build(BuildContext context) {
     return i(
       classes: ['fa-${iconData.type}', 'fa-${iconData.name}', className].clsx,
+      styles: Styles(fontSize: size.px),
       [],
     );
   }

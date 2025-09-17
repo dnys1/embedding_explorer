@@ -93,8 +93,9 @@ class TestHelpers {
     String description = 'Test job',
     String dataSourceId = 'ds_1',
     String embeddingTemplateId = 'template_1',
-    List<String> modelProviderIds = const [],
-    JobStatus status = JobStatus.pending,
+    List<String> providerIds = const [],
+    List<String> modelIds = const [],
+    JobStatus status = JobStatus.running,
     DateTime? createdAt,
   }) {
     final now = createdAt ?? DateTime.now();
@@ -104,7 +105,8 @@ class TestHelpers {
       description: description,
       dataSourceId: dataSourceId,
       embeddingTemplateId: embeddingTemplateId,
-      providerIds: modelProviderIds,
+      providerIds: providerIds,
+      modelIds: modelIds,
       status: status,
       totalRecords: 0,
       processedRecords: 0,
@@ -154,7 +156,7 @@ class TestHelpers {
         id: jobId,
         dataSourceId: dataSourceId,
         embeddingTemplateId: templateId,
-        modelProviderIds: providerId.isNotEmpty ? [providerId] : [],
+        providerIds: providerId.isNotEmpty ? [providerId] : [],
         createdAt: now,
       );
       await service.saveEmbeddingJob(job);
@@ -333,9 +335,7 @@ void main() {
 
         await service.saveEmbeddingTemplateConfig(config);
 
-        final retrieved = await service.getEmbeddingTemplateConfig(
-          'template_1',
-        );
+        final retrieved = await service.getEmbeddingTemplate('template_1');
         expect(retrieved, isNotNull);
         expect(retrieved!.name, equals('Test Template'));
         expect(retrieved.idTemplate, equals('{{id}}'));
@@ -438,14 +438,14 @@ void main() {
         await service.saveEmbeddingTemplateConfig(config);
 
         // Verify it exists
-        final before = await service.getEmbeddingTemplateConfig('to_delete');
+        final before = await service.getEmbeddingTemplate('to_delete');
         expect(before, isNotNull);
 
         // Delete it
         await service.deleteEmbeddingTemplateConfig('to_delete');
 
         // Verify it's gone
-        final after = await service.getEmbeddingTemplateConfig('to_delete');
+        final after = await service.getEmbeddingTemplate('to_delete');
         expect(after, isNull);
       });
     });
@@ -695,7 +695,7 @@ void main() {
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: ['provider_1', 'provider_2'],
-          status: JobStatus.pending,
+          modelIds: ['model_1', 'model_2'],
           totalRecords: 1000,
           processedRecords: 0,
         );
@@ -705,10 +705,11 @@ void main() {
         final retrieved = await service.getEmbeddingJob('job_1');
         expect(retrieved, isNotNull);
         expect(retrieved!.name, equals('Test Embedding Job'));
-        expect(retrieved.status, equals(JobStatus.pending));
+        expect(retrieved.status, equals(JobStatus.running));
         expect(retrieved.dataSourceId, equals('ds_1'));
         expect(retrieved.embeddingTemplateId, equals('template_1'));
         expect(retrieved.providerIds, equals(['provider_1', 'provider_2']));
+        expect(retrieved.modelIds, equals(['model_1', 'model_2']));
         expect(retrieved.totalRecords, equals(1000));
         expect(retrieved.processedRecords, equals(0));
         expect(retrieved.startedAt, isNull);
@@ -751,18 +752,6 @@ void main() {
         );
         await service.saveProviderConfig(providerConfig);
 
-        final pendingJob = EmbeddingJob.create(
-          id: 'pending_job',
-          name: 'Pending Job',
-          description: 'A pending job',
-          dataSourceId: 'ds_1',
-          embeddingTemplateId: 'template_1',
-          providerIds: ['provider_1'],
-          status: JobStatus.pending,
-          totalRecords: 100,
-          processedRecords: 0,
-        );
-
         final runningJob = EmbeddingJob.create(
           id: 'running_job',
           name: 'Running Job',
@@ -770,6 +759,7 @@ void main() {
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: ['provider_1'],
+          modelIds: ['model_1'],
           status: JobStatus.running,
           totalRecords: 200,
           processedRecords: 50,
@@ -784,6 +774,7 @@ void main() {
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: ['provider_1'],
+          modelIds: ['model_1'],
           status: JobStatus.completed,
           totalRecords: 150,
           processedRecords: 150,
@@ -793,13 +784,8 @@ void main() {
           results: <String, dynamic>{'embeddings_generated': 150},
         );
 
-        await service.saveEmbeddingJob(pendingJob);
         await service.saveEmbeddingJob(runningJob);
         await service.saveEmbeddingJob(completedJob);
-
-        final pendingJobs = await service.getEmbeddingJobsByStatus('pending');
-        expect(pendingJobs, hasLength(1));
-        expect(pendingJobs[0].id, equals('pending_job'));
 
         final runningJobs = await service.getEmbeddingJobsByStatus('running');
         expect(runningJobs, hasLength(1));
@@ -812,69 +798,51 @@ void main() {
         expect(completedJobs[0].id, equals('completed_job'));
 
         final allJobs = await service.getAllEmbeddingJobs();
-        expect(allJobs, hasLength(3));
+        expect(allJobs, hasLength(2));
       });
 
       test('should delete embedding job', () async {
-        final now = DateTime.now();
-
         // Create prerequisite data source config
-        final dsConfig = DataSourceConfig(
+        final dsConfig = DataSourceConfig.create(
           id: 'ds_1',
           name: 'Data Source 1',
           description: 'First data source',
           type: DataSourceType.csv,
           filename: 'data_source_1.csv',
           settings: CsvDataSourceSettings(delimiter: ','),
-          createdAt: now,
-          updatedAt: now,
         );
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplate(
+        final templateConfig = EmbeddingTemplate.create(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
           idTemplate: '{{id}}',
           template: '{{content}}',
           dataSourceId: 'ds_1',
-          createdAt: now,
-          updatedAt: now,
         );
         await service.saveEmbeddingTemplateConfig(templateConfig);
 
         // Create prerequisite provider config
-        final providerConfig = EmbeddingProviderConfig(
+        final providerConfig = EmbeddingProviderConfig.create(
           id: 'provider_1',
           name: 'Test Provider 1',
           description: 'Test provider 1',
           type: EmbeddingProviderType.openai,
-          customTemplateId: null,
-          settings: <String, dynamic>{},
-          credential: null,
-          persistCredentials: false,
-          enabledModels: <String>{},
-          createdAt: now,
-          updatedAt: now,
         );
         await service.saveProviderConfig(providerConfig);
 
-        final job = EmbeddingJob(
+        final job = EmbeddingJob.create(
           id: 'to_delete',
           name: 'Job to Delete',
           description: 'Job that will be deleted',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: ['provider_1'],
+          modelIds: ['model_1'],
           status: JobStatus.failed,
-          totalRecords: 10,
-          processedRecords: 5,
-          createdAt: now,
-          startedAt: now,
-          completedAt: null,
           errorMessage: 'Test error',
-          results: null,
         );
 
         await service.saveEmbeddingJob(job);
@@ -990,50 +958,37 @@ void main() {
 
     group('Embedding Table Management', () {
       test('should create embedding table', () async {
-        final now = DateTime.now();
-
         // Create prerequisite data source config
-        final dsConfig = DataSourceConfig(
+        final dsConfig = DataSourceConfig.create(
           id: 'ds_1',
           name: 'Data Source 1',
           description: 'First data source',
           type: DataSourceType.csv,
           filename: 'data_source_1.csv',
           settings: CsvDataSourceSettings(delimiter: ','),
-          createdAt: now,
-          updatedAt: now,
         );
         await service.saveDataSourceConfig(dsConfig);
 
         // Create prerequisite embedding template config
-        final templateConfig = EmbeddingTemplate(
+        final templateConfig = EmbeddingTemplate.create(
           id: 'template_1',
           name: 'Template 1',
           description: 'First template',
           idTemplate: '{{id}}',
           template: '{{content}}',
           dataSourceId: 'ds_1',
-          createdAt: now,
-          updatedAt: now,
         );
         await service.saveEmbeddingTemplateConfig(templateConfig);
 
         // Create prerequisite job
-        final job = EmbeddingJob(
+        final job = EmbeddingJob.create(
           id: 'job_1',
           name: 'Test Job',
           description: 'Test job',
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: [],
-          status: JobStatus.pending,
-          totalRecords: 0,
-          processedRecords: 0,
-          createdAt: now,
-          startedAt: null,
-          completedAt: null,
-          errorMessage: null,
-          results: null,
+          modelIds: [],
         );
         await service.saveEmbeddingJob(job);
 
@@ -1044,7 +999,7 @@ void main() {
         );
 
         expect(tableId, isNotNull);
-        expect(tableId, startsWith('et_'));
+        expect(tableId, startsWith('embeddings_'));
 
         // Verify table was registered
         final tables = await service.getEmbeddingTables(jobId: 'job_1');
@@ -1086,7 +1041,7 @@ void main() {
           dataSourceId: 'ds_1',
           embeddingTemplateId: 'template_1',
           providerIds: [],
-          status: JobStatus.pending,
+          modelIds: [],
         );
         await service.saveEmbeddingJob(job);
 
@@ -1309,7 +1264,7 @@ void main() {
           embeddingTemplateId: 'template_1',
         );
 
-        final table3 = await service.createEmbeddingTable(
+        await service.createEmbeddingTable(
           jobId: 'job_1',
           dataSourceId: 'ds_2',
           embeddingTemplateId: 'template_1',
@@ -1317,15 +1272,19 @@ void main() {
 
         // Test filtering by job ID
         final job1Tables = await service.getEmbeddingTables(jobId: 'job_1');
-        expect(job1Tables, hasLength(2));
-        expect(job1Tables.map((t) => t.id), containsAll([table1, table3]));
+        expect(
+          job1Tables,
+          hasLength(1),
+          reason: 'Should de-duplicate tables by job ID',
+        );
+        expect(job1Tables.map((t) => t.id), equals([table1]));
 
         // Test filtering by data source ID
         final ds1Tables = await service.getEmbeddingTables(
           dataSourceId: 'ds_1',
         );
         expect(ds1Tables, hasLength(2));
-        expect(ds1Tables.map((t) => t.id), containsAll([table1, table2]));
+        expect(ds1Tables.map((t) => t.id), unorderedEquals([table1, table2]));
 
         // Test filtering by both
         final filteredTables = await service.getEmbeddingTables(
@@ -1337,7 +1296,7 @@ void main() {
 
         // Test getting all tables
         final allTables = await service.getEmbeddingTables();
-        expect(allTables, hasLength(3));
+        expect(allTables, hasLength(2));
       });
 
       test('should delete embedding table', () async {

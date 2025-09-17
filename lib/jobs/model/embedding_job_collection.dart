@@ -16,9 +16,6 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
     return all.where((job) => job.status == status).toList();
   }
 
-  /// Get pending jobs
-  List<EmbeddingJob> get pendingJobs => getByStatus(JobStatus.pending);
-
   /// Get running jobs
   List<EmbeddingJob> get runningJobs => getByStatus(JobStatus.running);
 
@@ -130,9 +127,7 @@ class EmbeddingJobCollection extends ConfigurationCollection<EmbeddingJob> {
 
   /// Get jobs using a specific model provider
   List<EmbeddingJob> getJobsByModelProvider(String providerId) {
-    return all
-        .where((job) => job.providerIds.contains(providerId))
-        .toList();
+    return all.where((job) => job.providerIds.contains(providerId)).toList();
   }
 
   @override

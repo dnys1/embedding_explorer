@@ -69,9 +69,9 @@ abstract class EmbeddingTemplate
 }
 
 /// Collection for managing embedding template configurations
-class EmbeddingTemplateConfigCollection
+class EmbeddingTemplateCollection
     extends ConfigurationCollection<EmbeddingTemplate> {
-  EmbeddingTemplateConfigCollection(super.configService);
+  EmbeddingTemplateCollection(super.configService);
 
   @override
   String get prefix => 'tmpl';
@@ -112,7 +112,7 @@ class EmbeddingTemplateConfigCollection
 
   @override
   Future<EmbeddingTemplate?> loadItem(String id) async {
-    return await configService.getEmbeddingTemplateConfig(id);
+    return await configService.getEmbeddingTemplate(id);
   }
 
   @override

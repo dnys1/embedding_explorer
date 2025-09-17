@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:logging/logging.dart';
-import 'package:meta/meta.dart';
 
 import '../model/embedding_job.dart';
 
@@ -22,17 +21,12 @@ class QueuedJob {
   final EmbeddingJob job;
   final JobPriority priority;
   final DateTime queuedAt;
-  final Completer<void> completer;
 
   QueuedJob({
     required this.job,
     this.priority = JobPriority.normal,
     DateTime? queuedAt,
-  }) : queuedAt = queuedAt ?? DateTime.now(),
-       completer = Completer<void>();
-
-  /// Future that completes when the job finishes processing
-  Future<void> get future => completer.future;
+  }) : queuedAt = queuedAt ?? DateTime.now();
 }
 
 /// Service for managing job queue execution with priority and concurrency control
@@ -85,14 +79,16 @@ class JobQueueService {
   }
 
   /// Add a job to the queue
-  @awaitNotRequired
-  Future<void> enqueueJob(
+  void enqueueJob(
     EmbeddingJob job, {
     JobPriority priority = JobPriority.normal,
   }) async {
     if (_jobMap.containsKey(job.id)) {
       throw StateError('Job already in queue: ${job.id}');
     }
+
+    // Check if queue was empty before adding the job
+    final wasQueueEmpty = _wasQueueEmpty();
 
     final queuedJob = QueuedJob(job: job, priority: priority);
     _jobMap[job.id] = queuedJob;
@@ -101,14 +97,15 @@ class JobQueueService {
     _insertJobByPriority(queuedJob);
 
     _logger.info('Enqueued job: ${job.id} with priority: ${priority.name}');
-    _eventController.add(JobQueueEvent.jobQueued(job));
 
-    // Start processing if not already running
-    if (!_isProcessing) {
+    // Always restart processing if the queue was previously empty,
+    // or start processing if not already running
+    if (wasQueueEmpty || !_isProcessing) {
       _startProcessing();
+    } else {
+      // If already processing, trigger queue processing to handle new job
+      _processQueue();
     }
-
-    return queuedJob.future;
   }
 
   /// Remove a job from the queue (if not already running)
@@ -119,13 +116,11 @@ class JobQueueService {
     }
 
     if (_runningJobs.contains(jobId)) {
-      _logger.warning('Cannot dequeue running job: $jobId');
       return false;
     }
 
     _queue.remove(queuedJob);
     _jobMap.remove(jobId);
-    queuedJob.completer.complete();
 
     _logger.info('Dequeued job: $jobId');
     _eventController.add(JobQueueEvent.jobDequeued(queuedJob.job));
@@ -171,7 +166,6 @@ class JobQueueService {
 
     _isProcessing = true;
     _logger.info('Started job queue processing');
-    _eventController.add(const JobQueueEvent.processingStarted());
 
     _processQueue();
   }
@@ -184,7 +178,6 @@ class JobQueueService {
 
     _isProcessing = false;
     _logger.info('Stopped job queue processing');
-    _eventController.add(const JobQueueEvent.processingStopped());
   }
 
   /// Process the next jobs in queue up to max concurrency
@@ -207,8 +200,13 @@ class JobQueueService {
     }
   }
 
+  /// Check if the queue was empty before adding a job
+  bool _wasQueueEmpty() {
+    return _queue.isEmpty && _runningJobs.isEmpty;
+  }
+
   /// Mark a job as completed and continue processing
-  void completeJob(String jobId, {String? error}) {
+  void completeJob(String jobId) {
     if (_isDisposed) {
       _logger.warning('Attempted to complete job after disposal: $jobId');
       return;
@@ -221,21 +219,6 @@ class JobQueueService {
     }
 
     _runningJobs.remove(jobId);
-
-    if (queuedJob.completer.isCompleted) {
-      throw StateError('Job already completed: $jobId');
-    }
-
-    final isSuccess = error == null;
-    if (isSuccess) {
-      _logger.info('Completed job: $jobId');
-      _eventController.add(JobQueueEvent.jobCompleted(queuedJob.job));
-      queuedJob.completer.complete();
-    } else {
-      _logger.severe('Failed job: $jobId - $error');
-      _eventController.add(JobQueueEvent.jobFailed(queuedJob.job, error));
-      queuedJob.completer.completeError(error);
-    }
 
     // Continue processing remaining jobs
     _processQueue();
@@ -281,7 +264,6 @@ class JobQueueService {
 
     for (final queuedJob in queuedJobs) {
       _jobMap.remove(queuedJob.job.id);
-      queuedJob.completer.complete();
       _eventController.add(JobQueueEvent.jobDequeued(queuedJob.job));
     }
 
@@ -304,20 +286,8 @@ class JobQueueService {
 sealed class JobQueueEvent {
   const JobQueueEvent();
 
-  const factory JobQueueEvent.jobQueued(EmbeddingJob job) = JobQueuedEvent;
   const factory JobQueueEvent.jobDequeued(EmbeddingJob job) = JobDequeuedEvent;
   const factory JobQueueEvent.jobStarted(EmbeddingJob job) = JobStartedEvent;
-  const factory JobQueueEvent.jobCompleted(EmbeddingJob job) =
-      JobCompletedEvent;
-  const factory JobQueueEvent.jobFailed(EmbeddingJob job, String error) =
-      JobFailedEvent;
-  const factory JobQueueEvent.processingStarted() = ProcessingStartedEvent;
-  const factory JobQueueEvent.processingStopped() = ProcessingStoppedEvent;
-}
-
-final class JobQueuedEvent extends JobQueueEvent {
-  final EmbeddingJob job;
-  const JobQueuedEvent(this.job);
 }
 
 final class JobDequeuedEvent extends JobQueueEvent {
@@ -328,23 +298,4 @@ final class JobDequeuedEvent extends JobQueueEvent {
 final class JobStartedEvent extends JobQueueEvent {
   final EmbeddingJob job;
   const JobStartedEvent(this.job);
-}
-
-final class JobCompletedEvent extends JobQueueEvent {
-  final EmbeddingJob job;
-  const JobCompletedEvent(this.job);
-}
-
-final class JobFailedEvent extends JobQueueEvent {
-  final EmbeddingJob job;
-  final String error;
-  const JobFailedEvent(this.job, this.error);
-}
-
-final class ProcessingStartedEvent extends JobQueueEvent {
-  const ProcessingStartedEvent();
-}
-
-final class ProcessingStoppedEvent extends JobQueueEvent {
-  const ProcessingStoppedEvent();
 }

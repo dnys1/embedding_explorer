@@ -8,20 +8,20 @@ part 'embedding_job.freezed.dart';
 
 /// Represents a job status
 enum JobStatus {
-  pending,
   running,
   completed,
+  paused,
   failed,
   cancelled;
 
   String get displayName {
     switch (this) {
-      case JobStatus.pending:
-        return 'Pending';
       case JobStatus.running:
         return 'Running';
       case JobStatus.completed:
         return 'Completed';
+      case JobStatus.paused:
+        return 'Paused';
       case JobStatus.failed:
         return 'Failed';
       case JobStatus.cancelled:
@@ -31,7 +31,7 @@ enum JobStatus {
 
   String get colorClass {
     switch (this) {
-      case JobStatus.pending:
+      case JobStatus.paused:
         return 'text-yellow-600 bg-yellow-50';
       case JobStatus.running:
         return 'text-primary-600 bg-primary-50';
@@ -55,6 +55,7 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
     required String dataSourceId,
     required String embeddingTemplateId,
     required List<String> providerIds,
+    required List<String> modelIds,
     JobStatus? status,
     DateTime? createdAt,
     DateTime? startedAt,
@@ -71,7 +72,8 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
       dataSourceId: dataSourceId,
       embeddingTemplateId: embeddingTemplateId,
       providerIds: providerIds,
-      status: status ?? JobStatus.pending,
+      modelIds: modelIds,
+      status: status ?? JobStatus.running,
       createdAt: createdAt ?? DateTime.now(),
       startedAt: startedAt,
       completedAt: completedAt,
@@ -89,7 +91,8 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
     required String dataSourceId,
     required String embeddingTemplateId,
     required List<String> providerIds,
-    @Default(JobStatus.pending) JobStatus status,
+    required List<String> modelIds,
+    @Default(JobStatus.running) JobStatus status,
     required DateTime createdAt,
     DateTime? startedAt,
     DateTime? completedAt,
@@ -111,6 +114,9 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
       embeddingTemplateId: row['template_id'] as String,
       providerIds: row['provider_ids'] != null
           ? (jsonDecode(row['provider_ids'] as String) as List).cast()
+          : const [],
+      modelIds: row['model_ids'] != null
+          ? (jsonDecode(row['model_ids'] as String) as List).cast()
           : const [],
       status: JobStatus.values.byName(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
@@ -151,5 +157,5 @@ abstract class EmbeddingJob with _$EmbeddingJob implements ConfigurationItem {
 
   /// Check if job can be cancelled
   bool get canCancel =>
-      status == JobStatus.pending || status == JobStatus.running;
+      status == JobStatus.running || status == JobStatus.paused;
 }

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:jaspr/jaspr.dart';
+import 'package:logging/logging.dart';
+import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
 import '../component/create_job_dialog.dart';
 import '../model/embedding_job.dart';
+import '../service/job_resume_service.dart';
 
 class JobsPage extends StatefulComponent {
   const JobsPage({super.key});
@@ -13,7 +18,57 @@ class JobsPage extends StatefulComponent {
 }
 
 class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
+  static final Logger _logger = Logger('JobsPage');
+
   bool _showCreateJobDialog = false;
+  StreamSubscription<EmbeddingJob>? _jobUpdatesSubscription;
+  List<ResumableJob> _resumableJobs = [];
+  bool _showResumableJobsSection = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribeToJobUpdates();
+    _checkForResumableJobs();
+    _setupPageUnloadHandler();
+  }
+
+  @override
+  void dispose() {
+    _jobUpdatesSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToJobUpdates() {
+    // Subscribe to job updates from the orchestrator for real-time progress
+    _jobUpdatesSubscription = configManager.jobOrchestrator.jobUpdates.listen(
+      (job) => setState(() {}),
+    );
+  }
+
+  void _checkForResumableJobs() async {
+    try {
+      final resumableJobs = await configManager.jobOrchestrator
+          .findResumableJobs();
+      if (resumableJobs.isNotEmpty) {
+        setState(() {
+          _resumableJobs = resumableJobs;
+          _showResumableJobsSection = true;
+        });
+      }
+    } catch (e) {
+      _logger.warning('Error checking for resumable jobs: $e');
+    }
+  }
+
+  void _setupPageUnloadHandler() {
+    // TODO: https://www.igvita.com/2015/11/20/dont-lose-user-and-app-state-use-page-visibility/
+    // TODO: https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event
+    web.EventStreamProviders.beforeUnloadEvent
+        .forTarget(web.window)
+        .first
+        .then((_) => configManager.handlePageUnload());
+  }
 
   void _showCreateJob() {
     setState(() {
@@ -47,6 +102,9 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
           div(classes: 'flex space-x-4', [_buildJobStatsCard()]),
           _buildCreateJobButton(),
         ]),
+
+        // Resumable jobs section
+        if (_showResumableJobsSection) _buildResumableJobsSection(),
 
         // Jobs list
         if (jobs.isEmpty) _buildEmptyState() else _buildJobsList(jobs),
@@ -97,6 +155,81 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     return Button(onPressed: _showCreateJob, children: [text('+ Create Job')]);
   }
 
+  Component _buildResumableJobsSection() {
+    final interruptedJobs = _resumableJobs
+        .where(
+          (it) =>
+              it.job.status == JobStatus.paused ||
+              it.job.status == JobStatus.cancelled,
+        )
+        .toList();
+    if (interruptedJobs.isEmpty) {
+      return fragment([]);
+    }
+
+    return Card(
+      className: 'mb-6 border-orange-200 bg-orange-50',
+      children: [
+        div(classes: 'flex items-start space-x-3', [
+          div(classes: 'text-orange-500 mt-1', [FaIcon(FaIcons.solid.warning)]),
+          div(classes: 'flex-1', [
+            h3(classes: 'text-lg font-medium text-orange-900 mb-2', [
+              text('Interrupted Jobs Detected'),
+            ]),
+            p(classes: 'text-orange-800 text-sm mb-4', [
+              text(
+                'The following jobs were interrupted (likely due to a page reload). You can restart them to continue processing.',
+              ),
+            ]),
+            div(classes: 'space-y-2', [
+              for (final resumableJob in interruptedJobs)
+                _buildResumableJobItem(resumableJob),
+            ]),
+            div(classes: 'mt-4 flex space-x-3', [
+              Button(
+                variant: ButtonVariant.outline,
+                size: ButtonSize.sm,
+                onPressed: _resumeAllJobs,
+                children: [text('Resume All')],
+              ),
+              Button(
+                variant: ButtonVariant.ghost,
+                size: ButtonSize.sm,
+                onPressed: _dismissResumableJobs,
+                children: [text('Dismiss')],
+              ),
+            ]),
+          ]),
+        ]),
+      ],
+    );
+  }
+
+  Component _buildResumableJobItem(ResumableJob resumableJob) {
+    final progressPercentage = (resumableJob.progressAtInterruption * 100)
+        .toStringAsFixed(1);
+
+    return div(
+      classes: 'flex items-center justify-between p-3 bg-white rounded border',
+      [
+        div(classes: 'flex-1', [
+          div(classes: 'font-medium text-sm', [text(resumableJob.job.name)]),
+          div(classes: 'text-xs text-muted-foreground', [
+            text(
+              '$progressPercentage% progress saved • ${resumableJob.recommendedStrategy.name} checkpoint',
+            ),
+          ]),
+        ]),
+        Button(
+          variant: ButtonVariant.outline,
+          size: ButtonSize.sm,
+          onPressed: () => _resumeJob(resumableJob.job.id),
+          children: [text('Resume')],
+        ),
+      ],
+    );
+  }
+
   Component _buildEmptyState() {
     return div(classes: 'text-center py-12', [
       div(classes: 'text-muted-foreground text-6xl mb-4', [text('⚡')]),
@@ -140,6 +273,8 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
               ]),
           ]),
           div(classes: 'flex space-x-2', [
+            if (_resumableJobs.map((it) => it.job.id).contains(job.id))
+              _buildResumeButton(job),
             if (job.canCancel) _buildCancelButton(job),
             _buildJobMenuButton(job),
           ]),
@@ -155,10 +290,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
             'Template',
             _getTemplateName(job.embeddingTemplateId),
           ),
-          _buildJobDetail(
-            'Providers',
-            '${job.providerIds.length} provider(s)',
-          ),
+          _buildJobDetail('Models', '${job.modelIds.length} model(s)'),
           _buildJobDetail('Created', _formatDate(job.createdAt)),
         ]),
 
@@ -192,7 +324,7 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     final variant = switch (status) {
       JobStatus.completed => BadgeVariant.primary,
       JobStatus.running => BadgeVariant.secondary,
-      JobStatus.pending => BadgeVariant.outline,
+      JobStatus.paused => BadgeVariant.outline,
       JobStatus.failed => BadgeVariant.destructive,
       JobStatus.cancelled => BadgeVariant.warning,
     };
@@ -219,6 +351,15 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     ]);
   }
 
+  Component _buildResumeButton(EmbeddingJob job) {
+    return Button(
+      variant: ButtonVariant.outline,
+      size: ButtonSize.sm,
+      onPressed: () => _resumeJob(job.id),
+      children: [text('Resume')],
+    );
+  }
+
   Component _buildCancelButton(EmbeddingJob job) {
     return Button(
       variant: ButtonVariant.ghost,
@@ -233,22 +374,23 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     return Dropdown(
       trigger: div(
         classes:
-            'p-2 rounded-md hover:bg-muted transition-colors cursor-pointer',
+            'p-3 rounded-md hover:bg-muted transition-colors cursor-pointer flex items-center justify-center',
         [FaIcon(FaIcons.solid.ellipsisVertical)],
       ),
       alignment: DropdownAlignment.end,
       children: [
         // View Results - available for completed and failed jobs
-        if (job.status == JobStatus.completed || job.status == JobStatus.failed)
-          DropdownItem(
-            onPressed: () => _viewJobResults(job),
-            children: [
-              div(classes: 'flex items-center space-x-2', [
-                FaIcon(FaIcons.solid.eye),
-                text('View Results'),
-              ]),
-            ],
-          ),
+        DropdownItem(
+          onPressed: () => _viewJobResults(job),
+          disabled: !job.isCompleted,
+          children: [
+            div(classes: 'flex items-center space-x-2', [
+              FaIcon(FaIcons.solid.eye),
+              // By default, text is a bare string, so wrap it in a span for styling
+              span([text('View Results')]),
+            ]),
+          ],
+        ),
 
         // Restart Job - available for failed and cancelled jobs
         if (job.status == JobStatus.failed || job.status == JobStatus.cancelled)
@@ -257,48 +399,34 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
             children: [
               div(classes: 'flex items-center space-x-2', [
                 FaIcon(FaIcons.solid.refresh),
-                text('Restart Job'),
+                span([text('Restart Job')]),
               ]),
             ],
           ),
 
         // Cancel Job - available for running jobs
-        if (job.status == JobStatus.running)
+        if (configManager.jobOrchestrator.canCancelJob(job.id))
           DropdownItem(
             onPressed: () => _cancelJob(job.id),
             destructive: true,
             children: [
               div(classes: 'flex items-center space-x-2', [
                 FaIcon(FaIcons.solid.stop),
-                text('Cancel Job'),
+                span([text('Cancel Job')]),
               ]),
             ],
           ),
 
-        // Duplicate Job - available for all jobs
-        const DropdownSeparator(),
-        DropdownItem(
-          onPressed: () => _duplicateJob(job),
-          children: [
-            div(classes: 'flex items-center space-x-2', [
-              FaIcon(FaIcons.solid.duplicate),
-              text('Duplicate Job'),
-            ]),
-          ],
-        ),
-
         // Delete Job - available for completed, failed, and cancelled jobs
-        if (job.status == JobStatus.completed ||
-            job.status == JobStatus.failed ||
-            job.status == JobStatus.cancelled) ...[
-          const DropdownSeparator(),
+        if (job.isCompleted) ...[
+          const DropdownSeparator(margin: ''),
           DropdownItem(
             onPressed: () => _deleteJob(job),
             destructive: true,
             children: [
               div(classes: 'flex items-center space-x-2', [
                 FaIcon(FaIcons.solid.delete),
-                text('Delete Job'),
+                span([text('Delete Job')]),
               ]),
             ],
           ),
@@ -316,8 +444,13 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     ]);
   }
 
-  void _cancelJob(String jobId) {
-    configManager.embeddingJobs.cancelJob(jobId);
+  void _cancelJob(String jobId) async {
+    try {
+      await configManager.jobOrchestrator.cancelJob(jobId);
+    } catch (e) {
+      _logger.severe('Failed to cancel job: $jobId', e);
+      // TODO: Show error message to user
+    }
   }
 
   String _getDataSourceName(String id) {
@@ -355,17 +488,64 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     print('Viewing results for job: ${job.name}');
   }
 
-  void _restartJob(EmbeddingJob job) {
-    // TODO: Restart the job by creating a new job with same configuration
-    print('Restarting job: ${job.name}');
+  void _restartJob(EmbeddingJob job) async {
+    try {
+      if (_resumableJobs.map((it) => it.job.id).contains(job.id)) {
+        await configManager.jobOrchestrator.resumeJob(job.id);
+      } else {
+        await configManager.jobOrchestrator.retryJob(job.id);
+      }
+    } catch (e) {
+      _logger.severe('Failed to restart job: ${job.id}', e);
+      // TODO: Show error message to user
+    }
   }
 
-  void _duplicateJob(EmbeddingJob job) {
-    // TODO: Create a new job with same configuration but new ID
-    print('Duplicating job: ${job.name}');
+  void _resumeJob(String jobId) async {
+    try {
+      await configManager.jobOrchestrator.resumeJob(jobId);
+
+      // Remove from resumable jobs list and update UI
+      setState(() {
+        _resumableJobs.removeWhere((r) => r.job.id == jobId);
+        if (_resumableJobs.isEmpty) {
+          _showResumableJobsSection = false;
+        }
+      });
+    } catch (e) {
+      _logger.severe('Failed to resume job: $jobId', e);
+      // TODO: Show error message to user
+    }
   }
 
-  void _deleteJob(EmbeddingJob job) {
-    configManager.embeddingJobs.remove(job.id);
+  void _resumeAllJobs() async {
+    for (final resumableJob in _resumableJobs) {
+      try {
+        await configManager.jobOrchestrator.resumeJob(resumableJob.job.id);
+      } catch (e) {
+        _logger.severe('Failed to resume job: ${resumableJob.job.id}', e);
+      }
+    }
+
+    setState(() {
+      _resumableJobs.clear();
+      _showResumableJobsSection = false;
+    });
+  }
+
+  void _dismissResumableJobs() {
+    setState(() {
+      _resumableJobs.clear();
+      _showResumableJobsSection = false;
+    });
+  }
+
+  void _deleteJob(EmbeddingJob job) async {
+    try {
+      await configManager.jobOrchestrator.deleteJob(job.id);
+    } catch (e) {
+      _logger.severe('Failed to delete job: ${job.id}', e);
+      // TODO: Show error message to user
+    }
   }
 }

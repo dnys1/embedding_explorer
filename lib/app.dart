@@ -6,6 +6,7 @@ import 'common/sidebar.dart';
 import 'common/ui/button.dart';
 import 'configurations/model/configuration_manager.dart';
 import 'configurations/page/configuration_dashboard_page.dart';
+import 'configurations/page/configuration_view_data_page.dart';
 import 'data_sources/page/data_sources_page.dart';
 import 'editor_test_page.dart';
 import 'home_page.dart';
@@ -73,7 +74,14 @@ class _AppState extends State<App> {
               Route(
                 path: '/dashboard',
                 title: 'Dashboard',
-                builder: (context, state) => const Dashboard(),
+                builder: (context, state) => const DashboardPage(),
+              ),
+              Route(
+                path: '/dashboard/view-data',
+                title: 'Dashboard',
+                builder: (context, state) => ConfigurationViewDataPage(
+                  configDb: _configManager.configService.database,
+                ),
               ),
               Route(
                 path: '/data-sources',

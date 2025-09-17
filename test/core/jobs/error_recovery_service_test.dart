@@ -1,3 +1,6 @@
+@Timeout.factor(2)
+library;
+
 import 'dart:async';
 
 import 'package:embeddings_explorer/interop/common.dart';
@@ -29,7 +32,7 @@ void main() {
         });
 
         expect(result.success, isTrue);
-        expect(result.result, equals('success'));
+        expect(result.unwrap(), equals('success'));
         expect(result.attemptCount, equals(3));
         expect(result.allErrors, hasLength(2));
       });
@@ -48,7 +51,7 @@ void main() {
           });
 
           expect(result.success, isTrue);
-          expect(result.result, equals('success'));
+          expect(result.unwrap(), equals('success'));
           expect(result.attemptCount, equals(2));
           expect(result.allErrors, hasLength(1));
         },
@@ -68,7 +71,7 @@ void main() {
           });
 
           expect(result.success, isTrue);
-          expect(result.result, equals('success'));
+          expect(result.unwrap(), equals('success'));
           expect(result.attemptCount, equals(2));
           expect(result.allErrors, hasLength(1));
         },
@@ -88,7 +91,7 @@ void main() {
           });
 
           expect(result.success, isTrue);
-          expect(result.result, equals('success'));
+          expect(result.unwrap(), equals('success'));
           expect(result.attemptCount, equals(2));
           expect(result.allErrors, hasLength(1));
         },
@@ -102,8 +105,16 @@ void main() {
         expect(result.success, isFalse);
         expect(result.attemptCount, equals(1));
         expect(result.allErrors, hasLength(1));
-        expect(result.lastError, isA<Exception>());
-        expect(result.lastError.toString(), contains('Invalid argument'));
+        expect(
+          () => result.unwrap(),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              contains('Invalid argument'),
+            ),
+          ),
+        );
       });
 
       test(
@@ -124,9 +135,8 @@ void main() {
 
           expect(result.success, isTrue);
           expect(result.attemptCount, equals(2));
-          expect(attemptCount, equals(2)); // Verify we actually made 2 attempts
-          // We can't easily test log messages without setting up a log handler,
-          // but we can verify the operation completed successfully
+          expect(attemptCount, equals(2));
+          expect(result.unwrap, returnsNormally);
         },
       );
 
@@ -146,7 +156,7 @@ void main() {
         expect(result.attemptCount, equals(3)); // Should try exactly 3 times
         expect(attemptCount, equals(3)); // Verify we actually made 3 attempts
         expect(result.allErrors, hasLength(3));
-        expect(result.lastError, isA<RetryableException>());
+        expect(() => result.unwrap(), throwsA(isA<TimeoutException>()));
       });
 
       test('handles already retryable exceptions without conversion', () async {
@@ -161,7 +171,7 @@ void main() {
         });
 
         expect(result.success, isTrue);
-        expect(result.result, equals('success'));
+        expect(result.unwrap(), equals('success'));
         expect(result.attemptCount, equals(2));
         expect(result.allErrors, hasLength(1));
         expect(result.allErrors.first, isA<RetryableException>());
@@ -230,7 +240,7 @@ void main() {
         });
 
         expect(result.success, isTrue);
-        expect(result.result, equals('success'));
+        expect(result.unwrap(), equals('success'));
         expect(result.attemptCount, equals(2));
       });
     });

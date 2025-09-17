@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:logging/logging.dart';
 
@@ -166,7 +167,7 @@ class ConfigurationService with ChangeNotifier {
   }
 
   /// Get an embedding template configuration by ID
-  Future<EmbeddingTemplate?> getEmbeddingTemplateConfig(String id) async {
+  Future<EmbeddingTemplate?> getEmbeddingTemplate(String id) async {
     final result = await database.select(
       'SELECT * FROM templates WHERE id = ?',
       [id],
@@ -372,8 +373,8 @@ ORDER BY created_at DESC
       tx.execute(
         '''
         INSERT OR REPLACE INTO jobs 
-        (id, name, description, data_source_id, template_id, provider_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, name, description, data_source_id, template_id, provider_ids, model_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''',
         [
           job.id,
@@ -382,6 +383,7 @@ ORDER BY created_at DESC
           job.dataSourceId,
           job.embeddingTemplateId,
           jsonEncode(job.providerIds),
+          jsonEncode(job.modelIds),
           job.status.name,
           job.createdAt.toIso8601String(),
           job.startedAt?.toIso8601String(),
@@ -455,14 +457,14 @@ ORDER BY created_at DESC
     required String dataSourceId,
     required String embeddingTemplateId,
   }) async {
-    final tableId = typeId('et');
+    final tableId = 'embeddings_$jobId';
     final tableName = tableId;
     final now = DateTime.now().toIso8601String();
 
     await database.transaction((tx) {
       // Create the embedding table with base columns
       tx.execute('''
-        CREATE TABLE $tableName (
+        CREATE TABLE IF NOT EXISTS $tableName (
           id TEXT PRIMARY KEY NOT NULL,
           source_data TEXT NOT NULL, -- JSON representation of original data
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -475,6 +477,7 @@ ORDER BY created_at DESC
         INSERT INTO embedding_table_registry 
         (id, table_name, job_id, data_source_id, template_id, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING
       ''',
         [
           tableId,
@@ -516,6 +519,28 @@ ORDER BY created_at DESC
     }
 
     final tableName = tableResult.first['table_name'] as String;
+
+    final existingColumns = await getEmbeddingColumns(tableId);
+    final existingColumn = existingColumns.firstWhereOrNull(
+      (col) => col.modelProviderId == modelProviderId,
+    );
+    if (existingColumn != null) {
+      if (existingColumn.columnName != columnName ||
+          existingColumn.dimensions != dimensions ||
+          existingColumn.vectorType != vectorType) {
+        throw StateError(
+          'A different vector column already exists for provider $modelProviderId in table $tableId. '
+          'Existing column: (name: ${existingColumn.columnName}, type: ${existingColumn.vectorType}, dimensions: ${existingColumn.dimensions}), '
+          'Requested: (name: $columnName, type: ${vectorType.name}, dimensions: $dimensions)',
+        );
+      } else {
+        // Column already exists with same configuration - no action needed
+        _logger.fine(
+          'Vector column already exists for provider $modelProviderId in table $tableId - no action taken',
+        );
+        return;
+      }
+    }
 
     await database.transaction((tx) {
       // Add the vector column to the table
@@ -618,7 +643,11 @@ ORDER BY created_at DESC
 
     final columns = ['id', 'source_data'];
     final sqlPlaceholders = ['?', '?'];
+    final updateClauses = <String>[];
     final values = <Object?>[recordId, jsonEncode(sourceData)];
+
+    // Always update source_data
+    updateClauses.add('source_data = excluded.source_data');
 
     // Add embedding columns and values
     for (final row in columnResult) {
@@ -634,16 +663,22 @@ ORDER BY created_at DESC
         // Use the LibSQL vector conversion function directly in SQL
         sqlPlaceholders.add('${vectorType.conversionFunction}(?)');
         values.add(jsonEncode(embedding));
+        // Only update if new value is not null (CASCADE behavior)
+        updateClauses.add('$columnName = excluded.$columnName');
       } else {
         sqlPlaceholders.add('?');
         values.add(null);
+        // Don't add to updateClauses - preserve existing value if new value is null
       }
     }
 
-    await database.execute(
-      'INSERT INTO $tableName (${columns.join(', ')}) VALUES (${sqlPlaceholders.join(', ')})',
-      values,
-    );
+    // Use INSERT OR REPLACE with ON CONFLICT clause for upsert behavior
+    await database.execute('''
+      INSERT INTO $tableName (${columns.join(', ')}) 
+      VALUES (${sqlPlaceholders.join(', ')})
+      ON CONFLICT(id) DO UPDATE SET
+      ${updateClauses.join(', ')}
+      ''', values);
   }
 
   /// Get embedding table registry entries

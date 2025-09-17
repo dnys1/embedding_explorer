@@ -45,11 +45,11 @@ class Button extends StatelessComponent {
     this.variant = ButtonVariant.primary,
     this.size = ButtonSize.md,
     this.className,
-    this.disabled = false,
+    bool? disabled,
     this.type = ButtonType.button,
     this.events,
     this.title,
-  });
+  }) : disabled = disabled ?? onPressed == null;
 
   final List<Component> children;
   final void Function()? onPressed;

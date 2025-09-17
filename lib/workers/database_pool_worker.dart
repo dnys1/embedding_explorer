@@ -353,8 +353,9 @@ abstract class DatabasePoolWorker
 
     Future<void> runWithErrorHandling(
       int requestId,
-      Future<DatabasePoolResultSet> Function() action,
-    ) async {
+      Future<DatabasePoolResultSet> Function() action, {
+      String? statement,
+    }) async {
       try {
         final result = await action();
         respond.add(
@@ -368,7 +369,8 @@ abstract class DatabasePoolWorker
         respond.add(
           DatabasePoolResponse.failure(
             requestId: requestId,
-            error: e,
+            error:
+                '${statement != null ? 'Error executing statement "$statement": ' : ''}$e',
             errorCode: e is SqliteException ? e.extendedResultCode : null,
             stackTrace: st,
             stats: sahPool.stats,
@@ -466,61 +468,75 @@ abstract class DatabasePoolWorker
               return DatabasePoolResultSet(success: true);
             });
           case DatabasePoolRequestType.execute:
-            await runWithErrorHandling(request.requestId, () async {
-              final db = openDatabases[filename!];
-              if (db == null) {
-                throw StateError('Database not open: $filename');
-              }
-              final query = request.transaction!.statements.single;
-              final result = db.execute(query.sql, query.parameters.toList());
-              return DatabasePoolResultSet(
-                resultSet: DatabaseResultSet(
-                  columnNames: const [],
-                  rows: const [],
-                  lastInsertRowId: result.lastInsertRowId,
-                  updatedRows: result.updatedRows,
-                ),
-              );
-            });
-          case DatabasePoolRequestType.query:
-            await runWithErrorHandling(request.requestId, () async {
-              final db = openDatabases[filename!];
-              if (db == null) {
-                throw StateError('Database not open: $filename');
-              }
-              final query = request.transaction!.statements.single;
-              final result =
-                  db.select(query.sql, query.parameters.toList()) as ResultSet;
-              return DatabasePoolResultSet(
-                resultSet: DatabaseResultSet(
-                  columnNames: result.columnNames,
-                  rows: result.rows,
-                  lastInsertRowId: -1,
-                  updatedRows: -1,
-                ),
-              );
-            });
-          case DatabasePoolRequestType.transaction:
-            await runWithErrorHandling(request.requestId, () async {
-              final db = openDatabases[filename!];
-              if (db == null) {
-                throw StateError('Database not open: $filename');
-              }
-              final changesBefore = db.totalChanges;
-              db.transaction((tx) {
-                for (final statement in request.transaction!.statements) {
-                  tx.execute(statement.sql, statement.parameters.toList());
+            final query = request.transaction!.statements.single;
+            await runWithErrorHandling(
+              request.requestId,
+              statement: query.sql.trim(),
+              () async {
+                final db = openDatabases[filename!];
+                if (db == null) {
+                  throw StateError('Database not open: $filename');
                 }
-              });
-              return DatabasePoolResultSet(
-                resultSet: DatabaseResultSet(
-                  columnNames: const [],
-                  rows: const [],
-                  lastInsertRowId: db.lastInsertRowId,
-                  updatedRows: db.totalChanges - changesBefore,
-                ),
-              );
-            });
+                final result = db.execute(query.sql, query.parameters.toList());
+                return DatabasePoolResultSet(
+                  resultSet: DatabaseResultSet(
+                    columnNames: const [],
+                    rows: const [],
+                    lastInsertRowId: result.lastInsertRowId,
+                    updatedRows: result.updatedRows,
+                  ),
+                );
+              },
+            );
+          case DatabasePoolRequestType.query:
+            final query = request.transaction!.statements.single;
+            await runWithErrorHandling(
+              request.requestId,
+              statement: query.sql.trim(),
+              () async {
+                final db = openDatabases[filename!];
+                if (db == null) {
+                  throw StateError('Database not open: $filename');
+                }
+                final result =
+                    db.select(query.sql, query.parameters.toList())
+                        as ResultSet;
+                return DatabasePoolResultSet(
+                  resultSet: DatabaseResultSet(
+                    columnNames: result.columnNames,
+                    rows: result.rows,
+                    lastInsertRowId: -1,
+                    updatedRows: -1,
+                  ),
+                );
+              },
+            );
+          case DatabasePoolRequestType.transaction:
+            final statements = request.transaction!.statements;
+            await runWithErrorHandling(
+              request.requestId,
+              statement: statements.map((it) => it.sql.trim()).join(';\n'),
+              () async {
+                final db = openDatabases[filename!];
+                if (db == null) {
+                  throw StateError('Database not open: $filename');
+                }
+                final changesBefore = db.totalChanges;
+                db.transaction((tx) {
+                  for (final statement in statements) {
+                    tx.execute(statement.sql, statement.parameters.toList());
+                  }
+                });
+                return DatabasePoolResultSet(
+                  resultSet: DatabaseResultSet(
+                    columnNames: const [],
+                    rows: const [],
+                    lastInsertRowId: db.lastInsertRowId,
+                    updatedRows: db.totalChanges - changesBefore,
+                  ),
+                );
+              },
+            );
         }
       }
     } finally {

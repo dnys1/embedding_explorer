@@ -3,9 +3,13 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
+import 'package:openai_dart/openai_dart.dart' as openai show EmbeddingModel;
+import 'package:openai_dart/openai_dart.dart' hide EmbeddingModel, Error;
 
 import '../../../common/ui/fa_icon.dart';
+import '../../../configurations/model/embedding_tables.dart';
 import '../../../credentials/model/credential.dart';
+import '../../../util/cancellation_token.dart';
 import '../../../util/retryable_exception.dart';
 import '../../model/embedding_provider.dart';
 import '../../model/embedding_provider_config.dart';
@@ -15,6 +19,34 @@ import '../../model/provider_factory.dart';
 class OpenAIFactory implements ProviderFactory {
   const OpenAIFactory();
 
+  static double _calculateCost({required double pagesPerDollar}) {
+    const tokensPerPage = 800;
+    return 1 / (pagesPerDollar * tokensPerPage) * 1000;
+  }
+
+  static final Map<String, EmbeddingModel> knownModels = {
+    'text-embedding-3-small': EmbeddingModel(
+      id: 'text-embedding-3-small',
+      providerId: 'openai',
+      name: 'Text Embedding 3 Small',
+      description: 'Most affordable embedding model with good performance',
+      vectorType: VectorType.float32,
+      dimensions: 1536,
+      maxInputTokens: 8192,
+      costPer1kTokens: _calculateCost(pagesPerDollar: 62_500),
+    ),
+    'text-embedding-3-large': EmbeddingModel(
+      id: 'text-embedding-3-large',
+      providerId: 'openai',
+      name: 'Text Embedding 3 Large',
+      description: 'Highest performance embedding model',
+      vectorType: VectorType.float32,
+      dimensions: 3072,
+      maxInputTokens: 8192,
+      costPer1kTokens: _calculateCost(pagesPerDollar: 9_615),
+    ),
+  };
+
   @override
   ProviderDefinition get definition => ProviderDefinition(
     type: EmbeddingProviderType.openai,
@@ -22,32 +54,7 @@ class OpenAIFactory implements ProviderFactory {
     description:
         'OpenAI embedding models including text-embedding-3-small and text-embedding-3-large',
     icon: FaIcons.brands.openai,
-    knownModels: const {
-      'text-embedding-3-small': EmbeddingModel(
-        id: 'text-embedding-3-small',
-        name: 'Text Embedding 3 Small',
-        description: 'Most affordable embedding model with good performance',
-        dimensions: 1536,
-        maxInputTokens: 8192,
-        costPer1kTokens: 0.00002,
-      ),
-      'text-embedding-3-large': EmbeddingModel(
-        id: 'text-embedding-3-large',
-        name: 'Text Embedding 3 Large',
-        description: 'Highest performance embedding model',
-        dimensions: 3072,
-        maxInputTokens: 8192,
-        costPer1kTokens: 0.00013,
-      ),
-      'text-embedding-ada-002': EmbeddingModel(
-        id: 'text-embedding-ada-002',
-        name: 'Text Embedding Ada 002',
-        description: 'Previous generation embedding model (legacy)',
-        dimensions: 1536,
-        maxInputTokens: 8192,
-        costPer1kTokens: 0.0001,
-      ),
-    },
+    knownModels: knownModels,
     defaultSettings: const {
       'model': 'text-embedding-3-small',
       'dimensions': 1536,
@@ -155,69 +162,35 @@ class OpenAIFactory implements ProviderFactory {
 
 class OpenAIOperations implements ProviderOperations {
   OpenAIOperations({
-    required this.config,
-    required this.credential,
+    required EmbeddingProviderConfig config,
+    required ApiKeyCredential credential,
     http.Client? client,
-  }) : client = client ?? http.Client();
+  }) : _config = config,
+       _httpClient = client ?? http.Client(),
+       _credential = credential {
+    _openai = OpenAIClient(apiKey: credential.apiKey, client: _httpClient);
+  }
 
-  static final Uri _baseUrl = Uri.parse('https://api.openai.com/v1/');
   static final Logger _logger = Logger('OpenAIOperations');
+  static final Uri _baseUri = Uri.parse('https://api.openai.com/v1/');
 
-  final http.Client client;
-  final EmbeddingProviderConfig config;
-  final ApiKeyCredential credential;
+  late final OpenAIClient _openai;
+  final http.Client _httpClient;
+  final ApiKeyCredential _credential;
+  final EmbeddingProviderConfig _config;
 
   @override
   Future<Map<String, EmbeddingModel>> listAvailableModels() async {
-    final response = await _makeRequest(
-      apiKey: credential.apiKey,
-      endpoint: './models',
-      method: 'GET',
-    );
-
-    if (response['data'] is! List) {
-      throw StateError('Invalid response format from OpenAI models API');
-    }
-
-    final models = <String, EmbeddingModel>{};
-    for (final model in response['data'] as List) {
-      if (model is! Map<String, dynamic>) continue;
-
-      final id = model['id'] as String?;
-      if (id == null || !id.startsWith('text-embedding')) continue;
-
-      models[id] = EmbeddingModel(
-        id: id,
-        name: id,
-        description: 'OpenAI embedding model',
-        dimensions: _getDefaultDimensions(id),
-      );
-    }
-
-    return models.isNotEmpty
-        ? models
-        : const OpenAIFactory().definition.knownModels;
-  }
-
-  int _getDefaultDimensions(String modelId) {
-    switch (modelId) {
-      case 'text-embedding-3-large':
-        return 3072;
-      case 'text-embedding-3-small':
-      case 'text-embedding-ada-002':
-      default:
-        return 1536;
-    }
+    return {
+      for (final entry in OpenAIFactory.knownModels.entries)
+        entry.key: entry.value.copyWith(providerId: _config.id),
+    };
   }
 
   @override
   Future<ValidationResult> testConnection() async {
     try {
-      await _makeRequest(
-        apiKey: credential.apiKey,
-        endpoint: './models',
-        method: 'GET',
-      );
+      await _openai.listModels();
       return ValidationResult.valid();
     } on RetryableException catch (e) {
       return ValidationResult.invalid(['Connection failed: ${e.message}']);
@@ -229,37 +202,105 @@ class OpenAIOperations implements ProviderOperations {
   @override
   Future<List<List<double>>> generateEmbeddings({
     required String modelId,
-    required List<String> texts,
+    required Map<String, String> texts,
+    CancellationToken? cancellationToken,
   }) async {
-    if (texts.isEmpty) return [];
+    assert(texts.isNotEmpty, 'No texts provided for embedding generation');
 
     final response = await _makeRequest(
-      apiKey: credential.apiKey,
-      endpoint: './embeddings',
       method: 'POST',
-      body: {'model': modelId, 'input': texts, 'encoding_format': 'float'},
+      path: './embeddings',
+      body: CreateEmbeddingRequest(
+        model: openai.EmbeddingModel.modelId(modelId),
+        input: EmbeddingInput.listString(texts.values.toList(growable: false)),
+        encodingFormat: EmbeddingEncodingFormat.float,
+        // dimensions:  // TODO: custom dims
+      ).toJson(),
+      fromJson: CreateEmbeddingResponse.fromJson,
+      cancellationToken: cancellationToken,
     );
-
-    if (response['data'] is! List) {
-      throw StateError('Invalid response format from OpenAI embeddings API');
-    }
-
-    final embeddings = <List<double>>[];
-    for (final item in response['data'] as List) {
-      if (item is! Map<String, dynamic>) continue;
-
-      final embedding = item['embedding'];
-      if (embedding is List) {
-        embeddings.add(embedding.cast<double>());
-      }
-    }
-
-    return embeddings;
+    return response.data
+        .map((it) => it.embeddingVector)
+        .toList(growable: false);
   }
 
   @override
   Future<ValidationResult> validateConfiguration() async {
     return await testConnection();
+  }
+
+  Future<T> _makeRequest<T>({
+    required String method,
+    required String path,
+    required Map<String, Object?> body,
+    required T Function(Map<String, Object?> json) fromJson,
+    required CancellationToken? cancellationToken,
+  }) async {
+    final request = http.AbortableRequest(
+      method,
+      _baseUri.resolve(path),
+      abortTrigger: cancellationToken?.asFuture,
+    );
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${_credential.apiKey}',
+    });
+    request.body = jsonEncode(body);
+
+    final http.StreamedResponse response;
+    try {
+      response = await _httpClient.send(request);
+    } on http.RequestAbortedException {
+      if (cancellationToken != null) {
+        cancellationToken.throwIfCancelled();
+      }
+      rethrow;
+    }
+    final responseBody = await response.stream.bytesToString();
+
+    final statusCode = response.statusCode;
+    if (statusCode >= 200 && statusCode < 300) {
+      return fromJson(jsonDecode(responseBody) as Map<String, dynamic>);
+    }
+
+    final errorText = responseBody;
+
+    // Handle rate limiting (429) as retryable
+    if (statusCode == 429) {
+      // Parse retry information from response body
+      final retryAfter = _parseRetryAfterFromBody(errorText);
+
+      throw RetryableException.rateLimited(
+        message: 'OpenAI API rate limited',
+        retryAfterSeconds: retryAfter.inSeconds,
+        originalException: Exception(
+          'OpenAI API request failed ($statusCode): $errorText',
+        ),
+      );
+    }
+
+    // Handle temporary server errors (5xx) as retryable
+    if (statusCode >= 500 && statusCode < 600) {
+      throw RetryableException.serviceUnavailable(
+        message: 'OpenAI API server error ($statusCode)',
+        originalException: Exception(
+          'OpenAI API request failed ($statusCode): $errorText',
+        ),
+      );
+    }
+
+    // Handle timeout errors as retryable
+    if (errorText.toLowerCase().contains('timeout')) {
+      throw RetryableException.timeout(
+        message: 'OpenAI API timeout',
+        originalException: Exception(
+          'OpenAI API request failed ($statusCode): $errorText',
+        ),
+      );
+    }
+
+    // All other errors are non-retryable
+    throw Exception('OpenAI API request failed ($statusCode): $errorText');
   }
 
   /// Parses retry-after information from OpenAI error response body
@@ -304,75 +345,5 @@ class OpenAIOperations implements ProviderOperations {
     }
 
     return defaultRetry;
-  }
-
-  Future<Map<String, dynamic>> _makeRequest({
-    required String apiKey,
-    required String endpoint,
-    required String method,
-    Map<String, dynamic>? body,
-  }) async {
-    final url = _baseUrl.resolve(endpoint);
-
-    try {
-      final request = http.Request(method, url);
-      request.headers['Authorization'] = 'Bearer $apiKey';
-
-      if (method != 'GET') {
-        assert(body != null);
-        request.headers['Content-Type'] = 'application/json';
-        request.body = jsonEncode(body);
-      }
-
-      final response = await client.send(request);
-      final responseText = await response.stream.bytesToString();
-
-      final statusCode = response.statusCode;
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        final errorText = responseText;
-
-        // Handle rate limiting (429) as retryable
-        if (statusCode == 429) {
-          // Parse retry information from response body
-          final retryAfter = _parseRetryAfterFromBody(errorText);
-
-          throw RetryableException.rateLimited(
-            message: 'OpenAI API rate limited',
-            retryAfterSeconds: retryAfter.inSeconds,
-            originalException: Exception(
-              'OpenAI API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // Handle temporary server errors (5xx) as retryable
-        if (statusCode >= 500 && statusCode < 600) {
-          throw RetryableException.serviceUnavailable(
-            message: 'OpenAI API server error ($statusCode)',
-            originalException: Exception(
-              'OpenAI API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // Handle timeout errors as retryable
-        if (errorText.toLowerCase().contains('timeout')) {
-          throw RetryableException.timeout(
-            message: 'OpenAI API timeout',
-            originalException: Exception(
-              'OpenAI API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // All other errors are non-retryable
-        throw Exception('OpenAI API request failed ($statusCode): $errorText');
-      }
-
-      return jsonDecode(responseText) as Map<String, dynamic>;
-    } catch (e) {
-      _logger.warning('OpenAI API request failed', e);
-      rethrow;
-    }
   }
 }

@@ -1,7 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../common/ui/fa_icon.dart';
+import '../../configurations/model/embedding_tables.dart';
 import '../../credentials/model/credential.dart';
+import '../../util/cancellation_token.dart';
 import 'embedding_provider_config.dart';
 
 part 'embedding_provider.freezed.dart';
@@ -153,7 +155,8 @@ abstract interface class ProviderOperations {
   /// Generate embeddings for the given texts
   Future<List<List<double>>> generateEmbeddings({
     required String modelId,
-    required List<String> texts,
+    required Map<String, String> texts,
+    CancellationToken? cancellationToken,
   });
 
   /// Validate the current configuration
@@ -165,8 +168,10 @@ abstract interface class ProviderOperations {
 abstract class EmbeddingModel with _$EmbeddingModel {
   const factory EmbeddingModel({
     required String id,
+    required String providerId,
     required String name,
     required String description,
+    required VectorType vectorType,
     required int dimensions,
     int? maxInputTokens,
     double? costPer1kTokens,

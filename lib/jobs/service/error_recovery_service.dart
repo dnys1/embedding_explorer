@@ -1,34 +1,46 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 
+import 'package:async/async.dart';
 import 'package:logging/logging.dart';
+import 'package:stack_trace/stack_trace.dart';
 
 import '../../util/retryable_exception.dart';
 
 /// Result of a retry operation
 class RetryResult<T> {
-  final bool success;
-  final T? result;
-  final Exception? lastError;
-  final List<Exception> allErrors;
-  final int attemptCount;
-  final Duration totalDuration;
-
   const RetryResult({
-    required this.success,
-    this.result,
-    this.lastError,
+    required this.result,
     this.allErrors = const [],
     required this.attemptCount,
     required this.totalDuration,
   });
+
+  final Result<T> result;
+  final List<Object> allErrors;
+  final int attemptCount;
+  final Duration totalDuration;
+
+  T unwrap() {
+    if (result.isValue) {
+      return result.asValue!.value;
+    } else {
+      final stackTrace = Chain([
+        Trace.current(),
+        Trace.from(result.asError!.stackTrace),
+      ]);
+      Error.throwWithStackTrace(result.asError!.error, stackTrace);
+    }
+  }
+
+  bool get success => result.isValue;
 }
 
 /// Simple service for handling retryable exceptions
 class ErrorRecoveryService {
   static final Logger _logger = Logger('ErrorRecoveryService');
 
-  final Random _random = Random();
+  final _random = math.Random();
 
   /// Execute an operation with retry logic for RetryableExceptions
   Future<RetryResult<T>> executeWithRetry<T>(
@@ -36,7 +48,7 @@ class ErrorRecoveryService {
     String? context,
   }) async {
     final stopwatch = Stopwatch()..start();
-    final errors = <Exception>[];
+    final errors = <Object>[];
     int attemptCount = 0;
 
     while (true) {
@@ -54,14 +66,12 @@ class ErrorRecoveryService {
         );
 
         return RetryResult<T>(
-          success: true,
-          result: result,
+          result: Result.value(result),
           attemptCount: attemptCount,
           totalDuration: stopwatch.elapsed,
           allErrors: errors,
         );
-      } catch (e) {
-        final exception = e is Exception ? e : Exception(e.toString());
+      } catch (exception, st) {
         errors.add(exception);
 
         _logger.warning(
@@ -74,7 +84,7 @@ class ErrorRecoveryService {
           retryableException = exception;
         } else {
           // Attempt to convert common exception types to retryable exceptions
-          retryableException = RetryableException.tryFrom(e);
+          retryableException = RetryableException.tryFrom(exception);
           if (retryableException != null) {
             _logger.info(
               'Converted exception to retryable: ${exception.toString()}${context != null ? ' ($context)' : ''}',
@@ -91,8 +101,7 @@ class ErrorRecoveryService {
             );
 
             return RetryResult<T>(
-              success: false,
-              lastError: retryableException,
+              result: Result.error(exception, st),
               attemptCount: attemptCount,
               totalDuration: stopwatch.elapsed,
               allErrors: errors,
@@ -114,8 +123,7 @@ class ErrorRecoveryService {
           );
 
           return RetryResult<T>(
-            success: false,
-            lastError: exception,
+            result: Result.error(exception, st),
             attemptCount: attemptCount,
             totalDuration: stopwatch.elapsed,
             allErrors: errors,
@@ -131,13 +139,13 @@ class ErrorRecoveryService {
     final exponentialDelay = Duration(
       milliseconds:
           (baseDelay.inMilliseconds *
-                  pow(exception.backoffMultiplier, attemptIndex))
+                  math.pow(exception.backoffMultiplier, attemptIndex))
               .round(),
     );
 
     // Apply maximum delay limit
     final cappedDelay = Duration(
-      milliseconds: min(
+      milliseconds: math.min(
         exponentialDelay.inMilliseconds,
         exception.maxDelay.inMilliseconds,
       ),

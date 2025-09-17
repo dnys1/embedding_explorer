@@ -45,6 +45,36 @@ class Input extends StatelessComponent {
     );
   }
 
+  factory Input.number({
+    Key? key,
+    String? placeholder,
+    String? value,
+    String? className,
+    bool disabled = false,
+    bool readOnly = false,
+    String? id,
+    String? name,
+    bool required = false,
+    int? min,
+    int? max,
+    int? step,
+    void Function(String event)? onChange,
+  }) {
+    return Input(
+      key: key,
+      type: InputType.number,
+      placeholder: placeholder,
+      value: value,
+      className: className,
+      disabled: disabled,
+      readOnly: readOnly,
+      id: id,
+      name: name,
+      required: required,
+      onChange: (e, target) => onChange?.call(target.value),
+    );
+  }
+
   final InputType type;
   final String? placeholder;
   final String? value;

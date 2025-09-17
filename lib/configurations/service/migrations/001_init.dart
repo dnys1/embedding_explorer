@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     data_source_id TEXT NOT NULL,
     template_id TEXT NOT NULL,
     provider_ids TEXT NOT NULL, -- JSON array of provider IDs
+    model_ids TEXT NOT NULL, -- JSON array of model IDs
     status TEXT NOT NULL DEFAULT 'pending', -- pending, running, completed, failed, cancelled
     created_at TEXT NOT NULL, -- ISO 8601 datetime
     started_at TEXT, -- ISO 8601 datetime, nullable

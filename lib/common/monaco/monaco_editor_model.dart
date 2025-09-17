@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 
 import '../../interop/common.dart';
 import '../../interop/monaco.dart' hide Uri, RegExp;
+import '../../templates/model/template.dart';
 import '../../util/change_notifier.dart';
 import 'custom_language.dart';
 
@@ -26,7 +27,7 @@ class MonacoEditorModel extends ChangeNotifierX {
        _height = height,
        _customLanguage = customLanguage,
        _options = options,
-       _value = ValueNotifier(initialValue ?? '');
+       _value = ValueNotifier(Template(initialValue ?? ''));
 
   factory MonacoEditorModel.singleLine({
     required String containerId,
@@ -53,7 +54,7 @@ class MonacoEditorModel extends ChangeNotifierX {
   final MonacoCustomLanguage? _customLanguage;
   final IStandaloneEditorConstructionOptions? _options;
 
-  final ValueNotifier<String> _value;
+  final ValueNotifier<Template> _value;
   final ValueNotifier<bool> _isInitialized = ValueNotifier(false);
   final ValueNotifier<bool> _isLoading = ValueNotifier(false);
 
@@ -68,7 +69,7 @@ class MonacoEditorModel extends ChangeNotifierX {
   MonacoCustomLanguage? get customLanguage => _customLanguage;
   IStandaloneEditorConstructionOptions? get options => _options;
 
-  ValueListenable<String> get value => _value;
+  ValueListenable<Template> get value => _value;
   ValueListenable<bool> get isInitialized => _isInitialized;
   ValueListenable<bool> get isLoading => _isLoading;
 
@@ -103,7 +104,7 @@ class MonacoEditorModel extends ChangeNotifierX {
 
       // Create editor with merged options (custom options override defaults)
       final defaultOptions = IStandaloneEditorConstructionOptions(
-        value: _value.value,
+        value: _value.value.rawTemplate,
         language: _language,
         theme: _theme,
         automaticLayout: true,
@@ -144,8 +145,8 @@ class MonacoEditorModel extends ChangeNotifierX {
       );
       final changeSub = contentChanges.listen((e) {
         final newValue = _editor!.getValue();
-        if (_value.value != newValue) {
-          _value.value = newValue;
+        if (_value.value.rawTemplate != newValue) {
+          _value.value = Template(newValue);
           notifyListeners();
         }
       });
@@ -213,18 +214,13 @@ class MonacoEditorModel extends ChangeNotifierX {
 
   /// Update the editor content programmatically
   void setValue(String newValue) {
-    if (_value.value != newValue) {
-      _value.value = newValue;
+    if (_value.value.rawTemplate != newValue) {
+      _value.value = Template(newValue);
       if (_isInitialized.value && _editor != null) {
         _editor!.setValue(newValue);
       }
       notifyListeners();
     }
-  }
-
-  /// Get the current editor content
-  String getValue() {
-    return _value.value;
   }
 
   /// Insert text at the current cursor position

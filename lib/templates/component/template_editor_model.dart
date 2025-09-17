@@ -106,6 +106,8 @@ final class TemplateEditorModel extends ChangeNotifierX
         editor.init(),
         idEditor.init(),
       ]);
+      editor.addListener(() => notifyListeners());
+      idEditor.addListener(() => notifyListeners());
     } catch (e) {
       _error.value = 'Initialization failed: $e';
     } finally {
@@ -145,31 +147,19 @@ final class TemplateEditorModel extends ChangeNotifierX
   }
 
   String get previewText {
-    final templateText = editor.value.value;
-    if (templateText.isEmpty) {
+    final template = editor.value.value;
+    if (template.isEmpty) {
       return 'Preview will appear here once you define a template...';
     }
-    return _renderTemplate(templateText, _sampleRow);
+    return template.render(_sampleRow);
   }
 
   String get idPreviewText {
-    final idTemplateText = idEditor.value.value;
-    if (idTemplateText.isEmpty) {
+    final idTemplate = idEditor.value.value;
+    if (idTemplate.isEmpty) {
       return 'ID preview will appear here once you define an ID template...';
     }
-    return _renderTemplate(idTemplateText, _sampleRow);
-  }
-
-  String _renderTemplate(String template, Map<String, dynamic>? data) {
-    if (data == null) return template;
-    final RegExp comments = RegExp(r'//.*$', multiLine: true);
-
-    String result = template.replaceAll(comments, '').trim();
-    for (final entry in data.entries) {
-      final placeholder = '{{${entry.key}}}';
-      result = result.replaceAll(placeholder, entry.value?.toString() ?? '');
-    }
-    return result;
+    return idTemplate.render(_sampleRow);
   }
 
   void updateName(String newName) {
@@ -205,6 +195,9 @@ final class TemplateEditorModel extends ChangeNotifierX
   }
 
   bool validate() {
+    print(
+      'Name: ${_name.value}, Template: ${editor.value.value}, ID Template: ${idEditor.value.value}, Data Source: ${_selectedDataSourceId.value}',
+    );
     return _name.value.isNotEmpty &&
         editor.value.value.isNotEmpty &&
         idEditor.value.value.isNotEmpty &&
@@ -216,8 +209,8 @@ final class TemplateEditorModel extends ChangeNotifierX
       id: id,
       name: _name.value,
       description: _description.value,
-      template: editor.value.value,
-      idTemplate: idEditor.value.value,
+      template: editor.value.value.cleanedTemplate,
+      idTemplate: idEditor.value.value.cleanedTemplate,
       dataSourceId: _selectedDataSourceId.value,
     );
   }

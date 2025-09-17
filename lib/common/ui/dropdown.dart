@@ -104,7 +104,11 @@ class _DropdownState extends State<Dropdown> {
               'absolute z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none',
               alignmentClass,
             ].clsx,
-            events: {'click': (event) => event.stopPropagation()},
+            events: {
+              'click': (event) {
+                event.stopPropagation();
+              },
+            },
             [div(classes: 'py-1', component.children)],
           ),
       ],
@@ -149,6 +153,8 @@ class DropdownItem extends StatelessComponent {
           'click': (event) {
             event.stopPropagation();
             onPressed!();
+            // Close dropdown after item is clicked
+            context.findAncestorStateOfType<_DropdownState>()?._closeDropdown();
           },
       },
       children,
@@ -157,11 +163,13 @@ class DropdownItem extends StatelessComponent {
 }
 
 class DropdownSeparator extends StatelessComponent {
-  const DropdownSeparator({super.key});
+  const DropdownSeparator({super.key, this.margin = 'my-1'});
+
+  final String margin;
 
   @override
   Component build(BuildContext context) {
-    return div(classes: 'my-1 h-px bg-muted', []);
+    return div(classes: '$margin h-px bg-muted', []);
   }
 }
 

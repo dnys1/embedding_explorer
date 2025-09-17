@@ -86,8 +86,10 @@ const _$ConfigurationFieldTypeEnumMap = {
 _EmbeddingModel _$EmbeddingModelFromJson(Map<String, dynamic> json) =>
     _EmbeddingModel(
       id: json['id'] as String,
+      providerId: json['providerId'] as String,
       name: json['name'] as String,
       description: json['description'] as String,
+      vectorType: $enumDecode(_$VectorTypeEnumMap, json['vectorType']),
       dimensions: (json['dimensions'] as num).toInt(),
       maxInputTokens: (json['maxInputTokens'] as num?)?.toInt(),
       costPer1kTokens: (json['costPer1kTokens'] as num?)?.toDouble(),
@@ -96,12 +98,23 @@ _EmbeddingModel _$EmbeddingModelFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$EmbeddingModelToJson(_EmbeddingModel instance) =>
     <String, dynamic>{
       'id': instance.id,
+      'providerId': instance.providerId,
       'name': instance.name,
       'description': instance.description,
+      'vectorType': _$VectorTypeEnumMap[instance.vectorType]!,
       'dimensions': instance.dimensions,
       'maxInputTokens': instance.maxInputTokens,
       'costPer1kTokens': instance.costPer1kTokens,
     };
+
+const _$VectorTypeEnumMap = {
+  VectorType.float64: 'float64',
+  VectorType.float32: 'float32',
+  VectorType.float16: 'float16',
+  VectorType.bfloat16: 'bfloat16',
+  VectorType.float8: 'float8',
+  VectorType.float1bit: 'float1bit',
+};
 
 _ValidationResult _$ValidationResultFromJson(
   Map<String, dynamic> json,

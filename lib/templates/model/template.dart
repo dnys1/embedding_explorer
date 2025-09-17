@@ -1,15 +1,13 @@
-extension type const TransformationTemplate(String rawTemplate)
-    implements String {
+/// Represents a text template that can be rendered with data.
+extension type const Template(String rawTemplate) {
   static final RegExp _comments = RegExp(r'//.*$', multiLine: true);
 
   String get cleanedTemplate {
     return rawTemplate.replaceAll(_comments, '').trim(); // Remove comments
   }
 
-  bool validate() {
-    // TODO: Improve validation logic
-    return cleanedTemplate.isNotEmpty;
-  }
+  bool get isEmpty => cleanedTemplate.isEmpty;
+  bool get isNotEmpty => !isEmpty;
 
   String render(Map<String, Object?>? data) {
     var output = cleanedTemplate;
@@ -17,7 +15,7 @@ extension type const TransformationTemplate(String rawTemplate)
       return output;
     }
     for (final MapEntry(key: field, :value) in data.entries) {
-      final replacement = value?.toString() ?? '[empty]';
+      final replacement = value?.toString() ?? '';
       output = output.replaceAll('{{$field}}', replacement);
     }
     return output;

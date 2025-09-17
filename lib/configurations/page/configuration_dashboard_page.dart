@@ -1,17 +1,17 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
-import '../../common/ui/button.dart';
+import '../../common/ui/ui.dart';
 import '../model/configuration_manager.dart';
 
-class Dashboard extends StatefulComponent {
-  const Dashboard({super.key});
+class DashboardPage extends StatefulComponent {
+  const DashboardPage({super.key});
 
   @override
-  State<Dashboard> createState() => _DashboardState();
+  State<DashboardPage> createState() => _DashboardState();
 }
 
-class _DashboardState extends State<Dashboard>
+class _DashboardState extends State<DashboardPage>
     with ConfigurationManagerListener {
   ConfigurationSummary get _summary => configManager.getSummary();
 
@@ -36,11 +36,15 @@ class _DashboardState extends State<Dashboard>
             //   events: {'click': (_) => _createSampleConfigurations()},
             //   [text('Add Sample Data')],
             // ),
-            button(
-              classes:
-                  'px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700',
-              events: {'click': (_) => _clearAllConfigurations()},
-              [text('Clear All')],
+            Button(
+              variant: ButtonVariant.outline,
+              onPressed: () => Router.of(context).push('/dashboard/view-data'),
+              children: [text('View Data')],
+            ),
+            Button(
+              variant: ButtonVariant.destructive,
+              onPressed: _clearAllConfigurations,
+              children: [text('Clear All')],
             ),
           ]),
         ]),
@@ -59,8 +63,8 @@ class _DashboardState extends State<Dashboard>
             // Embedding templates section
             _buildEmbeddingTemplatesSection(),
 
-            // Model providers section
-            _buildModelProvidersSection(),
+            // Providers section
+            _buildProvidersSection(),
 
             // Custom provider templates section
             _buildCustomProviderTemplatesSection(),
@@ -79,8 +83,10 @@ class _DashboardState extends State<Dashboard>
         _buildSummaryCard(
           title: 'Data Sources',
           value: '${_summary.dataSourceCount}',
-          icon: '🗃️',
-          color: 'bg-primary-500',
+          subtitle: _summary.dataSourceCount == 0
+              ? null
+              : '${_summary.dataSourceCount} configured',
+          icon: FaIcons.solid.database,
         ),
         _buildSummaryCard(
           title: 'Templates',
@@ -88,8 +94,7 @@ class _DashboardState extends State<Dashboard>
           subtitle: _summary.embeddingTemplateCount == 0
               ? null
               : '${_summary.validTemplatesCount} valid',
-          icon: '📝',
-          color: 'bg-green-500',
+          icon: FaIcons.solid.fileText,
         ),
         _buildSummaryCard(
           title: 'Providers',
@@ -97,15 +102,13 @@ class _DashboardState extends State<Dashboard>
           subtitle: totalProviderCount == 0
               ? null
               : '${_summary.modelProviderCount} active',
-          icon: '🤖',
-          color: 'bg-purple-500',
+          icon: FaIcons.solid.server,
         ),
         _buildSummaryCard(
           title: 'Storage',
           value: _getStorageInfo(),
           subtitle: 'Local storage',
-          icon: '💾',
-          color: 'bg-yellow-500',
+          icon: FaIcons.solid.database,
         ),
       ],
     );
@@ -115,14 +118,11 @@ class _DashboardState extends State<Dashboard>
     required String title,
     required String value,
     String? subtitle,
-    required String icon,
-    required String color,
+    required FaIconData icon,
   }) {
     return div(classes: 'bg-white rounded-lg shadow p-6', [
       div(classes: 'flex items-center', [
-        div(classes: '$color text-white p-3 rounded-full text-xl', [
-          text(icon),
-        ]),
+        FaIcon(icon, size: 32, className: 'text-neutral-500'),
         div(classes: 'ml-4', [
           p(classes: 'text-sm font-medium text-neutral-600', [text(title)]),
           p(classes: 'text-2xl font-semibold text-neutral-900', [text(value)]),
@@ -213,14 +213,14 @@ class _DashboardState extends State<Dashboard>
     ]);
   }
 
-  Component _buildModelProvidersSection() {
+  Component _buildProvidersSection() {
     final providers = configManager.embeddingProviderConfigs.all;
 
     return div(classes: 'bg-white rounded-lg shadow', [
       div(classes: 'px-6 py-4 border-b border-neutral-200', [
         div(classes: 'flex items-center justify-between', [
           h2(classes: 'text-lg font-medium text-neutral-900', [
-            text('Model Providers (${providers.length})'),
+            text('Providers (${providers.length})'),
           ]),
           Button(
             variant: ButtonVariant.secondary,

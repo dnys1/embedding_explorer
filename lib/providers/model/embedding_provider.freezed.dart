@@ -1053,7 +1053,7 @@ as String?,
 /// @nodoc
 mixin _$EmbeddingModel {
 
- String get id; String get name; String get description; int get dimensions; int? get maxInputTokens; double? get costPer1kTokens;
+ String get id; String get providerId; String get name; String get description; VectorType get vectorType; int get dimensions; int? get maxInputTokens; double? get costPer1kTokens;
 /// Create a copy of EmbeddingModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1066,16 +1066,16 @@ $EmbeddingModelCopyWith<EmbeddingModel> get copyWith => _$EmbeddingModelCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingModel&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dimensions, dimensions) || other.dimensions == dimensions)&&(identical(other.maxInputTokens, maxInputTokens) || other.maxInputTokens == maxInputTokens)&&(identical(other.costPer1kTokens, costPer1kTokens) || other.costPer1kTokens == costPer1kTokens));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingModel&&(identical(other.id, id) || other.id == id)&&(identical(other.providerId, providerId) || other.providerId == providerId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.vectorType, vectorType) || other.vectorType == vectorType)&&(identical(other.dimensions, dimensions) || other.dimensions == dimensions)&&(identical(other.maxInputTokens, maxInputTokens) || other.maxInputTokens == maxInputTokens)&&(identical(other.costPer1kTokens, costPer1kTokens) || other.costPer1kTokens == costPer1kTokens));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,dimensions,maxInputTokens,costPer1kTokens);
+int get hashCode => Object.hash(runtimeType,id,providerId,name,description,vectorType,dimensions,maxInputTokens,costPer1kTokens);
 
 @override
 String toString() {
-  return 'EmbeddingModel(id: $id, name: $name, description: $description, dimensions: $dimensions, maxInputTokens: $maxInputTokens, costPer1kTokens: $costPer1kTokens)';
+  return 'EmbeddingModel(id: $id, providerId: $providerId, name: $name, description: $description, vectorType: $vectorType, dimensions: $dimensions, maxInputTokens: $maxInputTokens, costPer1kTokens: $costPer1kTokens)';
 }
 
 
@@ -1086,7 +1086,7 @@ abstract mixin class $EmbeddingModelCopyWith<$Res>  {
   factory $EmbeddingModelCopyWith(EmbeddingModel value, $Res Function(EmbeddingModel) _then) = _$EmbeddingModelCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String description, int dimensions, int? maxInputTokens, double? costPer1kTokens
+ String id, String providerId, String name, String description, VectorType vectorType, int dimensions, int? maxInputTokens, double? costPer1kTokens
 });
 
 
@@ -1103,12 +1103,14 @@ class _$EmbeddingModelCopyWithImpl<$Res>
 
 /// Create a copy of EmbeddingModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dimensions = null,Object? maxInputTokens = freezed,Object? costPer1kTokens = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? providerId = null,Object? name = null,Object? description = null,Object? vectorType = null,Object? dimensions = null,Object? maxInputTokens = freezed,Object? costPer1kTokens = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,providerId: null == providerId ? _self.providerId : providerId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String,dimensions: null == dimensions ? _self.dimensions : dimensions // ignore: cast_nullable_to_non_nullable
+as String,vectorType: null == vectorType ? _self.vectorType : vectorType // ignore: cast_nullable_to_non_nullable
+as VectorType,dimensions: null == dimensions ? _self.dimensions : dimensions // ignore: cast_nullable_to_non_nullable
 as int,maxInputTokens: freezed == maxInputTokens ? _self.maxInputTokens : maxInputTokens // ignore: cast_nullable_to_non_nullable
 as int?,costPer1kTokens: freezed == costPer1kTokens ? _self.costPer1kTokens : costPer1kTokens // ignore: cast_nullable_to_non_nullable
 as double?,
@@ -1196,10 +1198,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String providerId,  String name,  String description,  VectorType vectorType,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _EmbeddingModel() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
+return $default(_that.id,_that.providerId,_that.name,_that.description,_that.vectorType,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
   return orElse();
 
 }
@@ -1217,10 +1219,10 @@ return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.max
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String providerId,  String name,  String description,  VectorType vectorType,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)  $default,) {final _that = this;
 switch (_that) {
 case _EmbeddingModel():
-return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
+return $default(_that.id,_that.providerId,_that.name,_that.description,_that.vectorType,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1237,10 +1239,10 @@ return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.max
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String providerId,  String name,  String description,  VectorType vectorType,  int dimensions,  int? maxInputTokens,  double? costPer1kTokens)?  $default,) {final _that = this;
 switch (_that) {
 case _EmbeddingModel() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
+return $default(_that.id,_that.providerId,_that.name,_that.description,_that.vectorType,_that.dimensions,_that.maxInputTokens,_that.costPer1kTokens);case _:
   return null;
 
 }
@@ -1252,12 +1254,14 @@ return $default(_that.id,_that.name,_that.description,_that.dimensions,_that.max
 @JsonSerializable()
 
 class _EmbeddingModel implements EmbeddingModel {
-  const _EmbeddingModel({required this.id, required this.name, required this.description, required this.dimensions, this.maxInputTokens, this.costPer1kTokens});
+  const _EmbeddingModel({required this.id, required this.providerId, required this.name, required this.description, required this.vectorType, required this.dimensions, this.maxInputTokens, this.costPer1kTokens});
   factory _EmbeddingModel.fromJson(Map<String, dynamic> json) => _$EmbeddingModelFromJson(json);
 
 @override final  String id;
+@override final  String providerId;
 @override final  String name;
 @override final  String description;
+@override final  VectorType vectorType;
 @override final  int dimensions;
 @override final  int? maxInputTokens;
 @override final  double? costPer1kTokens;
@@ -1275,16 +1279,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EmbeddingModel&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dimensions, dimensions) || other.dimensions == dimensions)&&(identical(other.maxInputTokens, maxInputTokens) || other.maxInputTokens == maxInputTokens)&&(identical(other.costPer1kTokens, costPer1kTokens) || other.costPer1kTokens == costPer1kTokens));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EmbeddingModel&&(identical(other.id, id) || other.id == id)&&(identical(other.providerId, providerId) || other.providerId == providerId)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.vectorType, vectorType) || other.vectorType == vectorType)&&(identical(other.dimensions, dimensions) || other.dimensions == dimensions)&&(identical(other.maxInputTokens, maxInputTokens) || other.maxInputTokens == maxInputTokens)&&(identical(other.costPer1kTokens, costPer1kTokens) || other.costPer1kTokens == costPer1kTokens));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,dimensions,maxInputTokens,costPer1kTokens);
+int get hashCode => Object.hash(runtimeType,id,providerId,name,description,vectorType,dimensions,maxInputTokens,costPer1kTokens);
 
 @override
 String toString() {
-  return 'EmbeddingModel(id: $id, name: $name, description: $description, dimensions: $dimensions, maxInputTokens: $maxInputTokens, costPer1kTokens: $costPer1kTokens)';
+  return 'EmbeddingModel(id: $id, providerId: $providerId, name: $name, description: $description, vectorType: $vectorType, dimensions: $dimensions, maxInputTokens: $maxInputTokens, costPer1kTokens: $costPer1kTokens)';
 }
 
 
@@ -1295,7 +1299,7 @@ abstract mixin class _$EmbeddingModelCopyWith<$Res> implements $EmbeddingModelCo
   factory _$EmbeddingModelCopyWith(_EmbeddingModel value, $Res Function(_EmbeddingModel) _then) = __$EmbeddingModelCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String description, int dimensions, int? maxInputTokens, double? costPer1kTokens
+ String id, String providerId, String name, String description, VectorType vectorType, int dimensions, int? maxInputTokens, double? costPer1kTokens
 });
 
 
@@ -1312,12 +1316,14 @@ class __$EmbeddingModelCopyWithImpl<$Res>
 
 /// Create a copy of EmbeddingModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dimensions = null,Object? maxInputTokens = freezed,Object? costPer1kTokens = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? providerId = null,Object? name = null,Object? description = null,Object? vectorType = null,Object? dimensions = null,Object? maxInputTokens = freezed,Object? costPer1kTokens = freezed,}) {
   return _then(_EmbeddingModel(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,providerId: null == providerId ? _self.providerId : providerId // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,description: null == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
-as String,dimensions: null == dimensions ? _self.dimensions : dimensions // ignore: cast_nullable_to_non_nullable
+as String,vectorType: null == vectorType ? _self.vectorType : vectorType // ignore: cast_nullable_to_non_nullable
+as VectorType,dimensions: null == dimensions ? _self.dimensions : dimensions // ignore: cast_nullable_to_non_nullable
 as int,maxInputTokens: freezed == maxInputTokens ? _self.maxInputTokens : maxInputTokens // ignore: cast_nullable_to_non_nullable
 as int?,costPer1kTokens: freezed == costPer1kTokens ? _self.costPer1kTokens : costPer1kTokens // ignore: cast_nullable_to_non_nullable
 as double?,

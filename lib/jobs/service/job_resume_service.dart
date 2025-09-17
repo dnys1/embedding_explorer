@@ -9,11 +9,7 @@ import '../model/embedding_job.dart';
 /// Types of checkpoints that can be saved during job execution
 enum CheckpointType {
   jobStart, // Job initialization completed
-  dataSourceConnected, // Data source connection established
-  templatesRendered, // Template rendering completed
-  batchStarted, // Processing batch started
   batchCompleted, // Processing batch completed
-  providerStarted, // Provider processing started
   providerCompleted, // Provider processing completed
   jobCompleted, // Job fully completed
 }
@@ -27,6 +23,7 @@ class JobCheckpoint {
   final Map<String, dynamic> data;
   final int sequenceNumber;
   final String? providerId;
+  final String? modelId;
   final int? batchNumber;
 
   const JobCheckpoint({
@@ -37,6 +34,7 @@ class JobCheckpoint {
     required this.data,
     required this.sequenceNumber,
     this.providerId,
+    this.modelId,
     this.batchNumber,
   });
 
@@ -52,6 +50,7 @@ class JobCheckpoint {
       data: jsonDecode(map['data'] as String) as Map<String, dynamic>,
       sequenceNumber: map['sequence_number'] as int,
       providerId: map['provider_id'] as String?,
+      modelId: map['model_id'] as String?,
       batchNumber: map['batch_number'] as int?,
     );
   }
@@ -65,6 +64,7 @@ class JobCheckpoint {
       'data': jsonEncode(data),
       'sequence_number': sequenceNumber,
       'provider_id': providerId,
+      'model_id': modelId,
       'batch_number': batchNumber,
     };
   }
@@ -85,65 +85,12 @@ class JobCheckpoint {
     );
   }
 
-  /// Create a checkpoint for data source connection
-  factory JobCheckpoint.dataSourceConnected({
-    required String jobId,
-    required int sequenceNumber,
-    required String dataSourceId,
-    required int totalRecords,
-  }) {
-    return JobCheckpoint(
-      id: '${jobId}_datasource_${DateTime.now().millisecondsSinceEpoch}',
-      jobId: jobId,
-      type: CheckpointType.dataSourceConnected,
-      timestamp: DateTime.now(),
-      data: {'dataSourceId': dataSourceId, 'totalRecords': totalRecords},
-      sequenceNumber: sequenceNumber,
-    );
-  }
-
-  /// Create a checkpoint for templates rendered
-  factory JobCheckpoint.templatesRendered({
-    required String jobId,
-    required int sequenceNumber,
-    required String templateId,
-    required int renderedCount,
-  }) {
-    return JobCheckpoint(
-      id: '${jobId}_templates_${DateTime.now().millisecondsSinceEpoch}',
-      jobId: jobId,
-      type: CheckpointType.templatesRendered,
-      timestamp: DateTime.now(),
-      data: {'templateId': templateId, 'renderedCount': renderedCount},
-      sequenceNumber: sequenceNumber,
-    );
-  }
-
-  /// Create a checkpoint for batch started
-  factory JobCheckpoint.batchStarted({
-    required String jobId,
-    required int sequenceNumber,
-    required String providerId,
-    required int batchNumber,
-    required List<String> batchTexts,
-  }) {
-    return JobCheckpoint(
-      id: '${jobId}_batch_start_${batchNumber}_${DateTime.now().millisecondsSinceEpoch}',
-      jobId: jobId,
-      type: CheckpointType.batchStarted,
-      timestamp: DateTime.now(),
-      data: {'batchTexts': batchTexts, 'batchSize': batchTexts.length},
-      sequenceNumber: sequenceNumber,
-      providerId: providerId,
-      batchNumber: batchNumber,
-    );
-  }
-
   /// Create a checkpoint for batch completed
   factory JobCheckpoint.batchCompleted({
     required String jobId,
     required int sequenceNumber,
     required String providerId,
+    required String modelId,
     required int batchNumber,
     required int processedCount,
   }) {
@@ -155,6 +102,7 @@ class JobCheckpoint {
       data: {'processedCount': processedCount},
       sequenceNumber: sequenceNumber,
       providerId: providerId,
+      modelId: modelId,
       batchNumber: batchNumber,
     );
   }
@@ -190,29 +138,28 @@ enum ResumeStrategy {
 class ResumableJob {
   final EmbeddingJob job;
   final List<JobCheckpoint> checkpoints;
-  final JobCheckpoint? lastCheckpoint;
   final ResumeStrategy recommendedStrategy;
   final List<String> completedProviders;
-  final List<String> remainingProviders;
-  final int? lastCompletedBatch;
+  final Map<(String, String), int> lastCompletedBatchByProvider;
+  final int processedRecords;
   final double progressAtInterruption;
 
-  const ResumableJob({
+  ResumableJob({
     required this.job,
     required this.checkpoints,
-    this.lastCheckpoint,
     required this.recommendedStrategy,
     required this.completedProviders,
-    required this.remainingProviders,
-    this.lastCompletedBatch,
+    required this.lastCompletedBatchByProvider,
+    required this.processedRecords,
     required this.progressAtInterruption,
   });
 
-  /// Whether this job can be safely resumed
-  bool get canResume => lastCheckpoint != null && remainingProviders.isNotEmpty;
+  late final List<String> remainingProviders = job.providerIds
+      .where((id) => !completedProviders.contains(id))
+      .toList(growable: false);
 
-  /// Estimated progress that would be saved by resuming
-  double get progressSaved => progressAtInterruption;
+  /// Whether this job can be safely resumed
+  bool get canResume => checkpoints.isNotEmpty && remainingProviders.isNotEmpty;
 }
 
 /// Service for managing job checkpoints and resume functionality
@@ -224,6 +171,34 @@ class JobResumeService {
 
   JobResumeService({required DatabaseHandle database}) : _database = database;
 
+  /// Initialize the service by loading existing sequence numbers from checkpoints
+  Future<void> initialize() async {
+    _logger.info('Initializing JobResumeService');
+
+    try {
+      const sql = '''
+        SELECT job_id, MAX(sequence_number) as max_sequence
+        FROM job_checkpoints
+        GROUP BY job_id
+      ''';
+
+      final rows = await _database.select(sql);
+
+      for (final row in rows) {
+        final jobId = row['job_id'] as String;
+        final maxSequence = row['max_sequence'] as int;
+        _jobSequenceNumbers[jobId] = maxSequence;
+      }
+
+      _logger.info(
+        'Initialized sequence numbers for ${_jobSequenceNumbers.length} jobs',
+      );
+    } catch (e) {
+      _logger.severe('Failed to initialize JobResumeService', e);
+      rethrow;
+    }
+  }
+
   /// Save a checkpoint for a job
   Future<void> saveCheckpoint(JobCheckpoint checkpoint) async {
     _logger.fine(
@@ -233,8 +208,8 @@ class JobResumeService {
     try {
       const sql = '''
         INSERT OR REPLACE INTO job_checkpoints (
-          id, job_id, type, timestamp, data, sequence_number, provider_id, batch_number
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, job_id, type, timestamp, data, sequence_number, provider_id, model_id, batch_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ''';
 
       await _database.execute(sql, [
@@ -245,6 +220,7 @@ class JobResumeService {
         jsonEncode(checkpoint.data),
         checkpoint.sequenceNumber,
         checkpoint.providerId,
+        checkpoint.modelId,
         checkpoint.batchNumber,
       ]);
 
@@ -263,10 +239,10 @@ class JobResumeService {
   }
 
   /// Convenience method to save a job start checkpoint
-  Future<void> saveJobStartCheckpoint(
-    String jobId,
-    Map<String, dynamic> jobData,
-  ) async {
+  Future<void> saveJobStartCheckpoint({
+    required String jobId,
+    required Map<String, dynamic> jobData,
+  }) async {
     final checkpoint = JobCheckpoint.jobStart(
       jobId: jobId,
       sequenceNumber: _getNextSequenceNumber(jobId),
@@ -275,64 +251,19 @@ class JobResumeService {
     await saveCheckpoint(checkpoint);
   }
 
-  /// Convenience method to save a data source connected checkpoint
-  Future<void> saveDataSourceConnectedCheckpoint(
-    String jobId,
-    String dataSourceId,
-    int totalRecords,
-  ) async {
-    final checkpoint = JobCheckpoint.dataSourceConnected(
-      jobId: jobId,
-      sequenceNumber: _getNextSequenceNumber(jobId),
-      dataSourceId: dataSourceId,
-      totalRecords: totalRecords,
-    );
-    await saveCheckpoint(checkpoint);
-  }
-
-  /// Convenience method to save a templates rendered checkpoint
-  Future<void> saveTemplatesRenderedCheckpoint(
-    String jobId,
-    String templateId,
-    int renderedCount,
-  ) async {
-    final checkpoint = JobCheckpoint.templatesRendered(
-      jobId: jobId,
-      sequenceNumber: _getNextSequenceNumber(jobId),
-      templateId: templateId,
-      renderedCount: renderedCount,
-    );
-    await saveCheckpoint(checkpoint);
-  }
-
-  /// Convenience method to save a batch started checkpoint
-  Future<void> saveBatchStartedCheckpoint(
-    String jobId,
-    String providerId,
-    int batchNumber,
-    List<String> batchTexts,
-  ) async {
-    final checkpoint = JobCheckpoint.batchStarted(
-      jobId: jobId,
-      sequenceNumber: _getNextSequenceNumber(jobId),
-      providerId: providerId,
-      batchNumber: batchNumber,
-      batchTexts: batchTexts,
-    );
-    await saveCheckpoint(checkpoint);
-  }
-
   /// Convenience method to save a batch completed checkpoint
-  Future<void> saveBatchCompletedCheckpoint(
-    String jobId,
-    String providerId,
-    int batchNumber,
-    int processedCount,
-  ) async {
+  Future<void> saveBatchCompletedCheckpoint({
+    required String jobId,
+    required String providerId,
+    required String modelId,
+    required int batchNumber,
+    required int processedCount,
+  }) async {
     final checkpoint = JobCheckpoint.batchCompleted(
       jobId: jobId,
       sequenceNumber: _getNextSequenceNumber(jobId),
       providerId: providerId,
+      modelId: modelId,
       batchNumber: batchNumber,
       processedCount: processedCount,
     );
@@ -340,11 +271,11 @@ class JobResumeService {
   }
 
   /// Convenience method to save a provider completed checkpoint
-  Future<void> saveProviderCompletedCheckpoint(
-    String jobId,
-    String providerId,
-    int totalProcessed,
-  ) async {
+  Future<void> saveProviderCompletedCheckpoint({
+    required String jobId,
+    required String providerId,
+    required int totalProcessed,
+  }) async {
     final checkpoint = JobCheckpoint.providerCompleted(
       jobId: jobId,
       sequenceNumber: _getNextSequenceNumber(jobId),
@@ -366,12 +297,7 @@ class JobResumeService {
       ''';
 
       final rows = await _database.select(sql, [jobId]);
-      final checkpoints = rows
-          .map(
-            (Map<String, Object?> row) =>
-                JobCheckpoint.fromMap(row.cast<String, dynamic>()),
-          )
-          .toList();
+      final checkpoints = rows.map(JobCheckpoint.fromMap).toList();
 
       _logger.fine('Loaded ${checkpoints.length} checkpoints for job: $jobId');
       return checkpoints;
@@ -403,10 +329,6 @@ class JobResumeService {
 
   /// Check if a job can be resumed
   Future<ResumableJob?> analyzeResumableJob(EmbeddingJob job) async {
-    if (job.status != JobStatus.failed && job.status != JobStatus.cancelled) {
-      return null; // Only failed or cancelled jobs can be resumed
-    }
-
     _logger.info('Analyzing resume options for job: ${job.id}');
 
     try {
@@ -419,53 +341,38 @@ class JobResumeService {
       final lastCheckpoint = checkpoints.last;
 
       // Analyze what providers have been completed
-      final completedProviders = <String>[];
-      final providerCheckpoints = checkpoints
+      final completedProviders = checkpoints
           .where((c) => c.type == CheckpointType.providerCompleted)
-          .toList();
-
-      for (final checkpoint in providerCheckpoints) {
-        if (checkpoint.providerId != null) {
-          completedProviders.add(checkpoint.providerId!);
-        }
-      }
-
-      final remainingProviders = job.providerIds
-          .where((id) => !completedProviders.contains(id))
+          .map((c) => c.providerId!)
           .toList();
 
       // Find the last completed batch
-      int? lastCompletedBatch;
-      final batchCheckpoints = checkpoints
-          .where((c) => c.type == CheckpointType.batchCompleted)
-          .toList();
-
-      if (batchCheckpoints.isNotEmpty) {
-        lastCompletedBatch = batchCheckpoints
-            .map((c) => c.batchNumber ?? 0)
-            .reduce((a, b) => a > b ? a : b);
+      final lastCompletedBatchByProvider = <(String, String), int>{};
+      for (final checkpoint in checkpoints) {
+        if (checkpoint case JobCheckpoint(
+          type: CheckpointType.batchCompleted,
+          providerId: final providerId!,
+          modelId: final modelId!,
+          batchNumber: final batchNumber!,
+        )) {
+          final currentMax =
+              lastCompletedBatchByProvider[(providerId, modelId)] ?? 0;
+          if (batchNumber > currentMax) {
+            lastCompletedBatchByProvider[(providerId, modelId)] = batchNumber;
+          }
+        }
       }
 
       // Calculate progress at interruption
-      final progressCheckpoints = checkpoints
-          .where(
-            (c) =>
-                c.data.containsKey('processedCount') ||
-                c.data.containsKey('totalProcessed'),
-          )
-          .toList();
-
-      double progressAtInterruption = 0.0;
-      if (progressCheckpoints.isNotEmpty) {
-        final lastProgressCheckpoint = progressCheckpoints.last;
-        final processed =
-            (lastProgressCheckpoint.data['processedCount'] ??
-                    lastProgressCheckpoint.data['totalProcessed'] ??
-                    0)
-                as int;
-        final total = job.totalRecords ?? 1;
-        progressAtInterruption = processed / total;
-      }
+      final processedRecords = lastCompletedBatchByProvider.values.fold<int>(
+        0,
+        (sum, batch) => sum + batch * 50,
+      );
+      final totalRecords = job.totalRecords!;
+      final progressAtInterruption = (processedRecords / totalRecords).clamp(
+        0.0,
+        1.0,
+      );
 
       // Determine recommended resume strategy
       final strategy = _determineResumeStrategy(checkpoints, lastCheckpoint);
@@ -473,17 +380,19 @@ class JobResumeService {
       final resumableJob = ResumableJob(
         job: job,
         checkpoints: checkpoints,
-        lastCheckpoint: lastCheckpoint,
         recommendedStrategy: strategy,
         completedProviders: completedProviders,
-        remainingProviders: remainingProviders,
-        lastCompletedBatch: lastCompletedBatch,
+        processedRecords: processedRecords,
+        lastCompletedBatchByProvider: lastCompletedBatchByProvider,
         progressAtInterruption: progressAtInterruption,
       );
 
       _logger.info(
         'Job ${job.id} can be resumed: ${resumableJob.canResume}, '
-        'progress saved: ${(resumableJob.progressSaved * 100).toStringAsFixed(1)}%',
+        'progress saved: ${(resumableJob.progressAtInterruption * 100).toStringAsFixed(1)}%, '
+        'strategy: ${resumableJob.recommendedStrategy.name}, '
+        'completed providers: ${resumableJob.completedProviders.length}/${job.providerIds.length}, '
+        'last completed batch: ${resumableJob.lastCompletedBatchByProvider}',
       );
 
       return resumableJob;
@@ -526,16 +435,18 @@ class JobResumeService {
       const sql = '''
         SELECT DISTINCT j.* FROM jobs j
         INNER JOIN job_checkpoints jc ON j.id = jc.job_id
-        WHERE j.status IN ('failed', 'cancelled')
+        WHERE j.status != 'completed'
         ORDER BY j.created_at DESC
       ''';
 
       final rows = await _database.select(sql);
+      _logger.finest('Found ${rows.length} jobs with checkpoints');
+
       final resumableJobs = <ResumableJob>[];
 
       for (final row in rows) {
         try {
-          final job = EmbeddingJob.fromDatabase(row.cast<String, dynamic>());
+          final job = EmbeddingJob.fromDatabase(row);
           final resumableJob = await analyzeResumableJob(job);
           if (resumableJob != null && resumableJob.canResume) {
             resumableJobs.add(resumableJob);

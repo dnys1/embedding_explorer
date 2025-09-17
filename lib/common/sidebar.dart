@@ -52,7 +52,7 @@ class _SidebarState extends State<Sidebar> {
           div(classes: 'p-4 border-b border-neutral-700', [
             div(classes: 'flex items-center justify-between', [
               div(classes: 'flex items-center space-x-2', [
-                img(src: 'images/logo.png', width: 24, height: 24),
+                img(src: '/images/logo.png', width: 24, height: 24),
                 h2(classes: 'text-lg font-semibold text-white', [
                   Link(to: '/dashboard', child: text('Embedding Explorer')),
                 ]),

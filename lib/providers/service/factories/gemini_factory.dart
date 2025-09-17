@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
 import '../../../common/ui/fa_icon.dart';
+import '../../../configurations/model/embedding_tables.dart';
 import '../../../credentials/model/credential.dart';
+import '../../../util/cancellation_token.dart';
 import '../../../util/retryable_exception.dart';
 import '../../model/embedding_provider.dart';
 import '../../model/embedding_provider_config.dart';
@@ -24,16 +26,20 @@ class GeminiFactory implements ProviderFactory {
     knownModels: const {
       'text-embedding-004': EmbeddingModel(
         id: 'text-embedding-004',
+        providerId: 'gemini',
         name: 'Text Embedding 004',
         description: 'Latest Gemini embedding model with high performance',
+        vectorType: VectorType.float32,
         dimensions: 768,
         maxInputTokens: 2048,
         costPer1kTokens: 0.0000125,
       ),
       'embedding-001': EmbeddingModel(
         id: 'embedding-001',
+        providerId: 'gemini',
         name: 'Embedding 001',
         description: 'Previous generation Gemini embedding model',
+        vectorType: VectorType.float32,
         dimensions: 768,
         maxInputTokens: 2048,
         costPer1kTokens: 0.0000125,
@@ -149,28 +155,26 @@ class GeminiFactory implements ProviderFactory {
 
 class GeminiOperations implements ProviderOperations {
   GeminiOperations({
-    required this.config,
-    required this.credential,
+    required EmbeddingProviderConfig config,
+    required ApiKeyCredential credential,
     http.Client? client,
-  }) : client = client ?? http.Client();
+  }) : _config = config,
+       _credential = credential,
+       _httpClient = client ?? http.Client();
 
   static final Uri _baseUrl = Uri.parse(
     'https://generativelanguage.googleapis.com/v1beta/',
   );
   static final Logger _logger = Logger('GeminiOperations');
 
-  final EmbeddingProviderConfig config;
-  final ApiKeyCredential credential;
-  final http.Client client;
+  final EmbeddingProviderConfig _config;
+  final ApiKeyCredential _credential;
+  final http.Client _httpClient;
 
   @override
   Future<Map<String, EmbeddingModel>> listAvailableModels() async {
     try {
-      final response = await _makeRequest(
-        apiKey: credential.apiKey,
-        endpoint: './models',
-        method: 'GET',
-      );
+      final response = await _makeRequest(endpoint: './models', method: 'GET');
 
       if (response['models'] is! List) {
         throw StateError('Invalid response format from Gemini models API');
@@ -189,6 +193,8 @@ class GeminiOperations implements ProviderOperations {
 
         models[id] = EmbeddingModel(
           id: id,
+          providerId: _config.id,
+          vectorType: VectorType.float32,
           name: model['displayName'] as String? ?? id,
           description:
               model['description'] as String? ?? 'Gemini embedding model',
@@ -208,11 +214,7 @@ class GeminiOperations implements ProviderOperations {
   @override
   Future<ValidationResult> testConnection() async {
     try {
-      await _makeRequest(
-        apiKey: credential.apiKey,
-        endpoint: './models',
-        method: 'GET',
-      );
+      await _makeRequest(endpoint: './models', method: 'GET');
       return ValidationResult.valid();
     } on RetryableException catch (e) {
       return ValidationResult.invalid(['Connection failed: ${e.message}']);
@@ -224,37 +226,40 @@ class GeminiOperations implements ProviderOperations {
   @override
   Future<List<List<double>>> generateEmbeddings({
     required String modelId,
-    required List<String> texts,
+    required Map<String, String> texts,
+    CancellationToken? cancellationToken,
   }) async {
     if (texts.isEmpty) return [];
 
-    final embeddings = <List<double>>[];
-
     // Gemini API requires individual requests for each text
-    for (final text in texts) {
-      final response = await _makeRequest(
-        apiKey: credential.apiKey,
-        endpoint: './models/$modelId:embedContent',
-        method: 'POST',
-        body: {
-          'content': {
-            'parts': [
-              {'text': text},
-            ],
-          },
-          'taskType': config.settings['task_type'] ?? 'RETRIEVAL_DOCUMENT',
-        },
-      );
+    final response = await _makeRequest(
+      endpoint: './models/$modelId:batchEmbedContents',
+      method: 'POST',
+      body: {
+        'requests': [
+          for (final text in texts.values)
+            {
+              'model': 'models/$modelId',
+              'content': {
+                'parts': [
+                  {'text': text},
+                ],
+              },
+              'taskType': _config.settings['task_type'] ?? 'RETRIEVAL_DOCUMENT',
+              // 'outputDimensionality': 768, TODO: custom dims
+            },
+        ],
+      },
+      cancellationToken: cancellationToken,
+    );
 
-      if (response['embedding']?['values'] is List) {
-        final values = (response['embedding']['values'] as List).cast<double>();
-        embeddings.add(values);
-      } else {
-        throw StateError('Invalid response format from Gemini embeddings API');
-      }
+    if (response case {'embeddings': final List<Object?> embeddingsContent}) {
+      return embeddingsContent
+          .cast<Map<Object?, Object?>>()
+          .map((it) => (it['values'] as List).cast<double>())
+          .toList(growable: false);
     }
-
-    return embeddings;
+    throw StateError('Invalid response format from Gemini embeddings API');
   }
 
   @override
@@ -299,72 +304,79 @@ class GeminiOperations implements ProviderOperations {
   }
 
   Future<Map<String, dynamic>> _makeRequest({
-    required String apiKey,
     required String endpoint,
     required String method,
     Map<String, dynamic>? body,
+    CancellationToken? cancellationToken,
   }) async {
     final url = _baseUrl.resolve(endpoint);
 
+    final request = http.AbortableRequest(
+      method,
+      url,
+      abortTrigger: cancellationToken?.asFuture,
+    );
+    request.headers['x-goog-api-key'] = _credential.apiKey;
+
+    if (method != 'GET') {
+      assert(body != null);
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode(body);
+    }
+
+    final http.StreamedResponse response;
     try {
-      final request = http.Request(method, url);
-      request.headers['x-goog-api-key'] = apiKey;
-
-      if (method != 'GET') {
-        assert(body != null);
-        request.headers['Content-Type'] = 'application/json';
-        request.body = jsonEncode(body);
+      response = await _httpClient.send(request);
+    } on http.RequestAbortedException {
+      if (cancellationToken != null) {
+        cancellationToken.throwIfCancelled();
       }
-
-      final response = await client.send(request);
-      final responseText = await response.stream.bytesToString();
-
-      final statusCode = response.statusCode;
-      if (statusCode < 200 || statusCode >= 300) {
-        final errorText = responseText;
-
-        // Handle rate limiting (429) as retryable
-        if (statusCode == 429) {
-          // Parse retry information from response headers or body
-          final retryAfter = _parseRetryAfterFromResponse(response, errorText);
-
-          throw RetryableException.rateLimited(
-            message: 'Gemini API rate limited',
-            retryAfterSeconds: retryAfter.inSeconds,
-            originalException: Exception(
-              'Gemini API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // Handle temporary server errors (5xx) as retryable
-        if (statusCode >= 500 && statusCode < 600) {
-          throw RetryableException.serviceUnavailable(
-            message: 'Gemini API server error ($statusCode)',
-            originalException: Exception(
-              'Gemini API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // Handle timeout errors as retryable
-        if (errorText.toLowerCase().contains('timeout')) {
-          throw RetryableException.timeout(
-            message: 'Gemini API timeout',
-            originalException: Exception(
-              'Gemini API request failed ($statusCode): $errorText',
-            ),
-          );
-        }
-
-        // All other errors are non-retryable
-        throw Exception('Gemini API request failed ($statusCode): $errorText');
-      }
-
-      return jsonDecode(responseText) as Map<String, dynamic>;
-    } catch (e) {
-      _logger.warning('Gemini API request failed', e);
       rethrow;
     }
+    final responseText = await response.stream.bytesToString();
+
+    final statusCode = response.statusCode;
+    if (statusCode < 200 || statusCode >= 300) {
+      final errorText = responseText;
+
+      // Handle rate limiting (429) as retryable
+      if (statusCode == 429) {
+        // Parse retry information from response headers or body
+        final retryAfter = _parseRetryAfterFromResponse(response, errorText);
+
+        throw RetryableException.rateLimited(
+          message: 'Gemini API rate limited',
+          retryAfterSeconds: retryAfter.inSeconds,
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle temporary server errors (5xx) as retryable
+      if (statusCode >= 500 && statusCode < 600) {
+        throw RetryableException.serviceUnavailable(
+          message: 'Gemini API server error ($statusCode)',
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // Handle timeout errors as retryable
+      if (errorText.toLowerCase().contains('timeout')) {
+        throw RetryableException.timeout(
+          message: 'Gemini API timeout',
+          originalException: Exception(
+            'Gemini API request failed ($statusCode): $errorText',
+          ),
+        );
+      }
+
+      // All other errors are non-retryable
+      throw Exception('Gemini API request failed ($statusCode): $errorText');
+    }
+
+    return jsonDecode(responseText) as Map<String, dynamic>;
   }
 }

@@ -2,7 +2,6 @@ import 'package:jaspr/jaspr.dart';
 
 import '../../common/ui/ui.dart';
 import '../../configurations/model/configuration_manager.dart';
-import '../../credentials/model/credential.dart';
 import '../component/embedding_provider_config_dialog.dart';
 import '../component/embedding_provider_view.dart';
 import '../model/custom_provider_template.dart';
@@ -23,15 +22,6 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
   EmbeddingProvider? _configuringProvider;
   EmbeddingProviderConfig? _deletingProvider;
   CustomProviderTemplate? _deletingCustomProvider;
-  String? _editingProviderId;
-  String? _editingCustomProviderId;
-
-  // Form state
-  String _name = '';
-  Credential? _credential;
-  Map<String, dynamic> _settings = {};
-  bool _persistCredentials = false;
-  bool _credentialsVisible = false;
 
   // Custom provider form state
   String _customProviderName = '';
@@ -44,12 +34,7 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
   String _httpBodyTemplate = '';
 
   void _showConfigureProvider(EmbeddingProvider provider) {
-    _resetForm();
     _configuringProvider = provider;
-
-    // Pre-fill form with provider defaults
-    _name = provider.displayName;
-    _settings = Map.of(provider.definition.defaultSettings);
 
     setState(() {
       // _configuringProvider is already set above
@@ -57,14 +42,8 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
   }
 
   void _showEditConfigDialog(EmbeddingProvider provider) {
-    final config = provider.config!;
     setState(() {
       _configuringProvider = provider;
-      _name = config.name;
-      _credential = config.credential;
-      _settings = Map<String, dynamic>.of(config.settings);
-      _persistCredentials = config.persistCredentials;
-      _editingProviderId = config.id;
     });
   }
 
@@ -75,18 +54,7 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
       _deletingProvider = null;
       _configuringProvider = null;
       _deletingCustomProvider = null;
-      _editingProviderId = null;
-      _editingCustomProviderId = null;
-      _credentialsVisible = false;
     });
-  }
-
-  void _resetForm() {
-    _name = '';
-    _credential = null;
-    _settings = {};
-    _persistCredentials = false;
-    _credentialsVisible = false;
   }
 
   void _performDelete() {
@@ -351,7 +319,6 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
     _resetCustomProviderForm();
     setState(() {
       _showCustomProviderDialog = true;
-      _editingCustomProviderId = null;
     });
   }
 
@@ -359,20 +326,13 @@ class _EmbeddingProvidersPageState extends State<EmbeddingProvidersPage>
     _loadCustomProviderForm(template);
     setState(() {
       _showCustomProviderDialog = true;
-      _editingCustomProviderId = template.id;
     });
   }
 
   void _showConfigureCustomProvider(CustomProviderTemplate template) {
     // Reset the form and set up for custom provider configuration
-    _resetForm();
 
     setState(() {
-      _name = '${template.name} Configuration';
-      _credential = null;
-      _settings = {};
-      _persistCredentials = false;
-      _editingProviderId = null;
       _configuringProvider = null; // This will be null for custom providers
 
       // Show the configuration dialog (we'll create a special one for custom providers)

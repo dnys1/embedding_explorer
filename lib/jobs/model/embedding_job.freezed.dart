@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$EmbeddingJob {
 
- String get id; String get name; String get description; String get dataSourceId; String get embeddingTemplateId; List<String> get providerIds; JobStatus get status; DateTime get createdAt; DateTime? get startedAt; DateTime? get completedAt; String? get errorMessage; Map<String, dynamic>? get results; int? get totalRecords; int? get processedRecords;
+ String get id; String get name; String get description; String get dataSourceId; String get embeddingTemplateId; List<String> get providerIds; List<String> get modelIds; JobStatus get status; DateTime get createdAt; DateTime? get startedAt; DateTime? get completedAt; String? get errorMessage; Map<String, dynamic>? get results; int? get totalRecords; int? get processedRecords;
 /// Create a copy of EmbeddingJob
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $EmbeddingJobCopyWith<EmbeddingJob> get copyWith => _$EmbeddingJobCopyWithImpl<E
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingJob&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dataSourceId, dataSourceId) || other.dataSourceId == dataSourceId)&&(identical(other.embeddingTemplateId, embeddingTemplateId) || other.embeddingTemplateId == embeddingTemplateId)&&const DeepCollectionEquality().equals(other.providerIds, providerIds)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other.results, results)&&(identical(other.totalRecords, totalRecords) || other.totalRecords == totalRecords)&&(identical(other.processedRecords, processedRecords) || other.processedRecords == processedRecords));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EmbeddingJob&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dataSourceId, dataSourceId) || other.dataSourceId == dataSourceId)&&(identical(other.embeddingTemplateId, embeddingTemplateId) || other.embeddingTemplateId == embeddingTemplateId)&&const DeepCollectionEquality().equals(other.providerIds, providerIds)&&const DeepCollectionEquality().equals(other.modelIds, modelIds)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other.results, results)&&(identical(other.totalRecords, totalRecords) || other.totalRecords == totalRecords)&&(identical(other.processedRecords, processedRecords) || other.processedRecords == processedRecords));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,dataSourceId,embeddingTemplateId,const DeepCollectionEquality().hash(providerIds),status,createdAt,startedAt,completedAt,errorMessage,const DeepCollectionEquality().hash(results),totalRecords,processedRecords);
+int get hashCode => Object.hash(runtimeType,id,name,description,dataSourceId,embeddingTemplateId,const DeepCollectionEquality().hash(providerIds),const DeepCollectionEquality().hash(modelIds),status,createdAt,startedAt,completedAt,errorMessage,const DeepCollectionEquality().hash(results),totalRecords,processedRecords);
 
 @override
 String toString() {
-  return 'EmbeddingJob(id: $id, name: $name, description: $description, dataSourceId: $dataSourceId, embeddingTemplateId: $embeddingTemplateId, providerIds: $providerIds, status: $status, createdAt: $createdAt, startedAt: $startedAt, completedAt: $completedAt, errorMessage: $errorMessage, results: $results, totalRecords: $totalRecords, processedRecords: $processedRecords)';
+  return 'EmbeddingJob(id: $id, name: $name, description: $description, dataSourceId: $dataSourceId, embeddingTemplateId: $embeddingTemplateId, providerIds: $providerIds, modelIds: $modelIds, status: $status, createdAt: $createdAt, startedAt: $startedAt, completedAt: $completedAt, errorMessage: $errorMessage, results: $results, totalRecords: $totalRecords, processedRecords: $processedRecords)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $EmbeddingJobCopyWith<$Res>  {
   factory $EmbeddingJobCopyWith(EmbeddingJob value, $Res Function(EmbeddingJob) _then) = _$EmbeddingJobCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String description, String dataSourceId, String embeddingTemplateId, List<String> providerIds, JobStatus status, DateTime createdAt, DateTime? startedAt, DateTime? completedAt, String? errorMessage, Map<String, dynamic>? results, int? totalRecords, int? processedRecords
+ String id, String name, String description, String dataSourceId, String embeddingTemplateId, List<String> providerIds, List<String> modelIds, JobStatus status, DateTime createdAt, DateTime? startedAt, DateTime? completedAt, String? errorMessage, Map<String, dynamic>? results, int? totalRecords, int? processedRecords
 });
 
 
@@ -62,7 +62,7 @@ class _$EmbeddingJobCopyWithImpl<$Res>
 
 /// Create a copy of EmbeddingJob
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dataSourceId = null,Object? embeddingTemplateId = null,Object? providerIds = null,Object? status = null,Object? createdAt = null,Object? startedAt = freezed,Object? completedAt = freezed,Object? errorMessage = freezed,Object? results = freezed,Object? totalRecords = freezed,Object? processedRecords = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dataSourceId = null,Object? embeddingTemplateId = null,Object? providerIds = null,Object? modelIds = null,Object? status = null,Object? createdAt = null,Object? startedAt = freezed,Object? completedAt = freezed,Object? errorMessage = freezed,Object? results = freezed,Object? totalRecords = freezed,Object? processedRecords = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -70,6 +70,7 @@ as String,description: null == description ? _self.description : description // 
 as String,dataSourceId: null == dataSourceId ? _self.dataSourceId : dataSourceId // ignore: cast_nullable_to_non_nullable
 as String,embeddingTemplateId: null == embeddingTemplateId ? _self.embeddingTemplateId : embeddingTemplateId // ignore: cast_nullable_to_non_nullable
 as String,providerIds: null == providerIds ? _self.providerIds : providerIds // ignore: cast_nullable_to_non_nullable
+as List<String>,modelIds: null == modelIds ? _self.modelIds : modelIds // ignore: cast_nullable_to_non_nullable
 as List<String>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as JobStatus,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable
@@ -163,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  List<String> modelIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _EmbeddingJob() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
+return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.modelIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
   return orElse();
 
 }
@@ -184,10 +185,10 @@ return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.e
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  List<String> modelIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)  $default,) {final _that = this;
 switch (_that) {
 case _EmbeddingJob():
-return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
+return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.modelIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +205,10 @@ return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.e
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String description,  String dataSourceId,  String embeddingTemplateId,  List<String> providerIds,  List<String> modelIds,  JobStatus status,  DateTime createdAt,  DateTime? startedAt,  DateTime? completedAt,  String? errorMessage,  Map<String, dynamic>? results,  int? totalRecords,  int? processedRecords)?  $default,) {final _that = this;
 switch (_that) {
 case _EmbeddingJob() when $default != null:
-return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
+return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.embeddingTemplateId,_that.providerIds,_that.modelIds,_that.status,_that.createdAt,_that.startedAt,_that.completedAt,_that.errorMessage,_that.results,_that.totalRecords,_that.processedRecords);case _:
   return null;
 
 }
@@ -219,7 +220,7 @@ return $default(_that.id,_that.name,_that.description,_that.dataSourceId,_that.e
 
 
 class _EmbeddingJob extends EmbeddingJob {
-  const _EmbeddingJob({required this.id, required this.name, required this.description, required this.dataSourceId, required this.embeddingTemplateId, required final  List<String> providerIds, this.status = JobStatus.pending, required this.createdAt, this.startedAt, this.completedAt, this.errorMessage, final  Map<String, dynamic>? results, this.totalRecords, this.processedRecords}): _providerIds = providerIds,_results = results,super._();
+  const _EmbeddingJob({required this.id, required this.name, required this.description, required this.dataSourceId, required this.embeddingTemplateId, required final  List<String> providerIds, required final  List<String> modelIds, this.status = JobStatus.running, required this.createdAt, this.startedAt, this.completedAt, this.errorMessage, final  Map<String, dynamic>? results, this.totalRecords, this.processedRecords}): _providerIds = providerIds,_modelIds = modelIds,_results = results,super._();
   
 
 @override final  String id;
@@ -232,6 +233,13 @@ class _EmbeddingJob extends EmbeddingJob {
   if (_providerIds is EqualUnmodifiableListView) return _providerIds;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_providerIds);
+}
+
+ final  List<String> _modelIds;
+@override List<String> get modelIds {
+  if (_modelIds is EqualUnmodifiableListView) return _modelIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_modelIds);
 }
 
 @override@JsonKey() final  JobStatus status;
@@ -261,16 +269,16 @@ _$EmbeddingJobCopyWith<_EmbeddingJob> get copyWith => __$EmbeddingJobCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EmbeddingJob&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dataSourceId, dataSourceId) || other.dataSourceId == dataSourceId)&&(identical(other.embeddingTemplateId, embeddingTemplateId) || other.embeddingTemplateId == embeddingTemplateId)&&const DeepCollectionEquality().equals(other._providerIds, _providerIds)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other._results, _results)&&(identical(other.totalRecords, totalRecords) || other.totalRecords == totalRecords)&&(identical(other.processedRecords, processedRecords) || other.processedRecords == processedRecords));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EmbeddingJob&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.description, description) || other.description == description)&&(identical(other.dataSourceId, dataSourceId) || other.dataSourceId == dataSourceId)&&(identical(other.embeddingTemplateId, embeddingTemplateId) || other.embeddingTemplateId == embeddingTemplateId)&&const DeepCollectionEquality().equals(other._providerIds, _providerIds)&&const DeepCollectionEquality().equals(other._modelIds, _modelIds)&&(identical(other.status, status) || other.status == status)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other._results, _results)&&(identical(other.totalRecords, totalRecords) || other.totalRecords == totalRecords)&&(identical(other.processedRecords, processedRecords) || other.processedRecords == processedRecords));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,description,dataSourceId,embeddingTemplateId,const DeepCollectionEquality().hash(_providerIds),status,createdAt,startedAt,completedAt,errorMessage,const DeepCollectionEquality().hash(_results),totalRecords,processedRecords);
+int get hashCode => Object.hash(runtimeType,id,name,description,dataSourceId,embeddingTemplateId,const DeepCollectionEquality().hash(_providerIds),const DeepCollectionEquality().hash(_modelIds),status,createdAt,startedAt,completedAt,errorMessage,const DeepCollectionEquality().hash(_results),totalRecords,processedRecords);
 
 @override
 String toString() {
-  return 'EmbeddingJob(id: $id, name: $name, description: $description, dataSourceId: $dataSourceId, embeddingTemplateId: $embeddingTemplateId, providerIds: $providerIds, status: $status, createdAt: $createdAt, startedAt: $startedAt, completedAt: $completedAt, errorMessage: $errorMessage, results: $results, totalRecords: $totalRecords, processedRecords: $processedRecords)';
+  return 'EmbeddingJob(id: $id, name: $name, description: $description, dataSourceId: $dataSourceId, embeddingTemplateId: $embeddingTemplateId, providerIds: $providerIds, modelIds: $modelIds, status: $status, createdAt: $createdAt, startedAt: $startedAt, completedAt: $completedAt, errorMessage: $errorMessage, results: $results, totalRecords: $totalRecords, processedRecords: $processedRecords)';
 }
 
 
@@ -281,7 +289,7 @@ abstract mixin class _$EmbeddingJobCopyWith<$Res> implements $EmbeddingJobCopyWi
   factory _$EmbeddingJobCopyWith(_EmbeddingJob value, $Res Function(_EmbeddingJob) _then) = __$EmbeddingJobCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String description, String dataSourceId, String embeddingTemplateId, List<String> providerIds, JobStatus status, DateTime createdAt, DateTime? startedAt, DateTime? completedAt, String? errorMessage, Map<String, dynamic>? results, int? totalRecords, int? processedRecords
+ String id, String name, String description, String dataSourceId, String embeddingTemplateId, List<String> providerIds, List<String> modelIds, JobStatus status, DateTime createdAt, DateTime? startedAt, DateTime? completedAt, String? errorMessage, Map<String, dynamic>? results, int? totalRecords, int? processedRecords
 });
 
 
@@ -298,7 +306,7 @@ class __$EmbeddingJobCopyWithImpl<$Res>
 
 /// Create a copy of EmbeddingJob
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dataSourceId = null,Object? embeddingTemplateId = null,Object? providerIds = null,Object? status = null,Object? createdAt = null,Object? startedAt = freezed,Object? completedAt = freezed,Object? errorMessage = freezed,Object? results = freezed,Object? totalRecords = freezed,Object? processedRecords = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? description = null,Object? dataSourceId = null,Object? embeddingTemplateId = null,Object? providerIds = null,Object? modelIds = null,Object? status = null,Object? createdAt = null,Object? startedAt = freezed,Object? completedAt = freezed,Object? errorMessage = freezed,Object? results = freezed,Object? totalRecords = freezed,Object? processedRecords = freezed,}) {
   return _then(_EmbeddingJob(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -306,6 +314,7 @@ as String,description: null == description ? _self.description : description // 
 as String,dataSourceId: null == dataSourceId ? _self.dataSourceId : dataSourceId // ignore: cast_nullable_to_non_nullable
 as String,embeddingTemplateId: null == embeddingTemplateId ? _self.embeddingTemplateId : embeddingTemplateId // ignore: cast_nullable_to_non_nullable
 as String,providerIds: null == providerIds ? _self._providerIds : providerIds // ignore: cast_nullable_to_non_nullable
+as List<String>,modelIds: null == modelIds ? _self._modelIds : modelIds // ignore: cast_nullable_to_non_nullable
 as List<String>,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as JobStatus,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable

@@ -38,8 +38,23 @@ class EmbeddingProviderRegistry with ChangeNotifier {
   }
 
   /// Get all provider instances (configured and unconfigured)
-  Iterable<EmbeddingProvider> get all sync* {
-    // TODO: Consistent ordering
+  List<EmbeddingProvider> get all {
+    final all = _collectAll().toList(growable: false);
+    all.sort((a, b) {
+      // Sort built-in providers first, then custom by name
+      final aIsBuiltin = a.type != EmbeddingProviderType.custom;
+      final bIsBuiltin = b.type != EmbeddingProviderType.custom;
+      if (aIsBuiltin && !bIsBuiltin) return -1;
+      if (!aIsBuiltin && bIsBuiltin) return 1;
+      if (aIsBuiltin && bIsBuiltin) {
+        return a.type.index.compareTo(b.type.index);
+      }
+      return a.displayName.compareTo(b.displayName);
+    });
+    return all;
+  }
+
+  Iterable<EmbeddingProvider> _collectAll() sync* {
     // First yield all configured providers
     yield* _providers.values;
 
@@ -54,6 +69,15 @@ class EmbeddingProviderRegistry with ChangeNotifier {
 
   /// Get a provider by ID (returns null if not found)
   EmbeddingProvider? get(String id) => _providers[id];
+
+  /// Get a provider by ID (throws if not found)
+  EmbeddingProvider expect(String id) {
+    final provider = _providers[id];
+    if (provider == null) {
+      throw StateError('No provider found with ID: $id');
+    }
+    return provider;
+  }
 
   /// Get connected providers only
   Iterable<EmbeddingProvider> get connected =>
