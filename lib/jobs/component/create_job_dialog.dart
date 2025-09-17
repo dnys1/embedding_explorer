@@ -41,12 +41,10 @@ final class _CreateJobDialogState extends State<CreateJobDialog>
             (provider.config?.enabledModels.isNotEmpty ?? false))
           provider.config!.id: provider.config!.enabledModels,
     };
-    print('Configured models: $configuredModels');
     final availableModels = await Future.wait([
       for (final providerId in configuredModels.keys)
         configManager.embeddingProviders.getAvailableModels(providerId),
     ]);
-    print('Available models: $availableModels');
     for (final model in availableModels.expand((m) => m.entries)) {
       if (configuredModels[model.value.providerId]!.contains(model.key)) {
         _selectedModels[model.key] = model.value;

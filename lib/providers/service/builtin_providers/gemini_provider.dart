@@ -172,7 +172,6 @@ class GeminiOperations implements ProviderOperations {
       do {
         final response = await _googleAI.listModels(pageToken: nextPageToken);
         nextPageToken = response.nextPageToken;
-        print('Response: $response');
         for (final model in response.models!) {
           final name = model.name;
           if (name == null) continue;

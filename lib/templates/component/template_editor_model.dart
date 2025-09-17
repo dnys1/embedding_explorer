@@ -195,9 +195,6 @@ final class TemplateEditorModel extends ChangeNotifierX
   }
 
   bool validate() {
-    print(
-      'Name: ${_name.value}, Template: ${editor.value.value}, ID Template: ${idEditor.value.value}, Data Source: ${_selectedDataSourceId.value}',
-    );
     return _name.value.isNotEmpty &&
         editor.value.value.isNotEmpty &&
         idEditor.value.value.isNotEmpty &&
