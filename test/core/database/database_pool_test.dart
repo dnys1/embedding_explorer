@@ -22,7 +22,7 @@ void main() {
       logs.resume();
       pool = await DatabasePool.create(
         libsqlUri: testLibsqlUri,
-        name: 'test_${Random().nextInt(10000)}',
+        poolName: 'test_${Random().nextInt(10000)}',
         clearOnInit: true,
       );
     });

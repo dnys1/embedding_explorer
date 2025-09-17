@@ -40,28 +40,28 @@ class DatabasePool {
   DatabasePool._(this._worker);
 
   static Future<DatabasePool> create({
-    String? name,
+    String? poolName,
     Uri? libsqlUri,
     bool? clearOnInit,
   }) async {
+    _localLogger.fine(
+      'Creating database pool${poolName != null ? ' "$poolName"' : ''}',
+    );
     final worker = DatabasePoolWorker.create();
     final pool = DatabasePool._(worker);
     await pool._init(
       libsqlUri: libsqlUri,
       clearOnInit: clearOnInit,
-      name: name,
+      poolName: poolName,
     );
     return pool;
   }
 
-  Future<void> _init({Uri? libsqlUri, bool? clearOnInit, String? name}) async {
-    try {
-      await _worker.spawn().timeout(const Duration(seconds: 10));
-    } on Object {
-      _worker.close(force: true).ignore();
-      rethrow;
-    }
-
+  Future<void> _init({
+    Uri? libsqlUri,
+    bool? clearOnInit,
+    String? poolName,
+  }) async {
     _logSubscription = _worker.logs.listen((record) {
       final logger = record is WorkerLogRecord && record.local == false
           ? _remoteLogger
@@ -69,12 +69,21 @@ class DatabasePool {
       logger.log(record.level, record.message, record.error, record.stackTrace);
     });
 
+    try {
+      await _worker.spawn().timeout(const Duration(seconds: 10));
+    } on Object catch (e) {
+      _localLogger.severe('Failed to start database pool worker', e);
+      _logSubscription?.cancel().ignore();
+      _worker.close(force: true).ignore();
+      rethrow;
+    }
+
     final requestId = _nextRequestId++;
     _worker.add(
       DatabasePoolRequest.init(
         requestId: requestId,
         libsqlUri: libsqlUri,
-        name: name,
+        name: poolName,
         clearOnInit: clearOnInit,
       ),
     );

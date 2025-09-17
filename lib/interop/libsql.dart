@@ -1222,7 +1222,7 @@ SAHPoolUtil? _globalSAHPool;
 Future<SAHPoolUtil> getSAHPoolUtil({
   String? name,
   bool? clearOnInit,
-  int initialCapacity = 6,
+  int? initialCapacity,
 }) async {
   if (_globalSAHPool case final globalSAHPool?) {
     return globalSAHPool;

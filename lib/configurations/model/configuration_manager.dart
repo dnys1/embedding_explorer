@@ -69,7 +69,7 @@ class ConfigurationManager with ChangeNotifier {
     _databasePool = await DatabasePool.create(
       libsqlUri: libsqlUri,
       clearOnInit: clearOnInit,
-      name: poolName,
+      poolName: poolName,
     );
     final configurationDb = await _databasePool.open('configurations.db');
 
