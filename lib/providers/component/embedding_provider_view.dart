@@ -204,47 +204,51 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
 
   Component _buildModelTile(EmbeddingProvider provider, EmbeddingModel model) {
     final isModelEnabled = provider.config!.enabledModels.contains(model.id);
-    return Card(
-      className: isModelEnabled
-          ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
-          : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors',
-      children: [
-        div(
-          classes: 'p-4',
-          events: {'click': (_) => _toggleModel(model, provider.config!.id)},
-          [
-            div(classes: 'flex items-center justify-between mb-2', [
-              div(classes: 'flex items-center space-x-2', [
-                h3(classes: 'text-sm font-medium text-foreground', [
-                  text(model.name),
+    return Tooltip(
+      content: _formatModelTooltip(model),
+      side: TooltipSide.bottom,
+      child: Card(
+        className: isModelEnabled
+            ? 'border border-green-300 bg-green-50 hover:bg-green-100 cursor-pointer transition-colors'
+            : 'border border-gray-300 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors',
+        children: [
+          div(
+            classes: 'p-4',
+            events: {'click': (_) => _toggleModel(model, provider.config!.id)},
+            [
+              div(classes: 'flex items-center justify-between mb-2', [
+                div(classes: 'flex items-center space-x-2', [
+                  h3(classes: 'text-sm font-medium text-foreground', [
+                    text(model.name),
+                  ]),
+                  // if (_isNewModel(model))
+                  //   span(
+                  //     classes:
+                  //         'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded flex items-center space-x-1',
+                  //     [FaIcons.solid.star],
+                  //   ),
                 ]),
-                // if (_isNewModel(model))
-                //   span(
-                //     classes:
-                //         'text-xs px-1 py-0.5 bg-blue-100 text-blue-800 rounded flex items-center space-x-1',
-                //     [FaIcons.solid.star],
-                //   ),
+                div(
+                  classes: isModelEnabled ? 'text-green-500' : 'text-gray-400',
+                  [
+                    FaIcon(
+                      isModelEnabled
+                          ? FaIcons.solid.success
+                          : FaIcons.regular.circle,
+                    ),
+                  ],
+                ),
               ]),
-              div(
-                classes: isModelEnabled ? 'text-green-500' : 'text-gray-400',
-                [
-                  FaIcon(
-                    isModelEnabled
-                        ? FaIcons.solid.success
-                        : FaIcons.regular.circle,
-                  ),
-                ],
-              ),
-            ]),
 
-            p(classes: 'text-xs text-muted-foreground mb-2', [
-              text(model.description),
-            ]),
+              p(classes: 'text-xs text-muted-foreground mb-2', [
+                text(model.description),
+              ]),
 
-            div(classes: 'text-xs text-gray-500', [text('ID: ${model.id}')]),
-          ],
-        ),
-      ],
+              div(classes: 'text-xs text-gray-500', [text('ID: ${model.id}')]),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -290,5 +294,24 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
         model.id,
       ),
     );
+  }
+
+  String _formatModelTooltip(EmbeddingModel model) {
+    final parts = <String>[
+      'Vector Type: ${model.vectorType.name}',
+      'Dimensions: ${model.dimensions}',
+    ];
+
+    if (model.maxInputTokens != null) {
+      parts.add('Max Input Tokens: ${model.maxInputTokens}');
+    }
+
+    if (model.costPer1kTokens != null) {
+      parts.add(
+        'Cost per 1K tokens: \$${model.costPer1kTokens!.toStringAsFixed(5)}',
+      );
+    }
+
+    return parts.join('\n');
   }
 }

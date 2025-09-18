@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive/archive.dart';
 import 'package:npy/src/npy_exception.dart';
 import 'package:npy/src/npy_ndarray.dart';
 import 'package:npy/src/npy_parser.dart';

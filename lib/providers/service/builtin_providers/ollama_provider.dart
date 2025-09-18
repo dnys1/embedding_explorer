@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:http/http.dart' as http;
+import 'package:logging/logging.dart';
 import 'package:ollama_dart/ollama_dart.dart';
 
 import '../../../configurations/model/embedding_tables.dart';
@@ -22,10 +23,7 @@ class OllamaFactory implements ProviderFactory {
         'Locally hosted Ollama embedding models including nomic-embed-text and all-minilm',
     iconUri: Uri.parse('/images/ollama.png'),
     knownModels: const {},
-    defaultSettings: const {
-      'base_url': 'http://localhost:11434/api',
-      'truncate': true,
-    },
+    defaultSettings: const {'base_url': 'http://localhost:11434/api'},
     requiredCredential: null, // Ollama doesn't require credentials
     credentialPlaceholder: null,
     configurationFields: const [
@@ -36,14 +34,6 @@ class OllamaFactory implements ProviderFactory {
         required: true,
         defaultValue: 'http://localhost:11434/api',
         description: 'The base URL of your Ollama server',
-      ),
-      ConfigurationField(
-        key: 'truncate',
-        label: 'Truncate Input',
-        type: ConfigurationFieldType.boolean,
-        description:
-            'Truncate input text that exceeds the context length (recommended)',
-        defaultValue: 'true',
       ),
     ],
   );
@@ -112,6 +102,8 @@ class OllamaOperations implements ProviderOperations {
     _ollama = OllamaClient(baseUrl: baseUrl, client: _httpClient);
   }
 
+  static final Logger _logger = Logger('OllamaOperations');
+
   late final OllamaClient _ollama;
   final http.Client _httpClient;
   final EmbeddingProviderConfig _config;
@@ -124,15 +116,27 @@ class OllamaOperations implements ProviderOperations {
     for (final model in response.models ?? <Model>[]) {
       final modelName = model.model;
       if (modelName != null && modelName.isNotEmpty) {
-        if (_isEmbeddingModel(modelName)) {
-          models[modelName] = EmbeddingModel(
-            id: modelName,
-            providerId: _config.id,
-            name: _formatModelName(modelName),
-            description: 'Ollama embedding model: $modelName',
-            vectorType: VectorType.float32,
-            dimensions: _estimateDimensions(modelName),
+        // Generate embedding to see if it can generate embeddings and
+        // try to infer dimensions
+        try {
+          final embeddingResponse = await _ollama.generateEmbedding(
+            request: GenerateEmbeddingRequest(model: modelName, prompt: 'test'),
           );
+          if (embeddingResponse.embedding case final embedding?) {
+            models[modelName] = EmbeddingModel(
+              id: modelName,
+              providerId: _config.id,
+              name: _formatModelName(modelName),
+              description: 'Ollama embedding model: $modelName',
+              vectorType: _getVectorType(model.details ?? ModelDetails()),
+              dimensions: embedding.length,
+            );
+          }
+        } catch (_) {
+          _logger.warning(
+            'Failed to generate embedding for model $modelName, skipping.',
+          );
+          continue; // Not an embedding model or failed to generate
         }
       }
     }
@@ -171,51 +175,15 @@ class OllamaOperations implements ProviderOperations {
     final model = modelId;
     final embeddings = <List<double>>[];
 
-    try {
-      // Process each text individually as Ollama's current API handles single inputs
-      for (final text in texts.values) {
-        final response = await _ollama.generateEmbedding(
-          request: GenerateEmbeddingRequest(model: model, prompt: text),
-        );
-
-        if (response.embedding != null) {
-          embeddings.add(response.embedding!);
-        }
-      }
-
-      return embeddings;
-    } catch (e) {
-      final errorMessage = e.toString();
-
-      // Handle model not found error
-      if (errorMessage.toLowerCase().contains('model') &&
-          (errorMessage.toLowerCase().contains('not found') ||
-              errorMessage.toLowerCase().contains('not available'))) {
-        throw Exception(
-          'Model "$model" not found. Please pull the model using: ollama pull $model',
-        );
-      }
-
-      // Handle server errors
-      if (errorMessage.toLowerCase().contains('server error') ||
-          errorMessage.toLowerCase().contains('internal error')) {
-        throw RetryableException.serviceUnavailable(
-          message: 'Ollama server error',
-          originalException: Exception(errorMessage),
-        );
-      }
-
-      // Handle timeout
-      if (errorMessage.toLowerCase().contains('timeout')) {
-        throw RetryableException.timeout(
-          message: 'Ollama request timeout',
-          originalException: Exception(errorMessage),
-        );
-      }
-
-      // All other errors are non-retryable
-      throw Exception('Ollama embedding generation failed: $errorMessage');
+    // Process each text individually as Ollama's current API handles single inputs
+    for (final text in texts.values) {
+      final response = await _ollama.generateEmbedding(
+        request: GenerateEmbeddingRequest(model: model, prompt: text),
+      );
+      embeddings.add(response.embedding!);
     }
+
+    return embeddings;
   }
 
   @override
@@ -223,15 +191,15 @@ class OllamaOperations implements ProviderOperations {
     return await testConnection();
   }
 
-  /// Check if a model name suggests it's an embedding model
-  bool _isEmbeddingModel(String modelName) {
-    final lowerName = modelName.toLowerCase();
-    return lowerName.contains('embed') ||
-        lowerName.contains('minilm') ||
-        lowerName.contains('e5') ||
-        lowerName.contains('bge') ||
-        lowerName.contains('gte') ||
-        lowerName.contains('nomic');
+  VectorType _getVectorType(ModelDetails details) {
+    return switch (details.quantizationLevel) {
+      'F16' => VectorType.float16,
+      'F32' => VectorType.float32,
+      'F64' => VectorType.float64,
+      'BF16' => VectorType.bfloat16,
+      'F8' => VectorType.float8,
+      _ => VectorType.float32, // Default to float32 if unknown
+    };
   }
 
   /// Format model name for display
@@ -247,26 +215,5 @@ class OllamaOperations implements ProviderOperations {
               word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1),
         )
         .join(' ');
-  }
-
-  /// Estimate dimensions based on model name patterns
-  int _estimateDimensions(String modelName) {
-    final lowerName = modelName.toLowerCase();
-
-    // Common dimension patterns
-    if (lowerName.contains('large') || lowerName.contains('1024')) return 1024;
-    if (lowerName.contains('base') || lowerName.contains('768')) return 768;
-    if (lowerName.contains('small') || lowerName.contains('384')) return 384;
-    if (lowerName.contains('mini')) return 384;
-
-    // Model-specific patterns
-    if (lowerName.contains('nomic')) return 768;
-    if (lowerName.contains('e5')) return 1024;
-    if (lowerName.contains('bge-large')) return 1024;
-    if (lowerName.contains('bge-base')) return 768;
-    if (lowerName.contains('bge-small')) return 384;
-
-    // Default fallback
-    return 768;
   }
 }

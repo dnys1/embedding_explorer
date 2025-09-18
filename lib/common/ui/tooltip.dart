@@ -61,7 +61,10 @@ class _TooltipState extends State<Tooltip> {
             component.contentClassName,
           ].clsx,
           attributes: {'role': 'tooltip'},
-          [text(component.content)],
+          component.content
+              .split('\n')
+              .map((line) => div([text(line)]))
+              .toList(),
         ),
     ]);
   }

@@ -9,6 +9,7 @@ import '../../database/database_pool.dart';
 import '../../embeddings/service/embedding_processor.dart';
 import '../../jobs/model/embedding_job.dart';
 import '../../jobs/model/embedding_job_collection.dart';
+import '../../jobs/service/embedding_export_service.dart';
 import '../../jobs/service/error_recovery_service.dart';
 import '../../jobs/service/job_orchestrator.dart';
 import '../../jobs/service/job_progress_tracker.dart';
@@ -35,7 +36,6 @@ class ConfigurationManager with ChangeNotifier {
   late final StorageService _opfsStorage;
 
   // Configuration collections
-
   late final dataSourceConfigs = DataSourceConfigCollection(configService);
   late final embeddingTemplates = EmbeddingTemplateCollection(configService);
   late final embeddingProviders = EmbeddingProviderRegistry(this);
@@ -50,6 +50,10 @@ class ConfigurationManager with ChangeNotifier {
 
   // Job orchestration services
   late final JobOrchestrator jobOrchestrator;
+  late final EmbeddingExportService exportService = EmbeddingExportService(
+    configService: configService,
+    databasePool: _databasePool,
+  );
 
   // Data source repository for managing connections
   late final DatabasePool _databasePool;

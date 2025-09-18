@@ -70,9 +70,6 @@ class _DashboardState extends State<DashboardPage>
 
             // Providers section
             _buildProvidersSection(),
-
-            // Custom provider templates section
-            _buildCustomProviderTemplatesSection(),
           ]),
         ]),
       ]),
@@ -261,43 +258,6 @@ class _DashboardState extends State<DashboardPage>
                   : 'No description',
               onDelete: () =>
                   configManager.embeddingProviderConfigs.remove(config.id),
-            ),
-          ),
-      ]),
-    ]);
-  }
-
-  Component _buildCustomProviderTemplatesSection() {
-    final templates = configManager.customProviderTemplates.all;
-
-    return div(classes: 'bg-white rounded-lg shadow', [
-      div(classes: 'px-6 py-4 border-b border-neutral-200', [
-        div(classes: 'flex items-center justify-between', [
-          h2(classes: 'text-lg font-medium text-neutral-900', [
-            text('Custom Providers (${templates.length})'),
-          ]),
-          Button(
-            variant: ButtonVariant.secondary,
-            onPressed: () => Router.of(context).push('/providers#custom'),
-            children: [text('Configure')],
-          ),
-        ]),
-      ]),
-      div(classes: 'divide-y divide-neutral-200', [
-        if (templates.isEmpty)
-          div(classes: 'px-6 py-8 text-center text-neutral-500', [
-            text('No custom provider templates configured yet'),
-          ])
-        else
-          ...templates.map(
-            (template) => _buildConfigItem(
-              title: template.name,
-              subtitle: 'CUSTOM TEMPLATE',
-              description: template.description.isNotEmpty
-                  ? '${template.description} • Base URI: ${template.baseUri}'
-                  : 'Base URI: ${template.baseUri}',
-              onDelete: () =>
-                  configManager.customProviderTemplates.remove(template.id),
             ),
           ),
       ]),

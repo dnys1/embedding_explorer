@@ -1,3 +1,6 @@
+import 'dart:js_interop';
+import 'dart:typed_data';
+
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 import 'package:logging/logging.dart';
@@ -8,6 +11,7 @@ import '../../configurations/model/configuration_manager.dart';
 import '../../configurations/model/vector_search_result.dart';
 import '../../embeddings/service/embedding_query_service.dart';
 import '../model/embedding_job.dart';
+import '../service/embedding_export_service.dart';
 
 class JobResultsPage extends StatefulComponent {
   const JobResultsPage({super.key, required this.jobId});
@@ -29,6 +33,8 @@ class _JobResultsPageState extends State<JobResultsPage>
   bool _isQuerying = false;
   JobQueryResult? _queryResult;
   String? _queryError;
+  bool _isExporting = false;
+  ExportFormat? _exportingFormat;
 
   @override
   void initState() {
@@ -193,6 +199,8 @@ class _JobResultsPageState extends State<JobResultsPage>
               ]),
           ]),
           div(classes: 'flex space-x-2', [
+            // Export dropdown
+            if (_job!.status == JobStatus.completed) _buildExportDropdown(),
             if (_job!.status == JobStatus.failed ||
                 _job!.status == JobStatus.cancelled)
               Button(
@@ -707,5 +715,98 @@ class _JobResultsPageState extends State<JobResultsPage>
         _isQuerying = false;
       });
     }
+  }
+
+  Component _buildExportDropdown() {
+    return Dropdown(
+      trigger: Button(
+        variant: ButtonVariant.outline,
+        size: ButtonSize.sm,
+        disabled: _isExporting,
+        children: [
+          div(classes: 'flex items-center space-x-2', [
+            if (_isExporting && _exportingFormat != null)
+              div(
+                classes:
+                    'animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full',
+                [],
+              )
+            else
+              FaIcon(FaIcons.solid.download),
+            span([text(_isExporting ? 'Exporting...' : 'Export')]),
+            FaIcon(FaIcons.solid.chevronDown),
+          ]),
+        ],
+      ),
+      children: ExportFormat.values
+          .map(
+            (format) => DropdownItem(
+              disabled: _isExporting,
+              onPressed: () => _exportJob(format),
+              children: [
+                div(classes: 'flex items-center space-x-2', [
+                  _getFormatIcon(format),
+                  span([text(format.displayName)]),
+                ]),
+              ],
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Component _getFormatIcon(ExportFormat format) {
+    return switch (format) {
+      ExportFormat.sqlite => FaIcon(FaIcons.solid.database),
+      // ExportFormat.numpy => FaIcon(FaIcons.solid.chartLine),
+      ExportFormat.jsonl => FaIcon(FaIcons.solid.fileCode),
+    };
+  }
+
+  void _exportJob(ExportFormat format) async {
+    setState(() {
+      _isExporting = true;
+      _exportingFormat = format;
+    });
+
+    try {
+      final result = await configManager.exportService.exportJob(
+        job: _job!,
+        format: format,
+      );
+
+      // Trigger download
+      _downloadFile(result.data, result.filename);
+
+      _logger.info(
+        'Export completed: ${result.filename} (${result.recordCount} records)',
+      );
+
+      // Show success message
+      // TODO: Add toast notification when available
+    } catch (e) {
+      _logger.severe('Failed to export job in ${format.displayName}', e);
+      // TODO: Show error message to user
+    } finally {
+      setState(() {
+        _isExporting = false;
+        _exportingFormat = null;
+      });
+    }
+  }
+
+  void _downloadFile(Uint8List data, String filename) {
+    final blob = web.Blob([data.toJS].toJS);
+    final url = web.URL.createObjectURL(blob);
+
+    final anchor = web.HTMLAnchorElement()
+      ..href = url
+      ..download = filename
+      ..style.display = 'none';
+
+    web.document.body?.appendChild(anchor);
+    anchor.click();
+    web.document.body?.removeChild(anchor);
+    web.URL.revokeObjectURL(url);
   }
 }
