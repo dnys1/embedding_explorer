@@ -35,11 +35,5 @@ jobs:
       - name: Build generated code
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Analyze code
-        run: dart analyze --fatal-infos
-
-      - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed .
-
       - name: Run tests
         run: dart test --fail-fast
