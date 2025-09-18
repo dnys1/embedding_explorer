@@ -24,7 +24,6 @@ class TailwindBuilder implements Builder {
     await scratchSpace.ensureAssets({
       buildStep.inputId,
       AssetId(buildStep.inputId.package, 'web/package.json'),
-      AssetId(buildStep.inputId.package, 'web/pnpm-lock.yaml'),
       tailwindConfig,
     }, buildStep);
 

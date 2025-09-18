@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => ({
 
   // Entry points for our JS bundles
   build: {
-    outDir: "js",
+    outDir: "web/js",
     emptyOutDir: true,
     minify: mode === "production",
     sourcemap: true,

@@ -1,0 +1,17 @@
+{
+    "name": "embedding-explorer-infra",
+    "main": "index.ts",
+    "scripts": {
+        "up": "pulumi up"
+    },
+    "devDependencies": {
+        "@types/node": "^22",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^7.0.0",
+        "@pulumi/awsx": "^3.0.0",
+        "@pulumi/pulumi": "^3.113.0",
+        "mime": "^4.1.0"
+    }
+}

@@ -42,4 +42,7 @@ lib/**/*.js
 lib/**/*.js.map
 web/js/
 node_modules/
-.vercel
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log*

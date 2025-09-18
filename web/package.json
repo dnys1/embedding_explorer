@@ -1,20 +1,9 @@
 {
-  "name": "embeddings-explorer-web",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@libsql/libsql-wasm-experimental": "^0.0.3",
-    "monaco-editor": "0.52.2"
-  },
-  "devDependencies": {
-    "@tailwindcss/cli": "^4.1.13",
-    "tailwindcss": "^4.1.13",
-    "vite": "^5.4.8"
-  }
+    "name": "embeddings-explorer-web",
+    "private": true,
+    "type": "module",
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.1.13",
+        "tailwindcss": "^4.1.13"
+    }
 }

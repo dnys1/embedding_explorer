@@ -1,0 +1,6 @@
+secretsprovider: awskms://5bd0c37c-4a15-404a-972d-a2dd93c97118?region=us-east-1&awssdk=v2&profile=infra-provisioning&context_project=embedding-explorer&context_environment=prod
+encryptedkey: AQICAHjgf0qA6SBRnPa+ecmHyx5sb0x/FGffr+UXHk96B9VakAFX2hj8J2pFkFHsvV+xb96dAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMo0kR8RlAjs7ey6ZcAgEQgDuCC/6miDZjoEuCZ2i0O2HWs8ujJSvrT+ONeUZJZXU4UwsZH8v6nRd+MkbZHuvlgvf8D+08OkfFy8G/Fw==
+config:
+  aws:region: us-east-1
+  aws:profile: workloads-prod
+  embedding-explorer:domain: embeddings.thestartupapi.com

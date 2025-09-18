@@ -1,0 +1,23 @@
+{
+    "name": "embedding-explorer",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "postinstall": "dart pub get && dart pub global activate webdev",
+        "dev": "pnpm run build:dev && webdev serve",
+        "clean": "rm -rf build web/js && dart run build_runner clean",
+        "build": "pnpm run build:prod && webdev build && rm -rf build/.dart_tool build/node_modules build/package.json build/styles.tw.css build/tailwind.config.js",
+        "build:dev": "vite build --mode development",
+        "build:prod": "vite build --mode production",
+        "infra:preview": "cd infra && pulumi preview",
+        "infra:up": "cd infra && pulumi up --yes"
+    },
+    "dependencies": {
+        "@libsql/libsql-wasm-experimental": "^0.0.3",
+        "monaco-editor": "0.52.2"
+    },
+    "devDependencies": {
+        "pnpm": "^10.0.0",
+        "vite": "^5.4.8"
+    }
+}
