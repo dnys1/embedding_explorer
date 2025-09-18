@@ -25,7 +25,7 @@ dependencies:
   ollama_dart: ^0.2.5
   openai_dart: ^0.5.5
   path: ^1.9.1
-  pool: ^1.5.1
+  pool: ^1.5.2
   retry: ^3.1.2
   sqlite3: ^2.9.0
   sqlparser: ^0.41.2
