@@ -294,8 +294,7 @@ class EmbeddingExportService {
     };
 
     // Add metadata line as first chunk
-    final metadataLine = '${jsonEncode(metadata)}\n';
-    buffer.add(encoder.convert(metadataLine));
+    buffer.add(encoder.convert(metadata));
 
     // Process data in chunks to avoid memory issues
     int processedCount = 0;

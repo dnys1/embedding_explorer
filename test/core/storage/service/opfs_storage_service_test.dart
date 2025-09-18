@@ -46,12 +46,12 @@ void main() {
             test('should write and read a file correctly', () async {
               const testContent = 'Hello, OPFS World!';
               const testPath = 'test-file.txt';
-              final testData = Uint8List.fromList(utf8.encode(testContent));
+              Uint8List testData() => utf8.encode(testContent);
 
-              await storageService.writeAsBytes(testPath, testData);
+              await storageService.writeAsBytes(testPath, testData());
               final retrievedData = await storageService.readAsBytes(testPath);
 
-              expect(retrievedData, equals(testData));
+              expect(retrievedData, equals(testData()));
               expect(utf8.decode(retrievedData), equals(testContent));
 
               final retrievedString = await storageService.readAsString(
@@ -62,16 +62,16 @@ void main() {
 
             test('should write and read binary data correctly', () async {
               const testPath = 'binary-file.bin';
-              final binaryData = Uint8List.fromList([
+              Uint8List binaryData() => Uint8List.fromList([
                 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG header
                 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
                 0xFF, 0xD8, 0xFF, 0xE0, // JPEG markers
               ]);
 
-              await storageService.writeAsBytes(testPath, binaryData);
+              await storageService.writeAsBytes(testPath, binaryData());
               final retrievedData = await storageService.readAsBytes(testPath);
 
-              expect(retrievedData, equals(binaryData));
+              expect(retrievedData, equals(binaryData()));
             });
 
             test('should write and read empty file correctly', () async {
@@ -216,18 +216,20 @@ void main() {
           group('Large file handling', () {
             test('should handle moderately large files', () async {
               const testPath = 'large-file.bin';
-              final largeData = Uint8List(1024 * 100); // 100KB
-
-              // Fill with pattern
-              for (int i = 0; i < largeData.length; i++) {
-                largeData[i] = i % 256;
+              Uint8List makeLargeData() {
+                final data = Uint8List(1024 * 100); // 100KB
+                for (int i = 0; i < data.length; i++) {
+                  data[i] = i % 256;
+                }
+                return data;
               }
 
-              await storageService.writeAsBytes(testPath, largeData);
+              await storageService.writeAsBytes(testPath, makeLargeData());
               final retrievedData = await storageService.readAsBytes(testPath);
 
-              expect(retrievedData.length, equals(largeData.length));
-              expect(retrievedData, equals(largeData));
+              final expectedData = makeLargeData();
+              expect(retrievedData.length, equals(expectedData.length));
+              expect(retrievedData, equals(expectedData));
             });
           });
 

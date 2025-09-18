@@ -299,11 +299,4 @@ class _DashboardState extends State<DashboardPage>
   void _clearAllConfigurations() {
     configManager.clearAll();
   }
-
-  // Simple confirm dialog (would be better to use a proper modal)
-  bool confirm(String message) {
-    // In a real implementation, this would show a proper confirmation dialog
-    print('Confirm: $message');
-    return true; // For demo purposes, always confirm
-  }
 }

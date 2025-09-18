@@ -172,10 +172,6 @@ class Database implements DatabaseHandle {
     _checkNotDisposed();
     return _run(() {
       final rows = _db.query(sql: sql, bind: parameters);
-      if (rows.isNotEmpty) {
-        final types = rows.first.values.map((e) => e.runtimeType).toList();
-        _logger.fine('Query returned ${rows.length} rows with types: $types');
-      }
 
       final columnNames = rows.isNotEmpty
           ? rows.first.keys.toList()

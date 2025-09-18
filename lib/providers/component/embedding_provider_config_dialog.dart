@@ -356,7 +356,6 @@ class _EmbeddingProviderConfigDialogState
 
     final currentContext = _formKey.currentContext;
     if (currentContext == null) {
-      print('Form context is null, cannot submit form');
       return;
     }
     final formState = Form.of(currentContext);
@@ -370,7 +369,6 @@ class _EmbeddingProviderConfigDialogState
     // Ensure we have required values
     final configName = _name?.trim();
     if (configName == null || configName.isEmpty) {
-      print('Configuration name is required');
       return;
     }
 
@@ -412,7 +410,5 @@ class _EmbeddingProviderConfigDialogState
     }
 
     component.onClose?.call();
-
-    print('Provider configuration saved successfully');
   }
 }

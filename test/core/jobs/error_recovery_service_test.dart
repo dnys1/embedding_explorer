@@ -1,4 +1,5 @@
 @Timeout.factor(2)
+@TestOn('browser')
 library;
 
 import 'dart:async';
