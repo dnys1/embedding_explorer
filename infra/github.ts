@@ -1,6 +1,8 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 
+import { infraProvider, workloadsProvider } from "./providers";
+
 const config = new pulumi.Config();
 const githubRepo = config.require("githubRepo");
 
@@ -9,16 +11,6 @@ const githubRepo = config.require("githubRepo");
 //
 // 1. GitHub actions assumes the infra role via OIDC, granting it access to Pulumi state and encryption key.
 // 2. The infra role can then assume the workloads role to perform deployments (S3, CloudFront, Route53, ACM, etc).
-
-const infraProvider = new aws.Provider("infraProvider", {
-  profile: "infra-provisioning",
-  region: "us-east-1",
-});
-
-const workloadsProvider = new aws.Provider("workloadsProvider", {
-  profile: "workloads-prod",
-  region: "us-east-1",
-});
 
 // GitHub OIDC Identity Provider
 const githubOidcProvider = aws.iam.getOpenIdConnectProviderOutput(
