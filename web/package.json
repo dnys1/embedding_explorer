@@ -15,6 +15,6 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.13",
     "tailwindcss": "^4.1.13",
-    "vite": "^5.4.8"
+    "vite": "^7.1.5"
   }
 }
