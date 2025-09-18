@@ -20,16 +20,14 @@ Design templates that structure your data for optimal input to embedding models.
 
 ### 3. Configure Embedding Providers
 
-<img src="assets/providers.png" alt="Provider Configuration" width="600">
+<img src="assets/providers.png" alt="Provider Configuration" width="100%">
 
 Set up multiple embedding providers and models you want to test. Configure API keys, model parameters, and provider-specific settings to compare different approaches side-by-side.
 
 ### 4. Run Jobs and Analyze Results
 
-<div style="display: flex; gap: 10px;">
-<img src="assets/jobs.png" alt="Job Management" width="290">
-<img src="assets/results.png" alt="Results Analysis" width="290">
-</div>
+<img src="assets/jobs.png" alt="Job Management" width="100%">
+<img src="assets/results.png" alt="Results Analysis" width="100%">
 
 Execute embedding jobs across your chosen providers, monitor progress, and analyze results. Compare model performance through similarity searches, inspect vector distances, and evaluate which models work best for your specific use case.
 
