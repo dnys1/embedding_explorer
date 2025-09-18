@@ -70,7 +70,7 @@ export const githubActionsWorkloadsRole = new aws.iam.Role(
           Principal: {
             AWS: githubActionsInfraRole.arn,
           },
-          Action: "sts:AssumeRole",
+          Action: ["sts:AssumeRole", "sts:TagSession"],
         },
       ],
     },
