@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@libsql/libsql-wasm-experimental": "^0.0.3",
-    "monaco-editor": "0.52.2"
+    "monaco-editor": "0.53.0"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.13",
