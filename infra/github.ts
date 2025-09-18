@@ -107,7 +107,7 @@ new aws.iam.RolePolicy(
         },
         {
           Effect: "Allow",
-          Action: "sts:AssumeRole",
+          Action: ["sts:AssumeRole", "sts:TagSession"],
           Resource: githubActionsWorkloadsRole.arn,
         },
         {
