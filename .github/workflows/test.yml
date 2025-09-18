@@ -29,6 +29,12 @@ jobs:
         with:
           version: 10
 
+      - name: Install web dependencies
+        working-directory: web
+        run: |
+          pnpm install
+          pnpm run build:dev
+
       - name: Get Dart dependencies
         run: dart pub get
 
