@@ -29,8 +29,7 @@ jobs:
         with:
           version: 10
 
-      - name: Install web dependencies
-        working-directory: web
+      - name: Install JS dependencies
         run: |
           pnpm install
           pnpm run build:dev
