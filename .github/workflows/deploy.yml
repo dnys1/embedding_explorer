@@ -42,32 +42,22 @@ jobs:
         run: pnpm build
 
       - name: Configure AWS credentials for infra account
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ secrets.AWS_INFRA_ROLE_ARN }}
           aws-region: us-east-1
-          role-session-name: GitHubActions-InfraProvisioning
-          mask-aws-account-id: true
+          role-to-assume: ${{ secrets.AWS_INFRA_ROLE_ARN }}
 
       - name: Configure AWS credentials for workloads account
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
-          role-to-assume: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
           aws-region: us-east-1
-          role-session-name: GitHubActions-Workloads
+          role-to-assume: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
           role-chaining: true
-          mask-aws-account-id: true
 
       - name: Deploy infrastructure
         if: github.ref == 'refs/heads/main'
-        working-directory: infra
-        run: |
-          pulumi stack select prod
-          pulumi up --yes
+        run: pnpm run infra:up
 
       - name: Preview infrastructure changes
         if: github.event_name == 'pull_request'
-        working-directory: infra
-        run: |
-          pulumi stack select prod
-          pulumi preview
+        run: pnpm run infra:preview

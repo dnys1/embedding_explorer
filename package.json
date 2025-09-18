@@ -9,8 +9,8 @@
         "build": "pnpm run build:prod && webdev build && rm -rf build/.dart_tool build/node_modules build/package.json build/styles.tw.css build/tailwind.config.js",
         "build:dev": "vite build --mode development",
         "build:prod": "vite build --mode production",
-        "infra:preview": "cd infra && pulumi preview",
-        "infra:up": "cd infra && pulumi up --yes && aws cloudfront create-invalidation --distribution-id $(pulumi stack output cloudfrontDistributionId) --paths '/*' --profile=workloads-prod"
+        "infra:preview": "cd infra && pulumi stack select prod && pulumi preview",
+        "infra:up": "cd infra && pulumi stack select prod && pulumi up --yes && aws cloudfront create-invalidation --distribution-id $(pulumi stack output cloudfrontDistributionId) --paths '/*' --profile=workloads-prod"
     },
     "dependencies": {
         "@libsql/libsql-wasm-experimental": "^0.0.3",
