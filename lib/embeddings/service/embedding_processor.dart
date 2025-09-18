@@ -202,7 +202,7 @@ class EmbeddingProcessor {
     );
 
     // Add vector column to embedding table
-    await _addVectorColumn(
+    final columnName = await _addVectorColumn(
       tableId: tableId,
       providerId: config.id,
       modelId: model.id,
@@ -256,6 +256,7 @@ class EmbeddingProcessor {
       // Store embeddings in database
       await _storeEmbeddings(
         tableId: tableId,
+        columnName: columnName,
         embeddings: batchResult.embeddings,
         texts: batchResult.processedTexts,
         providerId: config.id,
@@ -338,7 +339,7 @@ class EmbeddingProcessor {
   }
 
   /// Add a vector column to the embedding table
-  Future<void> _addVectorColumn({
+  Future<String> _addVectorColumn({
     required String tableId,
     required String providerId,
     required String modelId,
@@ -349,7 +350,7 @@ class EmbeddingProcessor {
       'Adding vector column: $providerId/$modelId ($dimensions dims)',
     );
 
-    await _configService.addVectorColumn(
+    final columnName = await _configService.addVectorColumn(
       tableId: tableId,
       modelProviderId: providerId,
       modelName: modelId,
@@ -358,11 +359,14 @@ class EmbeddingProcessor {
     );
 
     _logger.info('Added vector column for $providerId/$modelId');
+
+    return columnName;
   }
 
   /// Store embeddings in the database
   Future<void> _storeEmbeddings({
     required String tableId,
+    required String columnName,
     required List<List<double>> embeddings,
     required Map<String, String> texts,
     required String providerId,
@@ -375,23 +379,11 @@ class EmbeddingProcessor {
       final MapEntry(key: recordId, value: text) = entry;
       final sourceData = {'content': text};
 
-      // Get the vector column name for this provider
-      final columns = await _configService.getEmbeddingColumns(tableId);
-      final providerColumn = columns.firstWhereOrNull(
-        (col) => col.modelProviderId == providerId,
-      );
-      if (providerColumn == null) {
-        throw StateError(
-          'No vector column found for provider $providerId in table $tableId. '
-          'Available columns: ${columns.map((c) => (c.id, c.modelName, c.modelProviderId)).join(', ')}',
-        );
-      }
-
       await _configService.insertEmbeddingData(
         tableId: tableId,
         recordId: recordId,
         sourceData: sourceData,
-        embeddings: {providerColumn.columnName: embeddings[i]},
+        embeddings: {columnName: embeddings[i]},
       );
     }
 

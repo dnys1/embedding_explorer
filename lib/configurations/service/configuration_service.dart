@@ -372,9 +372,23 @@ ORDER BY created_at DESC
       // Insert or update the main job record
       tx.execute(
         '''
-        INSERT OR REPLACE INTO jobs 
+        INSERT INTO jobs 
         (id, name, description, data_source_id, template_id, provider_ids, model_ids, status, created_at, started_at, completed_at, error_message, results, total_records, processed_records)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          data_source_id = excluded.data_source_id,
+          template_id = excluded.template_id,
+          provider_ids = excluded.provider_ids,
+          model_ids = excluded.model_ids,
+          status = excluded.status,
+          started_at = excluded.started_at,
+          completed_at = excluded.completed_at,
+          error_message = excluded.error_message,
+          results = excluded.results,
+          total_records = excluded.total_records,
+          processed_records = excluded.processed_records
       ''',
         [
           job.id,
@@ -496,7 +510,7 @@ ORDER BY created_at DESC
   }
 
   /// Add a vector column to an existing embedding table
-  Future<void> addVectorColumn({
+  Future<String> addVectorColumn({
     required String tableId,
     required String modelProviderId,
     required String modelName,
@@ -538,7 +552,7 @@ ORDER BY created_at DESC
         _logger.fine(
           'Vector column already exists for provider $modelProviderId in table $tableId - no action taken',
         );
-        return;
+        return existingColumn.columnName;
       }
     }
 
@@ -572,6 +586,8 @@ ORDER BY created_at DESC
     _logger.fine(
       'Added vector column $columnName to table $tableName (${vectorType.sqlType}($dimensions))',
     );
+
+    return columnName;
   }
 
   /// Create a vector index for a specific column in an embedding table
