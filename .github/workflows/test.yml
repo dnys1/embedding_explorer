@@ -1,0 +1,35 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Get Dart dependencies
+        run: dart pub get
+
+      - name: Build generated code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze code
+        run: dart analyze --fatal-infos
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Run tests
+        run: dart test --fail-fast
