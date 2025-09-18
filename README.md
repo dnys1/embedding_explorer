@@ -2,6 +2,10 @@
 
 Minimal web app for experimenting with and comparing text embedding models. It lets you ingest data, generate embeddings using different providers, store them, and run fast similarity searches so you can evaluate model quality side‑by‑side. All local to your browser.
 
+## Live Demo
+
+🔗 **[Try it live](https://dnys1.github.io/embedding_explorer/)**
+
 ## How It Works
 
 Choosing an embedding model is tedious: you repeat ad‑hoc scripts, switch endpoints, and copy/paste vectors into notebooks. This tool gives you a consistent 4-step workflow:
