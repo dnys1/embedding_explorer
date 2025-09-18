@@ -80,59 +80,77 @@ const originAccessControl = new aws.cloudfront.OriginAccessControl(
   }
 );
 
-// CloudFront Function to redirect www. to apex domain
-//
-// This ensures that every URL has a single, canonical URL.
-const redirectWwwToApex = new aws.cloudfront.Function(
-  "redirectWwwToApexFunction",
-  {
-    name: "embedding-explorer-redirect-www-to-apex-function",
-    runtime: "cloudfront-js-2.0",
-    publish: true,
-    code: `
-function handler(event) {
-  var request = event.request;
-  var host = request.headers.host.value;
-  if (host.startsWith('www.')) {
-    var apex = host.replace(/^www\./, '');
-    var location = 'https://' + apex + request.uri;
-    if (request.querystring && request.querystring.length > 0) {
-      location += '?' + request.querystring;
-    }
-    return {
-      statusCode: 301,
-      statusDescription: 'Moved Permanently',
-      headers: {
-        'location': { value: location },
-      },
-    };
-  }
-  return request;
-}`,
-  }
-);
-
-// CloudFront Function for SPA routing
+// CloudFront Function for SPA routing and redirecting www. to apex domain
 //
 // This function handles SPA routing by serving index.html for routes that don't
 // correspond to actual files, while allowing static assets to be served normally.
-const spaRoutingFunction = new aws.cloudfront.Function("spaRoutingFunction", {
-  name: "embedding-explorer-spa-routing-function",
+//
+// Redirects ensure that every URL has a single, canonical URL.
+const routingFunction = new aws.cloudfront.Function("routingFunction", {
+  name: "embedding-explorer-function",
   runtime: "cloudfront-js-2.0",
   publish: true,
   code: `
 function handler(event) {
   var request = event.request;
-  var uri = request.uri;
+
+  // Redirect www. to apex domain
+  var host = request.headers.host;
+  if (host && host.value.startsWith('www.')) {
+    return redirectToApex(request, host.value);
+  }
+  
+  // SPA routing logic
+  var uri = request.uri; // The relative path, e.g. "/about" or "/js/app.js"
   
   // If the URI has a file extension or ends with a slash, serve it as-is
-  if (uri.includes('.') || uri.endsWith('/')) {
+  var pathSegments = uri.split('/');
+  var lastSegment = pathSegments[pathSegments.length - 1];
+  if (lastSegment && lastSegment.includes('.')) {
     return request;
   }
   
   // For routes without extensions (SPA routes), serve index.html
   request.uri = '/index.html';
   return request;
+}
+
+// Redirect from www. to apex domain, preserving path and query string.
+function redirectToApex(request, host) {
+  var apex = host.replace(/^www\./, '');
+  var location = 'https://' + apex + request.uri;
+  
+  // Build query string from querystring object
+  var queryParams = [];
+  for (var key in request.querystring) {
+    if (request.querystring.hasOwnProperty(key)) {
+      var param = request.querystring[key];
+      if (param.multiValue) {
+        // Handle multi-value parameters
+        for (var i = 0; i < param.multiValue.length; i++) {
+          queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(param.multiValue[i].value));
+        }
+      } else if (param.value !== undefined) {
+        // Handle single-value parameters
+        queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(param.value));
+      } else {
+        // Handle parameters without values (e.g., ?flag)
+        queryParams.push(encodeURIComponent(key));
+      }
+    }
+  }
+  
+  if (queryParams.length > 0) {
+    location += '?' + queryParams.join('&');
+  }
+  
+  return {
+    statusCode: 301,
+    statusDescription: 'Moved Permanently',
+    headers: {
+      'location': { value: location },
+    },
+  };
 }`,
 });
 
@@ -180,11 +198,7 @@ const cdn = new aws.cloudfront.Distribution("cdn", {
     functionAssociations: [
       {
         eventType: "viewer-request",
-        functionArn: redirectWwwToApex.arn,
-      },
-      {
-        eventType: "viewer-request",
-        functionArn: spaRoutingFunction.arn,
+        functionArn: routingFunction.arn,
       },
     ],
   },
