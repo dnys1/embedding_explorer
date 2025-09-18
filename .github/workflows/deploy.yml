@@ -48,22 +48,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_INFRA_ROLE_ARN }}
           mask-aws-account-id: true
 
-      - name: Configure AWS credentials for workloads account
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-region: us-east-1
-          role-to-assume: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
-          role-chaining: true
-          mask-aws-account-id: true
-
       - name: Pulumi login
         working-directory: infra
         run: pulumi login 's3://embedding-explorer-pulumi-state?region=us-east-1&awssdk=v2'
 
       - name: Deploy infrastructure
         if: github.ref == 'refs/heads/main'
+        env:
+          AWS_WORKLOADS_ROLE_ARN: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
         run: pnpm run infra:up
 
       - name: Preview infrastructure changes
         if: github.event_name == 'pull_request'
+        env:
+          AWS_WORKLOADS_ROLE_ARN: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
         run: pnpm run infra:preview
