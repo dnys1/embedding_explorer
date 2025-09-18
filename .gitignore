@@ -42,3 +42,4 @@ lib/**/*.js
 lib/**/*.js.map
 web/js/
 node_modules/
+.vercel
