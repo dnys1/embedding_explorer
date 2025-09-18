@@ -10,7 +10,7 @@
         "build:dev": "vite build --mode development",
         "build:prod": "vite build --mode production",
         "infra:preview": "cd infra && pulumi preview",
-        "infra:up": "cd infra && pulumi up --yes"
+        "infra:up": "cd infra && pulumi up --yes && aws cloudfront create-invalidation --distribution-id $(pulumi stack output cloudfrontDistributionId) --paths '/*' --profile=workloads-prod"
     },
     "dependencies": {
         "@libsql/libsql-wasm-experimental": "^0.0.3",
