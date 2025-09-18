@@ -1,0 +1,73 @@
+name: Deploy Infrastructure and Website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Setup Pulumi CLI
+        uses: pulumi/actions@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build website
+        run: pnpm build
+
+      - name: Configure AWS credentials for infra account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_INFRA_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: GitHubActions-InfraProvisioning
+          mask-aws-account-id: true
+
+      - name: Configure AWS credentials for workloads account
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_WORKLOADS_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: GitHubActions-Workloads
+          role-chaining: true
+          mask-aws-account-id: true
+
+      - name: Deploy infrastructure
+        if: github.ref == 'refs/heads/main'
+        working-directory: infra
+        run: |
+          pulumi stack select prod
+          pulumi up --yes
+
+      - name: Preview infrastructure changes
+        if: github.event_name == 'pull_request'
+        working-directory: infra
+        run: |
+          pulumi stack select prod
+          pulumi preview

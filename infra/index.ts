@@ -4,6 +4,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import mime from "mime";
 
+import { githubActionsInfraRole, githubActionsWorkloadsRole } from "./github";
 import { crawlDirectory, getFileHash } from "./util";
 
 const config = new pulumi.Config();
@@ -271,3 +272,5 @@ export const bucketName = websiteBucket.bucket;
 export const cloudfrontDistributionId = cdn.id;
 export const cdnDomain = cdn.domainName;
 export const websiteUrl = pulumi.interpolate`https://${domainName}`;
+export const githubActionsInfraRoleArn = githubActionsInfraRole.arn;
+export const githubActionsWorkloadsRoleArn = githubActionsWorkloadsRole.arn;

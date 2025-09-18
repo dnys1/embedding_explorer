@@ -4,3 +4,4 @@ config:
   aws:region: us-east-1
   aws:profile: workloads-prod
   embedding-explorer:domain: embeddings.thestartupapi.com
+  embedding-explorer:githubRepo: dnys1/embedding_explorer
