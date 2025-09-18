@@ -41,12 +41,12 @@ class HomePage extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: 'flex flex-1 flex-col overflow-y-auto', [
+    return div(classes: 'flex flex-1 flex-col justify-center overflow-y-auto', [
       // Hero Section
       section(classes: 'text-center py-8 px-6', [
         img(src: 'images/logo.png', width: 80, classes: 'mx-auto mb-6'),
         h1(classes: 'text-4xl font-bold text-neutral-900 mb-4', [
-          text('Embedding Model Explorer'),
+          text('Embedding Explorer'),
         ]),
         p(classes: 'text-xl text-neutral-600 mb-8 max-w-2xl mx-auto', [
           text(
@@ -58,9 +58,11 @@ class HomePage extends StatelessComponent {
         ]),
 
         // Quick Start Button
-        Link(
-          to: '/data-sources',
-          child: Button(size: ButtonSize.lg, children: [text('Get Started →')]),
+        Button(
+          variant: ButtonVariant.primary,
+          size: ButtonSize.lg,
+          onPressed: () => Router.of(context).push('/data-sources'),
+          children: [text('Get Started →')],
         ),
       ]),
 
@@ -104,33 +106,6 @@ class HomePage extends StatelessComponent {
                   'Execute embedding jobs, perform queries, and compare results across different models.',
               linkText: 'Start Jobs',
               linkPath: '/jobs',
-            ),
-          ]),
-        ]),
-      ]),
-
-      // Quick Actions Section
-      section(classes: 'py-16 px-6', [
-        div(classes: 'max-w-2xl mx-auto text-center', [
-          h2(classes: 'text-2xl font-bold text-neutral-900 mb-8', [
-            text('Quick Actions'),
-          ]),
-          div(classes: 'flex flex-col sm:flex-row gap-4 justify-center', [
-            Link(
-              to: '/data-sources',
-              child: button(
-                classes:
-                    'bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-md transition-colors duration-200',
-                [text('Configure Data Sources')],
-              ),
-            ),
-            Link(
-              to: '/dashboard',
-              child: button(
-                classes:
-                    'border border-neutral-300 hover:bg-neutral-50 text-neutral-700 font-medium py-3 px-6 rounded-md transition-colors duration-200',
-                [text('View Dashboard')],
-              ),
             ),
           ]),
         ]),

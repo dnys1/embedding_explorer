@@ -1,3 +1,6 @@
+@TestOn('browser')
+library;
+
 import 'dart:async';
 
 import 'package:embeddings_explorer/interop/common.dart';

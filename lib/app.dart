@@ -167,7 +167,7 @@ class _AppState extends State<App> {
                   ),
                 ),
                 h1(classes: 'text-lg font-semibold text-neutral-900', [
-                  text('Embeddings Explorer'),
+                  text('Embedding Explorer'),
                 ]),
                 div(classes: 'w-10', []), // Spacer for centering
               ]),

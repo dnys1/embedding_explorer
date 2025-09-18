@@ -1,4 +1,4 @@
-# Embeddings Explorer
+# Embedding Explorer
 
 Minimal web app for experimenting with and comparing text embedding models. It lets you ingest data, generate embeddings using different providers, store them, and run fast similarity searches so you can evaluate model quality side‑by‑side. All local to your browser.
 

@@ -57,20 +57,18 @@ class _DashboardState extends State<DashboardPage>
 
       // Main content
       div(classes: 'flex-1 overflow-y-auto px-6 py-6', [
-        div(classes: 'max-w-7xl', [
-          // Summary cards
-          _buildSummaryCards(),
+        // Summary cards
+        _buildSummaryCards(),
 
-          div(classes: 'mt-8 space-y-8', [
-            // Data sources section
-            _buildDataSourcesSection(),
+        div(classes: 'mt-8 space-y-8', [
+          // Data sources section
+          _buildDataSourcesSection(),
 
-            // Embedding templates section
-            _buildEmbeddingTemplatesSection(),
+          // Embedding templates section
+          _buildEmbeddingTemplatesSection(),
 
-            // Providers section
-            _buildProvidersSection(),
-          ]),
+          // Providers section
+          _buildProvidersSection(),
         ]),
       ]),
     ]);
