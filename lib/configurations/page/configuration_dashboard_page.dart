@@ -1,12 +1,8 @@
-import 'dart:js_interop';
-
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
-import 'package:web/web.dart' as web;
 
 import '../../common/ui/ui.dart';
-import '../../util/async_snapshot.dart';
-import '../../util/file_size.dart';
+import '../../jobs/model/embedding_job.dart';
 import '../model/configuration_manager.dart';
 
 class DashboardPage extends StatefulComponent {
@@ -69,6 +65,9 @@ class _DashboardState extends State<DashboardPage>
 
           // Providers section
           _buildProvidersSection(),
+
+          // Jobs section
+          _buildJobsSection(),
         ]),
       ]),
     ]);
@@ -104,24 +103,36 @@ class _DashboardState extends State<DashboardPage>
               : '${_summary.modelProviderCount} active',
           icon: FaIcons.solid.server,
         ),
-        FutureBuilder(
-          future: web.window.navigator.storage.estimate().toDart,
-          builder: (context, snapshot) {
-            final value = switch (snapshot.result) {
-              AsyncLoading() => 'Calculating...',
-              AsyncError() => 'N/A',
-              AsyncData(data: final usage) => humanReadableFileSize(
-                usage.usage,
-              ),
-            };
-            return _buildSummaryCard(
-              title: 'Storage',
-              value: value,
-              subtitle: 'Local storage',
-              icon: FaIcons.solid.database,
-            );
-          },
+        _buildSummaryCard(
+          title: 'Jobs',
+          value: '${_summary.activeJobsCount}',
+          subtitle: _summary.activeJobsCount == 0
+              ? null
+              : '${_summary.activeJobsCount} active',
+          icon: FaIcons.solid.bolt,
         ),
+
+        // TODO: Storage calculations are incorrect or libsql is leaking synchronous
+        // access handles. For now, don't show as it is misleading.
+
+        // FutureBuilder(
+        //   future: web.window.navigator.storage.estimate().toDart,
+        //   builder: (context, snapshot) {
+        //     final value = switch (snapshot.result) {
+        //       AsyncLoading() => 'Calculating...',
+        //       AsyncError() => 'N/A',
+        //       AsyncData(data: final usage) => humanReadableFileSize(
+        //         usage.usage,
+        //       ),
+        //     };
+        //     return _buildSummaryCard(
+        //       title: 'Storage',
+        //       value: value,
+        //       subtitle: 'Local storage',
+        //       icon: FaIcons.solid.database,
+        //     );
+        //   },
+        // ),
       ],
     );
   }
@@ -262,6 +273,105 @@ class _DashboardState extends State<DashboardPage>
     ]);
   }
 
+  Component _buildJobsSection() {
+    final jobs = configManager.embeddingJobs.all;
+    final recentJobs = jobs.take(5).toList(); // Show only first 5 jobs
+
+    return div(classes: 'bg-white rounded-lg shadow', [
+      div(classes: 'px-6 py-4 border-b border-neutral-200', [
+        div(classes: 'flex items-center justify-between', [
+          h2(classes: 'text-lg font-medium text-neutral-900', [
+            text('Recent Jobs (${jobs.length})'),
+          ]),
+          Button(
+            variant: ButtonVariant.secondary,
+            onPressed: () => Router.of(context).push('/jobs'),
+            children: [text('View All')],
+          ),
+        ]),
+      ]),
+      div(classes: 'divide-y divide-neutral-200', [
+        if (jobs.isEmpty)
+          div(classes: 'px-6 py-8 text-center text-neutral-500', [
+            text('No jobs created yet'),
+          ])
+        else
+          ...recentJobs.map((job) {
+            final dataSource = configManager.dataSourceConfigs.getById(
+              job.dataSourceId,
+            );
+            final template = configManager.embeddingTemplates.getById(
+              job.embeddingTemplateId,
+            );
+
+            final dataSourceInfo = dataSource != null
+                ? dataSource.name
+                : 'Missing data source';
+            final templateInfo = template != null
+                ? template.name
+                : 'Missing template';
+
+            return _buildJobItem(
+              title: job.name,
+              status: job.status,
+              description: job.description.isNotEmpty
+                  ? '${job.description} • Data: $dataSourceInfo • Template: $templateInfo'
+                  : 'Data: $dataSourceInfo • Template: $templateInfo',
+              createdAt: job.createdAt,
+              onDelete: () => configManager.embeddingJobs.remove(job.id),
+              onView: () => Router.of(context).push('/jobs/${job.id}/results'),
+            );
+          }),
+      ]),
+    ]);
+  }
+
+  Component _buildJobItem({
+    required String title,
+    required JobStatus status,
+    required String description,
+    required DateTime createdAt,
+    required void Function() onDelete,
+    required void Function() onView,
+  }) {
+    return div(classes: 'px-6 py-4', [
+      div(classes: 'flex items-center justify-between', [
+        div(classes: 'flex-1 min-w-0', [
+          div(classes: 'flex items-center space-x-3', [
+            h3(classes: 'text-sm font-medium text-neutral-900 truncate', [
+              text(title),
+            ]),
+            span(
+              classes:
+                  'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status.colorClass}',
+              [text(status.displayName)],
+            ),
+            span(classes: 'text-xs text-neutral-400', [
+              text(_formatJobDate(createdAt)),
+            ]),
+          ]),
+          p(classes: 'mt-1 text-sm text-neutral-500 truncate', [
+            text(description),
+          ]),
+        ]),
+        div(classes: 'flex items-center space-x-2', [
+          if (status == JobStatus.completed)
+            button(
+              classes:
+                  'text-sm text-primary-600 hover:text-primary-800 font-medium',
+              events: {'click': (_) => onView()},
+              [text('View Results')],
+            ),
+          button(
+            classes: 'text-sm text-red-600 hover:text-red-800',
+            events: {'click': (_) => onDelete()},
+            [text('Delete')],
+          ),
+        ]),
+      ]),
+    ]);
+  }
+
   Component _buildConfigItem({
     required String title,
     required String subtitle,
@@ -296,5 +406,17 @@ class _DashboardState extends State<DashboardPage>
 
   void _clearAllConfigurations() {
     configManager.clearAll();
+  }
+
+  String _formatJobDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
