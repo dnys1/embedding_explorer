@@ -4,5 +4,3 @@ runtime:
   name: nodejs
   options:
     packagemanager: pnpm
-backend:
-  url: s3://embedding-explorer-pulumi-state?region=us-east-1&awssdk=v2&profile=infra-provisioning
