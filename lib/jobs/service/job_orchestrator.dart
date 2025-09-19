@@ -646,7 +646,7 @@ class JobOrchestrator {
     await _progressTracker.updateProgress(
       jobId: job.id,
       currentPhase: 'finalizing',
-      processedRecords: job.totalRecords!,
+      processedRecords: null, // Don't accumulate further
     );
 
     _logger.info('Finalizing job: ${job.id}');
