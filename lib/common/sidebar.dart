@@ -39,13 +39,9 @@ class _SidebarState extends State<Sidebar> {
       aside(
         classes: [
           'fixed inset-y-0 left-0 z-50 bg-neutral-900 text-white flex flex-col shadow-lg transition-transform duration-300 ease-in-out',
-          'w-64', // Fixed width
-          // Responsive behavior
-          'lg:translate-x-0', // Always visible on large screens
-          if (_isCollapsed)
-            '-translate-x-full'
-          else
-            'translate-x-0', // Hidden/visible on smaller screens
+          'w-64',
+          'lg:translate-x-0',
+          if (_isCollapsed) '-translate-x-full' else 'translate-x-0',
         ].clsx,
         [
           // Header with mobile toggle
@@ -102,16 +98,16 @@ class _SidebarState extends State<Sidebar> {
 
           // Footer
           div(classes: 'p-4 border-t border-neutral-700', [
-            Link(
-              to: '/about',
-              child: div(
-                classes:
-                    'flex items-center space-x-2 text-neutral-400 hover:text-white transition-colors duration-200',
-                [
-                  FaIcon(FaIcons.solid.info),
-                  span(classes: 'text-sm', [text('About')]),
-                ],
-              ),
+            a(
+              href: 'https://github.com/dnys1/embedding_explorer',
+              target: Target.blank,
+              classes:
+                  'flex items-center space-x-2 text-neutral-400 hover:text-white transition-colors duration-200',
+              attributes: {'rel': 'noopener noreferrer'},
+              [
+                FaIcon(FaIcons.brands.github),
+                span(classes: 'text-sm', [text('GitHub')]),
+              ],
             ),
           ]),
         ],
