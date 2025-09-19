@@ -115,12 +115,14 @@ class _DataSourcePageState extends State<DataSourcesPage>
 
   Component _buildEmptyState() {
     return div(classes: 'text-center py-12', [
-      div(classes: 'text-muted-foreground text-6xl mb-4', [text('🗃️')]),
+      div(classes: 'text-muted-foreground mb-4', [
+        FaIcon(FaIcons.solid.database, size: 64),
+      ]),
       div(classes: 'text-xl font-semibold text-foreground mb-2', [
         text('No data sources configured'),
       ]),
       div(classes: 'text-muted-foreground mb-6', [
-        text('Add your first data source to start generating embeddings'),
+        text('Add your first data source to start generating embeddings.'),
       ]),
       Button(
         variant: ButtonVariant.primary,

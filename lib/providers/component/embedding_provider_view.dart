@@ -95,7 +95,10 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
                 span(
                   classes:
                       'text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full flex items-center space-x-1',
-                  [FaIcon(FaIcons.solid.warning), text('Needs Credentials')],
+                  [
+                    FaIcon(FaIcons.solid.warning),
+                    span([text('Needs Credentials')]),
+                  ],
                 )
               else
                 span(
@@ -104,21 +107,17 @@ class _EmbeddingProviderViewState extends State<EmbeddingProviderView>
                   [text('Not configured')],
                 ),
               // Gear switch for provider configuration
-              button(
-                classes: [
-                  hasConfiguration
-                      ? (isPartiallyConfigured
-                            ? 'p-2 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-600 transition-colors'
-                            : 'p-2 rounded-md bg-green-100 hover:bg-green-200 text-green-600 transition-colors')
-                      : 'p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors',
-                  'cursor-pointer',
-                ].clsx,
-                events: {
-                  'click': (_) => hasConfiguration && component.onEdit != null
-                      ? component.onEdit!()
-                      : component.onConfigure(),
-                },
-                [FaIcon(FaIcons.solid.settings)],
+              IconButton(
+                icon: FaIcon(FaIcons.solid.settings),
+                variant: ButtonVariant.ghost,
+                className: hasConfiguration
+                    ? (isPartiallyConfigured
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-600'
+                          : 'bg-green-100 hover:bg-green-200 text-green-600')
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600',
+                onPressed: () => hasConfiguration && component.onEdit != null
+                    ? component.onEdit!()
+                    : component.onConfigure(),
               ),
             ]),
           ]),

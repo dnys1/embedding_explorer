@@ -31,12 +31,6 @@ class _DashboardState extends State<DashboardPage>
             ]),
           ]),
           div(classes: 'flex space-x-2', [
-            // button(
-            //   classes:
-            //       'px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50',
-            //   events: {'click': (_) => _createSampleConfigurations()},
-            //   [text('Add Sample Data')],
-            // ),
             Button(
               variant: ButtonVariant.outline,
               onPressed: () => Router.of(context).push('/dashboard/view-data'),
@@ -318,8 +312,8 @@ class _DashboardState extends State<DashboardPage>
                   ? '${job.description} • Data: $dataSourceInfo • Template: $templateInfo'
                   : 'Data: $dataSourceInfo • Template: $templateInfo',
               createdAt: job.createdAt,
-              onDelete: () => configManager.embeddingJobs.remove(job.id),
-              onView: () => Router.of(context).push('/jobs/${job.id}/results'),
+              onDelete: () => configManager.jobOrchestrator.deleteJob(job.id),
+              onView: () => Router.of(context).push('/jobs/${job.id}'),
             );
           }),
       ]),
@@ -356,16 +350,17 @@ class _DashboardState extends State<DashboardPage>
         ]),
         div(classes: 'flex items-center space-x-2', [
           if (status == JobStatus.completed)
-            button(
-              classes:
-                  'text-sm text-primary-600 hover:text-primary-800 font-medium',
-              events: {'click': (_) => onView()},
-              [text('View Results')],
+            Button(
+              variant: ButtonVariant.ghost,
+              size: ButtonSize.sm,
+              onPressed: onView,
+              children: [text('View Results')],
             ),
-          button(
-            classes: 'text-sm text-red-600 hover:text-red-800',
-            events: {'click': (_) => onDelete()},
-            [text('Delete')],
+          Button(
+            variant: ButtonVariant.ghost,
+            size: ButtonSize.sm,
+            onPressed: onDelete,
+            children: [text('Delete')],
           ),
         ]),
       ]),
@@ -395,10 +390,11 @@ class _DashboardState extends State<DashboardPage>
             text(description),
           ]),
         ]),
-        button(
-          classes: 'ml-4 text-red-600 hover:text-red-800 text-sm',
-          events: {'click': (_) => onDelete()},
-          [text('Delete')],
+        Button(
+          variant: ButtonVariant.ghost,
+          size: ButtonSize.sm,
+          onPressed: onDelete,
+          children: [text('Delete')],
         ),
       ]),
     ]);

@@ -130,7 +130,7 @@ class EmbeddingProviderConfigCollection
       credential: credential,
       persistCredentials: persistCredentials,
       enabledModels: enabledModels,
-    ).copyWith(id: id);
+    );
 
     await upsert(config);
     return id;

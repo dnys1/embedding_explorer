@@ -40,15 +40,13 @@ final class _PreviewTemplateDialogState extends State<PreviewTemplateDialog>
           DialogHeader(
             children: [
               div(classes: 'flex justify-between items-center', [
-                CardTitle(children: [text('Template Preview')]),
-                button(
-                  classes:
-                      'text-muted-foreground hover:text-foreground transition-colors',
-                  events: {'click': (event) => component.onClose()},
-                  [text('×')],
+                DialogTitle(children: [text('Template Preview')]),
+                IconButton(
+                  onPressed: component.onClose,
+                  icon: FaIcon(FaIcons.solid.close),
                 ),
               ]),
-              CardDescription(
+              DialogDescription(
                 children: [text('Preview of "${template.name}" template')],
               ),
             ],

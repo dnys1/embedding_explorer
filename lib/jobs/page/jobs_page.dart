@@ -229,12 +229,14 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
 
   Component _buildEmptyState() {
     return div(classes: 'text-center py-12', [
-      div(classes: 'text-muted-foreground text-6xl mb-4', [text('⚡')]),
+      div(classes: 'text-muted-foreground mb-4', [
+        FaIcon(FaIcons.solid.bolt, size: 64),
+      ]),
       div(classes: 'text-xl font-semibold text-foreground mb-2', [
         text('No embedding jobs yet'),
       ]),
       div(classes: 'text-muted-foreground mb-6', [
-        text('Create your first job to start generating embeddings'),
+        text('Create your first job to start generating embeddings.'),
       ]),
       Button(
         variant: ButtonVariant.primary,
@@ -347,8 +349,12 @@ class _JobsPageState extends State<JobsPage> with ConfigurationManagerListener {
     final label = switch (job.status) {
       JobStatus.failed => 'Retry',
       JobStatus.cancelled => 'Restart',
-      _ => 'Resume',
+      JobStatus.paused => 'Resume',
+      JobStatus.running || JobStatus.completed => null,
     };
+    if (label == null) {
+      return fragment([]);
+    }
     return Button(
       variant: ButtonVariant.outline,
       size: ButtonSize.sm,

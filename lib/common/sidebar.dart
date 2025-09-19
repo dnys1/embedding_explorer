@@ -93,7 +93,7 @@ class _SidebarState extends State<Sidebar> {
             ),
             _buildNavItem(
               context,
-              icon: FaIcons.solid.cog,
+              icon: FaIcons.solid.bolt,
               label: 'Jobs',
               path: '/jobs',
               isActive: currentPath.startsWith('/jobs'),

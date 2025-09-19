@@ -120,7 +120,9 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
 
   Component _buildNoDataSourcesState() {
     return div(classes: 'text-center py-12', [
-      div(classes: 'text-muted-foreground text-6xl mb-4', [text('🗃️')]),
+      div(classes: 'text-muted-foreground mb-4', [
+        FaIcon(FaIcons.solid.database, size: 64),
+      ]),
       div(classes: 'text-xl font-semibold text-foreground mb-2', [
         text('No data sources available'),
       ]),
@@ -142,13 +144,15 @@ class _EmbeddingTemplatesPageState extends State<EmbeddingTemplatesPage>
 
   Component _buildEmptyState() {
     return div(classes: 'text-center py-12', [
-      div(classes: 'text-muted-foreground text-6xl mb-4', [text('📝')]),
+      div(classes: 'text-muted-foreground mb-4', [
+        FaIcon(FaIcons.solid.fileText, size: 64),
+      ]),
       div(classes: 'text-xl font-semibold text-foreground mb-2', [
         text('No embedding templates configured'),
       ]),
       div(classes: 'text-muted-foreground mb-6', [
         text(
-          'Create your first template to define how data is transformed for embeddings',
+          'Create your first template to define how data is transformed for embeddings.',
         ),
       ]),
       Button(

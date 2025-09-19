@@ -32,7 +32,7 @@ class _EmbeddingProviderConfigDialogState
 
   // Form values - these will be populated by form callbacks
   String? _name;
-  bool _persistCredentials = false;
+  late bool _persistCredentials;
 
   // Dynamic configuration field values
   final Map<String, dynamic> _configurationValues = {};
@@ -62,6 +62,9 @@ class _EmbeddingProviderConfigDialogState
         _configurationValues[field.key] = field.defaultValue;
       }
     }
+
+    print('Persist Credentials: $_persistCredentials');
+    print('Initial Config Values: $_configurationValues');
   }
 
   @override
@@ -263,7 +266,7 @@ class _EmbeddingProviderConfigDialogState
 
   Component _buildDropdownField(ConfigurationField field) {
     final options = field.options ?? [];
-    final currentValue = _configurationValues[field.key]?.toString() ?? '';
+    final currentValue = _configurationValues[field.key]?.toString();
 
     return div(classes: 'space-y-2', [
       if (field.label.isNotEmpty)
@@ -273,7 +276,7 @@ class _EmbeddingProviderConfigDialogState
       div([
         Select(
           name: 'config-${field.key}',
-          value: currentValue.isEmpty ? null : currentValue,
+          value: currentValue,
           placeholder: 'Select ${field.label}',
           required: field.required,
           onChange: (String value) {
@@ -282,7 +285,13 @@ class _EmbeddingProviderConfigDialogState
             });
           },
           children: options
-              .map((option) => Option(value: option, children: [text(option)]))
+              .map(
+                (option) => Option(
+                  value: option,
+                  children: [text(option)],
+                  selected: option == currentValue,
+                ),
+              )
               .toList(),
         ),
         if (field.description?.isNotEmpty == true)
