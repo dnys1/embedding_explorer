@@ -34,7 +34,7 @@ class DatabasePool {
   int get fileCount => _stats.fileCount;
   String get vfsName => _stats.vfsName;
 
-  final Map<String, DatabaseHandle> _databases = {};
+  final Map<String, _DatabasePoolDatabase> _databases = {};
 
   /// Creates a new database pool instance.
   DatabasePool._(this._worker);
@@ -241,9 +241,7 @@ class DatabasePool {
     _databases.clear();
     // First, close all open databases. Wiping file storage is undefined if any
     // databases are still open.
-    for (final db in databases) {
-      await db.close();
-    }
+    await Future.wait(databases.map((db) => db.close()));
 
     final requestId = _nextRequestId++;
     _worker.add(DatabasePoolRequest.wipeAll(requestId: requestId));
@@ -280,16 +278,13 @@ class _DatabasePoolDatabase implements DatabaseHandle {
 
   void _ensureNotDisposed() {
     pool._ensureNotDisposed();
-    if (_disposed) {
-      throw StateError('DatabaseHandle has been disposed');
-    }
   }
 
   @override
   Future<void> close() async {
     if (_disposed) return;
     _disposed = true;
-    pool._ensureNotDisposed();
+    _ensureNotDisposed();
     pool._databases.remove(filename);
 
     final requestId = pool._nextRequestId++;

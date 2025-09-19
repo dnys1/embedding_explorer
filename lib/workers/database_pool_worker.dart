@@ -437,20 +437,26 @@ abstract class DatabasePoolWorker
                 db.close();
               }
               final deleted = sahPool.unlink(filename);
+              logger.fine(
+                'Delete database $filename: ${deleted ? 'success' : 'not found'}',
+              );
               return DatabasePoolResultSet(success: deleted);
             });
 
           case DatabasePoolRequestType.openDatabase:
             await runWithErrorHandling(request.requestId, () async {
-              var db = openDatabases[filename!];
-              if (db == null) {
+              if (!openDatabases.containsKey(filename!)) {
+                logger.fine('Opening database: $filename');
+
                 // Ensure capacity before opening new database
                 await ensureCapacity();
 
                 // Create database using SAH Pool VFS
-                db = openDatabases[filename] = Database(
+                openDatabases[filename] = Database(
                   sahPool.openDatabase(filename),
                 );
+              } else {
+                logger.fine('Database already open: $filename');
               }
               return DatabasePoolResultSet(success: true);
             });
@@ -458,13 +464,40 @@ abstract class DatabasePoolWorker
             await runWithErrorHandling(request.requestId, () async {
               final db = openDatabases.remove(filename!);
               if (db != null) {
+                logger.fine('Closing database: $filename');
                 db.close();
+              } else {
+                logger.fine('Database not open: $filename');
               }
               return DatabasePoolResultSet(success: true);
             });
           case DatabasePoolRequestType.wipeAll:
             await runWithErrorHandling(request.requestId, () async {
-              await sahPool.wipeFiles();
+              final databases = openDatabases.values.toList();
+              openDatabases.clear();
+              logger.fine(
+                'Wiping all databases (${sahPool.fileNames.length}): '
+                '[${sahPool.fileNames.join(', ')}]',
+              );
+
+              // First, close all open databases. Wiping file storage is undefined
+              // if any databases are still open.
+              for (final db in databases) {
+                logger.fine('Closing database: ${db.filename}');
+                db.close();
+              }
+
+              // TODO: We should be using sahPool.wipeFiles() here, but it seems
+              // to not be working correctly. After calling wipeFiles(), it's
+              // no longer possible to open any databases.
+              // await sahPool.wipeFiles();
+              for (final db in sahPool.fileNames) {
+                final deleted = sahPool.unlink(db);
+                logger.fine(
+                  'Deleted database $db: ${deleted ? 'success' : 'not found'}',
+                );
+              }
+
               return DatabasePoolResultSet(success: true);
             });
           case DatabasePoolRequestType.execute:

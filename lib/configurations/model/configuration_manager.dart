@@ -146,6 +146,13 @@ class ConfigurationManager with ChangeNotifier {
     await _databasePool.wipeAll();
     await _opfsStorage.clear();
 
+    // Recreate the configuration database. This allows all existing handles
+    // to the configuration DB to work after a clear operation without
+    // recreating the entire ConfigurationManager instance.
+    final configDb = await _databasePool.open('configurations.db');
+    configService.reset();
+    await configService.initialize(database: configDb);
+
     notifyListeners();
   }
 

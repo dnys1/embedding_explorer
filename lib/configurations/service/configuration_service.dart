@@ -838,6 +838,10 @@ ORDER BY created_at DESC
     _logger.fine('Deleted embedding table: $tableName');
   }
 
+  void reset() {
+    _isInitialized = false;
+  }
+
   /// Dispose of the database connection
   @override
   Future<void> dispose() async {
