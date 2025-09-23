@@ -57,7 +57,6 @@ This project uses a pnpm workspace to manage infrastructure, JavaScript bundling
 
 1. **Dart SDK** - Install from [dart.dev](https://dart.dev/get-dart)
 2. **pnpm** - For managing the JavaScript toolchain
-3. **Pulumi CLI** - For infrastructure management, install from [pulumi.com](https://www.pulumi.com/docs/install/)
 
 ### Getting Started
 
