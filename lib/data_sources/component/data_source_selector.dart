@@ -74,9 +74,6 @@ class DataSourceSelectorState extends State<DataSourceSelector>
         _dataSourceName = csvDataSource.name;
         _csvDelimiter = csvDataSource.csvSettings.delimiter;
         _csvHasHeader = csvDataSource.csvSettings.hasHeader;
-      case final SampleDataSource dataSource:
-        selectedType = DataSourceType.sample;
-        _dataSourceName = dataSource.name;
       case final SqliteDataSource dataSource:
         selectedType = DataSourceType.sqlite;
         _dataSourceName = dataSource.name;
@@ -102,8 +99,6 @@ class DataSourceSelectorState extends State<DataSourceSelector>
         case DataSourceType.sqlite:
           sqliteType = SqliteDataSourceType.import;
           _sqliteFilename = null;
-        case DataSourceType.sample:
-          _dataSourceName = 'Movies';
       }
     });
   }
@@ -146,7 +141,6 @@ class DataSourceSelectorState extends State<DataSourceSelector>
       key: ValueKey(type),
       classes: [
         'relative rounded-lg border-2 p-4 cursor-pointer transition-all duration-200',
-        if (type == DataSourceType.sample) 'md:col-span-2',
         if (isSelected)
           'border-primary-500 bg-primary-50'
         else
@@ -220,7 +214,6 @@ class DataSourceSelectorState extends State<DataSourceSelector>
             switch (selectedType) {
               DataSourceType.csv => _buildCsvConfiguration(),
               DataSourceType.sqlite => _buildSqliteConfiguration(),
-              DataSourceType.sample => div([]),
             },
           ],
         ),

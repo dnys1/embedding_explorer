@@ -20,8 +20,6 @@ abstract class DataSourceSettings {
         return CsvDataSourceSettings.fromJson(json);
       case DataSourceType.sqlite:
         return SqliteDataSourceSettings.fromJson(json);
-      case DataSourceType.sample:
-        return SqliteDataSourceSettings.fromJson(json);
     }
   }
 }

@@ -48,15 +48,6 @@ void main() {
         findsOneComponent,
         reason: 'SQLite should show FileUpload',
       );
-
-      await tester.click(find.byKey(ValueKey(DataSourceType.sample)));
-      await tester.pump();
-      expect(state().selectedType, DataSourceType.sample);
-      expect(
-        find.byType(FileUpload),
-        findsNothing,
-        reason: 'Sample should not show FileUpload',
-      );
     });
   });
 }

@@ -86,9 +86,6 @@ class DataSourceRepository with ChangeNotifier {
         config: config,
         file: file,
       ),
-      DataSourceType.sample => throw UnsupportedError(
-        'Loading sample data source from file is not supported',
-      ),
     };
     _dataSources[config.id] = dataSource;
     scheduleMicrotask(() {
@@ -109,10 +106,6 @@ class DataSourceRepository with ChangeNotifier {
         storage: _opfsStorage,
       ),
       DataSourceType.sqlite => SqliteDataSource.connect(
-        dbPool: _databasePool,
-        config: config,
-      ),
-      DataSourceType.sample => SampleDataSource.connect(
         dbPool: _databasePool,
         config: config,
       ),

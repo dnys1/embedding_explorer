@@ -9,8 +9,6 @@ import '../model/data_source.dart';
 import '../model/data_source_config.dart';
 import '../model/data_source_settings.dart';
 
-part 'sample_data_source.dart';
-
 /// Extension to add utility methods to SqlEngine
 extension SqlEngineExtensions on SqlEngine {
   /// Utility function that parses a `CREATE TABLE` statement and registers the
