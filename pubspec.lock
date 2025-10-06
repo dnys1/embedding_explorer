@@ -676,10 +676,10 @@ packages:
     dependency: "direct main"
     description:
       name: sqlite3
-      sha256: f393d92c71bdcc118d6203d07c991b9be0f84b1a6f89dd4f7eed348131329924
+      sha256: "5c225083e72ea56c96d94ba1dd14fb89c8bb7731c8496ee840ab77be9bb67ae2"
       url: "https://pub.dev"
     source: hosted
-    version: "2.9.0"
+    version: "2.9.1"
   sqlparser:
     dependency: "direct main"
     description:
