@@ -39,7 +39,7 @@ dependencies:
 dev_dependencies:
   _embeddings_explorer_tool:
     path: ./tool
-  build_runner: ^2.8.0
+  build_runner: ^2.9.0
   build_test: ^3.3.3
   build_web_compilers: ^4.2.4
   built_value_generator: ^8.11.0
