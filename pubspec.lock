@@ -492,10 +492,10 @@ packages:
     dependency: "direct main"
     description:
       name: openai_dart
-      sha256: "0b0b4c3d452d0369465fb5e23bb8ef33edb845496a2864660191df6f8096c323"
+      sha256: "9c74e1ff38243c8987890d9fe4d03f5298352576d4db3a90402625f3f21e2164"
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.5"
+    version: "0.6.0+1"
   os_detect:
     dependency: transitive
     description:
