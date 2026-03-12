@@ -2,7 +2,8 @@
     "name": "embedding-explorer-infra",
     "main": "index.ts",
     "scripts": {
-        "up": "pulumi up"
+        "preview": "AWS_PROFILE=infra-provisioning pulumi preview",
+        "up": "AWS_PROFILE=infra-provisioning pulumi up --yes"
     },
     "devDependencies": {
         "@types/node": "^22",

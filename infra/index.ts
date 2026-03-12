@@ -4,21 +4,30 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import mime from "mime";
 
+import { githubActionsInfraRole, githubActionsWorkloadsRole } from "./github";
+import { workloadsProvider } from "./providers";
 import { crawlDirectory, getFileHash } from "./util";
 
 const config = new pulumi.Config();
 const domainName = config.require("domain");
 const rootDomain = domainName.split(".").slice(1).join(".");
 
-const zone = aws.route53.getZoneOutput({
-  name: rootDomain,
-});
+const zone = aws.route53.getZoneOutput(
+  {
+    name: rootDomain,
+  },
+  { provider: workloadsProvider }
+);
 
-const certificate = new aws.acm.Certificate("certificate", {
-  domainName: domainName,
-  validationMethod: "DNS",
-  subjectAlternativeNames: [`*.${domainName}`],
-});
+const certificate = new aws.acm.Certificate(
+  "certificate",
+  {
+    domainName: domainName,
+    validationMethod: "DNS",
+    subjectAlternativeNames: [`*.${domainName}`],
+  },
+  { provider: workloadsProvider }
+);
 
 const certificateValidationDomain = new aws.route53.Record(
   "certificateValidationDomain",
@@ -28,7 +37,8 @@ const certificateValidationDomain = new aws.route53.Record(
     type: certificate.domainValidationOptions[0].resourceRecordType,
     records: [certificate.domainValidationOptions[0].resourceRecordValue],
     ttl: 600,
-  }
+  },
+  { provider: workloadsProvider }
 );
 
 const certificateValidation = new aws.acm.CertificateValidation(
@@ -36,19 +46,24 @@ const certificateValidation = new aws.acm.CertificateValidation(
   {
     certificateArn: certificate.arn,
     validationRecordFqdns: [certificateValidationDomain.fqdn],
-  }
+  },
+  { provider: workloadsProvider }
 );
 
-const websiteBucket = new aws.s3.Bucket("websiteBucket", {
-  bucket: domainName,
-});
+const websiteBucket = new aws.s3.Bucket(
+  "websiteBucket",
+  {
+    bucket: domainName,
+  },
+  { provider: workloadsProvider }
+);
 new aws.s3.BucketWebsiteConfiguration(
   "websiteBucketConfiguration",
   {
     bucket: websiteBucket.bucket,
     indexDocument: { suffix: "index.html" },
   },
-  { parent: websiteBucket }
+  { parent: websiteBucket, provider: workloadsProvider }
 );
 
 const srcDir = "../build";
@@ -65,6 +80,7 @@ crawlDirectory(srcDir, (filePath: string) => {
     },
     {
       parent: websiteBucket,
+      provider: workloadsProvider,
     }
   );
 });
@@ -77,7 +93,8 @@ const originAccessControl = new aws.cloudfront.OriginAccessControl(
     originAccessControlOriginType: "s3",
     signingBehavior: "always",
     signingProtocol: "sigv4",
-  }
+  },
+  { provider: workloadsProvider }
 );
 
 // CloudFront Function for SPA routing and redirecting www. to apex domain
@@ -86,11 +103,13 @@ const originAccessControl = new aws.cloudfront.OriginAccessControl(
 // correspond to actual files, while allowing static assets to be served normally.
 //
 // Redirects ensure that every URL has a single, canonical URL.
-const routingFunction = new aws.cloudfront.Function("routingFunction", {
-  name: "embedding-explorer-function",
-  runtime: "cloudfront-js-2.0",
-  publish: true,
-  code: `
+const routingFunction = new aws.cloudfront.Function(
+  "routingFunction",
+  {
+    name: "embedding-explorer-function",
+    runtime: "cloudfront-js-2.0",
+    publish: true,
+    code: `
 function handler(event) {
   var request = event.request;
 
@@ -152,71 +171,89 @@ function redirectToApex(request, host) {
     },
   };
 }`,
-});
+  },
+  { provider: workloadsProvider }
+);
 
 // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html
 // https://www.terraform.io/docs/providers/aws/r/cloudfront_distribution.html
-const cdn = new aws.cloudfront.Distribution("cdn", {
-  enabled: true,
-  aliases: [domainName, pulumi.interpolate`www.${domainName}`],
-
-  origins: [
+const cachePolicyId = aws.cloudfront
+  .getCachePolicy(
     {
-      originId: websiteBucket.arn,
-      domainName: websiteBucket.bucketRegionalDomainName,
-      originAccessControlId: originAccessControl.id,
+      name: "Managed-CachingOptimized",
     },
-  ],
+    { provider: workloadsProvider }
+  )
+  .then((policy) => policy.id!);
+const originRequestPolicyId = aws.cloudfront
+  .getOriginRequestPolicy(
+    {
+      name: "Managed-CORS-S3Origin",
+    },
+    { provider: workloadsProvider }
+  )
+  .then((policy) => policy.id!);
+const responseHeadersPolicyId = aws.cloudfront
+  .getResponseHeadersPolicy(
+    {
+      name: "Managed-SecurityHeadersPolicy",
+    },
+    { provider: workloadsProvider }
+  )
+  .then((policy) => policy.id!);
+const cdn = new aws.cloudfront.Distribution(
+  "cdn",
+  {
+    enabled: true,
+    aliases: [domainName, pulumi.interpolate`www.${domainName}`],
 
-  defaultRootObject: "index.html",
-
-  defaultCacheBehavior: {
-    targetOriginId: websiteBucket.arn,
-
-    cachePolicyId: aws.cloudfront
-      .getCachePolicy({
-        name: "Managed-CachingOptimized",
-      })
-      .then((policy) => policy.id!),
-    originRequestPolicyId: aws.cloudfront
-      .getOriginRequestPolicy({
-        name: "Managed-CORS-S3Origin",
-      })
-      .then((policy) => policy.id!),
-    responseHeadersPolicyId: aws.cloudfront
-      .getResponseHeadersPolicy({
-        name: "Managed-SecurityHeadersPolicy",
-      })
-      .then((policy) => policy.id!),
-
-    viewerProtocolPolicy: "redirect-to-https",
-    allowedMethods: ["GET", "HEAD", "OPTIONS"],
-    cachedMethods: ["GET", "HEAD", "OPTIONS"],
-
-    compress: true,
-
-    functionAssociations: [
+    origins: [
       {
-        eventType: "viewer-request",
-        functionArn: routingFunction.arn,
+        originId: websiteBucket.arn,
+        domainName: websiteBucket.bucketRegionalDomainName,
+        originAccessControlId: originAccessControl.id,
       },
     ],
-  },
 
-  priceClass: "PriceClass_100",
+    defaultRootObject: "index.html",
 
-  restrictions: {
-    geoRestriction: {
-      restrictionType: "none",
+    defaultCacheBehavior: {
+      targetOriginId: websiteBucket.arn,
+
+      cachePolicyId,
+      originRequestPolicyId,
+      responseHeadersPolicyId,
+
+      viewerProtocolPolicy: "redirect-to-https",
+      allowedMethods: ["GET", "HEAD", "OPTIONS"],
+      cachedMethods: ["GET", "HEAD", "OPTIONS"],
+
+      compress: true,
+
+      functionAssociations: [
+        {
+          eventType: "viewer-request",
+          functionArn: routingFunction.arn,
+        },
+      ],
+    },
+
+    priceClass: "PriceClass_100",
+
+    restrictions: {
+      geoRestriction: {
+        restrictionType: "none",
+      },
+    },
+
+    viewerCertificate: {
+      acmCertificateArn: certificateValidation.certificateArn,
+      minimumProtocolVersion: "TLSv1.2_2021",
+      sslSupportMethod: "sni-only",
     },
   },
-
-  viewerCertificate: {
-    acmCertificateArn: certificateValidation.certificateArn,
-    minimumProtocolVersion: "TLSv1.2_2021",
-    sslSupportMethod: "sni-only",
-  },
-});
+  { provider: workloadsProvider }
+);
 
 new aws.s3.BucketPolicy(
   "websiteBucketPolicy",
@@ -242,32 +279,42 @@ new aws.s3.BucketPolicy(
       ],
     },
   },
-  { parent: websiteBucket }
+  { parent: websiteBucket, provider: workloadsProvider }
 );
 
-new aws.route53.Record("websiteDomainRecord", {
-  zoneId: zone.zoneId,
-  name: domainName,
-  type: "A",
-  aliases: [
-    {
-      name: cdn.domainName,
-      zoneId: cdn.hostedZoneId,
-      evaluateTargetHealth: true,
-    },
-  ],
-});
+new aws.route53.Record(
+  "websiteDomainRecord",
+  {
+    zoneId: zone.zoneId,
+    name: domainName,
+    type: "A",
+    aliases: [
+      {
+        name: cdn.domainName,
+        zoneId: cdn.hostedZoneId,
+        evaluateTargetHealth: true,
+      },
+    ],
+  },
+  { provider: workloadsProvider }
+);
 
-new aws.route53.Record("websiteDomainRecordWWW", {
-  zoneId: zone.zoneId,
-  name: pulumi.interpolate`www.${domainName}`,
-  type: "CNAME",
-  records: [domainName],
-  ttl: 300,
-});
+new aws.route53.Record(
+  "websiteDomainRecordWWW",
+  {
+    zoneId: zone.zoneId,
+    name: pulumi.interpolate`www.${domainName}`,
+    type: "CNAME",
+    records: [domainName],
+    ttl: 300,
+  },
+  { provider: workloadsProvider }
+);
 
 export const certificateArn = certificate.arn;
 export const bucketName = websiteBucket.bucket;
 export const cloudfrontDistributionId = cdn.id;
 export const cdnDomain = cdn.domainName;
 export const websiteUrl = pulumi.interpolate`https://${domainName}`;
+export const githubActionsInfraRoleArn = githubActionsInfraRole.arn;
+export const githubActionsWorkloadsRoleArn = githubActionsWorkloadsRole.arn;
